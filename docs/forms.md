@@ -66,6 +66,7 @@ These are binding for every new form type.
 - **Honeypot name.** `HONEYPOT_FIELD` must never match a real field name: `FormData.get` returns the first match.
 - **Abuse limits:**
   - per link: 20 rows an hour and 50 open drafts (`assertLinkHasCapacity`)
+  - save, submit and upload requests: 100 an hour per IP and 300 an hour per link, in memory (`formRequestAllowed`, `src/lib/rateLimit.ts`); over either answers `busy` (429 from the upload route)
   - `maxSubmissions`, enforced in SQL by `claimSubmissionSlot`
   - uploads: 20 MB per file, 10 files / 60 MB per submission, 200 MB per link-hour
   - a honeypot field

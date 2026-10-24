@@ -3,13 +3,19 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { PASSWORD_RESET_PER_EMAIL, PASSWORD_RESET_PER_IP, clientIp, rateLimit } from "@/lib/rateLimit";
 
 // Auth-free by design — same carve-out as `/share/*` report readers.
-// Never reveal whether an email is registered.
+// Never reveal whether an email is registered. A throttled request skips the
+// send and answers exactly like any other.
 export async function requestPasswordReset(formData: FormData): Promise<void> {
   const email = ((formData.get("email") as string) || "").trim().toLowerCase();
 
-  if (email) {
+  if (
+    email &&
+    rateLimit(PASSWORD_RESET_PER_IP, await clientIp()).allowed &&
+    rateLimit(PASSWORD_RESET_PER_EMAIL, email).allowed
+  ) {
     const user = await prisma.user.findUnique({
       where: { email },
       select: { id: true, email: true, name: true },

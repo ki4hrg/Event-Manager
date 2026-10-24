@@ -48,6 +48,10 @@ All of these are exempted from the auth middleware by the `authorized` callback 
 is deliberately gated, because a signed-in session is the credential the whole
 flow rests on.
 
+Registration is anonymous, so `/api/oauth/register` is rate-limited per client
+IP (`OAUTH_REGISTER_PER_IP` in `src/lib/rateLimit.ts`, in memory). Over the
+limit it answers 429 `temporarily_unavailable` with a `Retry-After` header.
+
 ## The flow
 
 ```

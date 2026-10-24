@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { DRAFT_COOKIE, PublicFormError, draftCookieOptions, getActiveFormLink } from "@/lib/forms/links";
+import { DRAFT_COOKIE, PublicFormError, draftCookieOptions, formRequestAllowed, getActiveFormLink } from "@/lib/forms/links";
 import { attachPublicUploadCore } from "@/lib/forms/publicCore";
+import { clientIpFrom } from "@/lib/rateLimit";
 import { PUBLIC_UPLOAD_MAX_BYTES } from "@/lib/uploads";
 
 // Public form upload: a route handler because Server Actions can't take a
@@ -36,6 +37,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const link = await getActiveFormLink(token);
   if (!link) return NextResponse.json({ error: "closed" }, { status: 404 });
+  if (!formRequestAllowed(link.token, clientIpFrom(request.headers))) {
+    return NextResponse.json({ error: "busy" }, { status: 429 });
+  }
 
   let file: File | null = null;
   try {
