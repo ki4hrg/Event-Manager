@@ -139,7 +139,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses, mealTypeOptions, unitOptions, assignmentRoles] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses, mealTypeOptions, unitOptions, assignmentRoles, dietaryOptions] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -168,6 +168,7 @@ export default async function CateringOrderPage({
       getOptions("meal_type"),
       getOptions("unit"),
       getOptions("assignment_role"),
+      getOptions("dietary_need"),
     ]);
   if (!event || !cateringOrder) {
     notFound();
@@ -532,7 +533,7 @@ export default async function CateringOrderPage({
       {activeTab === "service" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <CateringOrderServiceForm cateringOrder={cateringOrder} action={updateServiceAction} />
+            <CateringOrderServiceForm cateringOrder={cateringOrder} dietaryNeeds={dietaryOptions.map((o) => o.label)} action={updateServiceAction} />
           </div>
           <div className="lg:col-span-2 space-y-6">
             <TimelineTable

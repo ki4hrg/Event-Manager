@@ -17,6 +17,7 @@ import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { LastUpdated } from "@/components/LastUpdated";
 import { PackingStatusRollup } from "@/components/PackingStatusRollup";
+import { formatDietaryCounts } from "@/lib/dietary";
 import {
   ACQUISITION_LABEL,
   PACKING_STATUS_LABEL,
@@ -822,10 +823,13 @@ function CateringOrderSection({
         </>
       )}
 
-      {(order.dietaryNotes || order.staffingNotes || order.notes) && (
+      {(order.dietaryCounts.length > 0 || order.dietaryNotes || order.staffingNotes || order.notes) && (
         <>
           <SectionHeading>Notes</SectionHeading>
           <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300 print:text-gray-900">
+            {order.dietaryCounts.length > 0 && (
+              <div><span className="font-medium">Special meals:</span> {formatDietaryCounts(order.dietaryCounts)}</div>
+            )}
             {order.dietaryNotes && (
               <div><span className="font-medium">Dietary:</span> {order.dietaryNotes}</div>
             )}

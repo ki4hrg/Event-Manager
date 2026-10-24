@@ -1052,6 +1052,7 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
       include: {
         function: { include: functionInclude },
         timelineItems: { orderBy: { sortOrder: "asc" } },
+        dietaryCounts: { orderBy: { sortOrder: "asc" } },
         menuSections: {
           include: { responsiblePartyVendor: { select: { id: true, name: true } } },
           orderBy: { sortOrder: "asc" },
@@ -1569,6 +1570,7 @@ const fdCateringOrderInclude = {
   function: { select: { id: true, name: true, functionNumber: true } },
   vendors: { include: { vendor: fdVendorSelect } },
   lineItems: { orderBy: { sortOrder: "asc" } },
+  dietaryCounts: { orderBy: { sortOrder: "asc" } },
   menuSections: {
     include: { responsiblePartyVendor: fdVendorSelect },
     orderBy: { sortOrder: "asc" },

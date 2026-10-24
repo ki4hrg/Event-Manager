@@ -8,22 +8,25 @@ import {
 } from "@/lib/forms/meta";
 import { Card, FormFrame, OnFile, inputCls, labelCls, type CommonFormProps, type DraftView } from "./FormParts";
 import { syncRangeEnd } from "@/lib/dateRange";
+import { OptionChecklist } from "@/components/ui/OptionChecklist";
 
 type Props = CommonFormProps & {
   baseline: SpeakerProfileBaseline;
+  // The event's dietary_need list.
+  dietaryNeeds: string[];
   sections: SpeakerProfileSection[];
   draft: DraftView<SpeakerProfilePayload> | null;
 };
 
 const sectionLabel = (key: SpeakerProfileSection) => SPEAKER_PROFILE_SECTIONS.find((s) => s.key === key)!.label;
 
-export function SpeakerProfileForm({ baseline, sections, draft, ...common }: Props) {
+export function SpeakerProfileForm({ baseline, dietaryNeeds, sections, draft, ...common }: Props) {
   const p = draft?.payload ?? null;
   const on = new Set(sections);
   // Bio fields prefill from what's on file; travel and needs never do.
   const bio = (key: "bio" | "jobTitle" | "pronouns" | "website") =>
     p?.[key] !== undefined ? p[key] ?? "" : baseline[key] ?? "";
-  const val = (key: keyof SpeakerProfilePayload) => p?.[key] ?? "";
+  const val = (key: Exclude<keyof SpeakerProfilePayload, "dietaryNeeds">) => p?.[key] ?? "";
 
   return (
     <FormFrame {...common} recipientName={common.recipientName ?? baseline.speakerName} draft={draft}>
@@ -85,7 +88,15 @@ export function SpeakerProfileForm({ baseline, sections, draft, ...common }: Pro
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label htmlFor="dietary" className={labelCls}>Dietary needs</label>
-              <input id="dietary" name="dietary" maxLength={2000} defaultValue={val("dietary")} className={inputCls} />
+              <OptionChecklist name="dietaryNeeds" options={dietaryNeeds} checked={p?.dietaryNeeds ?? []} />
+              <input
+                id="dietary"
+                name="dietary"
+                maxLength={2000}
+                placeholder={dietaryNeeds.length ? "Other" : undefined}
+                defaultValue={val("dietary")}
+                className={`${inputCls} ${dietaryNeeds.length ? "mt-2" : ""}`}
+              />
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="avNeeds" className={labelCls}>Audio visual preferences</label>

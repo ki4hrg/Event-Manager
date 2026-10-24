@@ -56,6 +56,7 @@ export async function updateSpeakerProfile(eventId: string, presentationId: stri
       travelNotes: text(formData, "travelNotes"),
       hotel: text(formData, "hotel"),
       dietary: text(formData, "dietary"),
+      dietaryNeeds: formData.getAll("dietaryNeeds") as string[],
       avNeeds: text(formData, "avNeeds"),
       shirtSize: text(formData, "shirtSize"),
       notes: text(formData, "notes"),

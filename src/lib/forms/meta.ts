@@ -386,6 +386,8 @@ export type SpeakerProfilePayload = {
   hotel?: string | null;
   travelNotes?: string | null;
   dietary?: string | null;
+  // dietary_need labels picked; empty means "no change", like the text fields.
+  dietaryNeeds?: string[];
   avNeeds?: string | null;
   shirtSize?: string | null;
 };

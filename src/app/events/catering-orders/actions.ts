@@ -76,6 +76,7 @@ export async function getCateringOrder(id: string) {
       timelineItems: { orderBy: [{ sortOrder: "asc" }, { startTime: "asc" }] },
       equipmentItems: { include: { equipment: true, providerVendor: true, providerContact: true, operatorVendor: true, operatorContact: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
       lineItems: { orderBy: [{ sortOrder: "asc" }, { description: "asc" }] },
+      dietaryCounts: { orderBy: { sortOrder: "asc" } },
       menuSections: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }] },
       additionalServiceLocations: {
         include: {
@@ -170,6 +171,12 @@ export async function updateCateringOrderGuestCounts(id: string, eventId: string
   redirect(`/events/${eventId}/catering-orders/${id}?tab=overview&success=Saved`);
 }
 
+// Parallel dietaryLabel / dietaryCount inputs, one pair per dietary need.
+function readDietaryCounts(formData: FormData) {
+  const counts = formData.getAll("dietaryCount") as string[];
+  return (formData.getAll("dietaryLabel") as string[]).map((label, i) => ({ label, count: counts[i] ? parseInt(counts[i]) : 0 }));
+}
+
 export async function updateCateringOrderService(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
   await updateCateringOrderCore(
@@ -178,6 +185,7 @@ export async function updateCateringOrderService(id: string, eventId: string, fo
     {
       dietaryNotes: (formData.get("dietaryNotes") as string) || null,
       staffingNotes: (formData.get("staffingNotes") as string) || null,
+      dietaryCounts: readDietaryCounts(formData),
     },
     session.user.id,
   );

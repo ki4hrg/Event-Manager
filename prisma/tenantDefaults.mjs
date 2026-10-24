@@ -229,6 +229,17 @@ export const DEFAULT_OPTIONS = {
     { label: "Buffet", sortOrder: 1 },
     { label: "Plated", sortOrder: 2 },
   ],
+  // Special meals: counted on catering orders, picked on speaker profiles.
+  dietary_need: [
+    { label: "Vegetarian", sortOrder: 0 },
+    { label: "Vegan", sortOrder: 1 },
+    { label: "Gluten-free", sortOrder: 2 },
+    { label: "Dairy-free", sortOrder: 3 },
+    { label: "Nut allergy", sortOrder: 4 },
+    { label: "Shellfish allergy", sortOrder: 5 },
+    { label: "Kosher", sortOrder: 6 },
+    { label: "Halal", sortOrder: 7 },
+  ],
   // Catering and RFP line items. "guests" is what an RFP line copied from a
   // catering order counts (src/lib/rfp/lineItems.ts).
   unit: [

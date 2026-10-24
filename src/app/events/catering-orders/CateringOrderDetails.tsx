@@ -1,4 +1,5 @@
 import type { getCateringOrder } from "./actions";
+import { formatDietaryCounts } from "@/lib/dietary";
 import type { getWorkflowInstances } from "../workflows/actions";
 import type { getCateringOrderVendors } from "@/app/vendors/actions";
 import { Section, Field } from "@/components/print/PrintDetails";
@@ -95,6 +96,7 @@ export function CateringOrderDetails({
             </span>
           </div>
         )}
+        <Field label="Special Meals" value={formatDietaryCounts(order.dietaryCounts)} />
         <Field label="Dietary Notes" value={order.dietaryNotes} />
         <Field label="Staffing Notes" value={order.staffingNotes} />
         <Field label="Cancellation Terms" value={order.cancellationTerms} />

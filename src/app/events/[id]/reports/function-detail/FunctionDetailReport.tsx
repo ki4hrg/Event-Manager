@@ -23,6 +23,7 @@ import { formatTime, formatDateTime, getDateKeyInTimezone } from "@/lib/agendaUt
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/lib/partyLabel";
 import { labelMicroCaps } from "@/lib/reportStyles";
+import { formatDietaryCounts } from "@/lib/dietary";
 
 type OptionList = { label: string; color?: string | null }[];
 
@@ -870,6 +871,11 @@ function CateringSection({
       {catering.notes && (
         <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
           {catering.notes}
+        </p>
+      )}
+      {catering.dietaryCounts.length > 0 && (
+        <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">
+          <span className="font-medium">Special meals:</span> {formatDietaryCounts(catering.dietaryCounts)}
         </p>
       )}
       {catering.dietaryNotes && (

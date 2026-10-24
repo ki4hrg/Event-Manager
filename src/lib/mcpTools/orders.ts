@@ -419,7 +419,7 @@ export const orderTools: McpToolDefinition[] = [
   {
     name: "get_catering_order",
     description:
-      "Fetch a single catering order with menu sections, line items, equipment, timeline items, and vendors.",
+      "Fetch a single catering order with menu sections, line items, special-meal counts, equipment, timeline items, and vendors.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" } },
@@ -438,6 +438,7 @@ export const orderTools: McpToolDefinition[] = [
             },
           },
           lineItems: { orderBy: [{ sortOrder: "asc" }, { description: "asc" }] },
+          dietaryCounts: { orderBy: { sortOrder: "asc" } },
           menuSections: {
             include: { responsiblePartyVendor: true },
             orderBy: [{ sortOrder: "asc" }],
@@ -2098,6 +2099,16 @@ export const orderTools: McpToolDefinition[] = [
         paymentDeadline: { type: "string" },
         cancellationTerms: { type: "string" },
         dietaryNotes: { type: "string" },
+        dietaryCounts: {
+          type: "array",
+          description: "Special-meal counts, replacing the order's: dietary_need option labels with how many guests need each.",
+          items: {
+            type: "object",
+            properties: { label: { type: "string" }, count: { type: "number" } },
+            required: ["label", "count"],
+            additionalProperties: false,
+          },
+        },
         notes: { type: "string" },
       },
       required: ["id", "eventId"],
@@ -2128,6 +2139,13 @@ export const orderTools: McpToolDefinition[] = [
       if ("paymentDeadline" in args) updates.paymentDeadline = parseOptionalDate(args, "paymentDeadline");
       if ("cancellationTerms" in args) updates.cancellationTerms = optionalString(args, "cancellationTerms") ?? null;
       if ("dietaryNotes" in args) updates.dietaryNotes = optionalString(args, "dietaryNotes") ?? null;
+      if ("dietaryCounts" in args) {
+        if (!Array.isArray(args.dietaryCounts)) throw new Error("dietaryCounts must be an array");
+        updates.dietaryCounts = (args.dietaryCounts as { label?: unknown; count?: unknown }[]).map((c) => {
+          if (typeof c?.label !== "string" || typeof c.count !== "number") throw new Error("Each dietary count needs a label and a count");
+          return { label: c.label, count: Math.trunc(c.count) };
+        });
+      }
       if ("notes" in args) updates.notes = optionalString(args, "notes") ?? null;
       return updateCateringOrderCore(
         requireString(args, "id"),

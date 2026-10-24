@@ -68,10 +68,10 @@ const inEvent = (tenantId: string) => ({ event: { tenantId } });
 
 // A String[] column. `join` reaches the tenant through Event for tables
 // without their own tenantId.
-function arrayCol(table: "Contact" | "Event" | "Rfp", column: string): CustomTarget {
+function arrayCol(table: "Contact" | "Event" | "Rfp" | "SpeakerProfile", column: string): CustomTarget {
   const t = Prisma.raw(`"${table}"`);
   const c = Prisma.raw(`"${column}"`);
-  const viaEvent = table === "Rfp";
+  const viaEvent = table === "Rfp" || table === "SpeakerProfile";
   return {
     kind: "custom",
     name: `${table}.${column}`,
@@ -128,6 +128,30 @@ const formLinkBoothTypes: CustomTarget = {
   },
 };
 
+// Dietary counts are unique per (order, label), so a rename onto a label the
+// order already counts adds the two counts together.
+const dietaryCounts: CustomTarget = {
+  kind: "custom",
+  name: "CateringOrderDietaryCount.label",
+  rename: async (tx, tenantId, from, to) => {
+    await tx.$executeRaw`
+      UPDATE "CateringOrderDietaryCount" t SET "count" = t."count" + f."count"
+      FROM "CateringOrderDietaryCount" f, "BEO" co, "Event" e
+      WHERE f."cateringOrderId" = t."cateringOrderId" AND t."label" = ${to} AND f."label" = ${from}
+        AND co."id" = t."cateringOrderId" AND e."id" = co."eventId" AND e."tenantId" = ${tenantId}`;
+    await tx.$executeRaw`
+      DELETE FROM "CateringOrderDietaryCount" f
+      USING "BEO" co, "Event" e
+      WHERE co."id" = f."cateringOrderId" AND e."id" = co."eventId" AND e."tenantId" = ${tenantId} AND f."label" = ${from}
+        AND EXISTS (SELECT 1 FROM "CateringOrderDietaryCount" t WHERE t."cateringOrderId" = f."cateringOrderId" AND t."label" = ${to})`;
+    await tx.cateringOrderDietaryCount.updateMany({ where: { cateringOrder: { event: { tenantId } }, label: from }, data: { label: to } });
+  },
+  uses: async (db, tenantId) => {
+    const rows = await db.cateringOrderDietaryCount.groupBy({ by: ["label"], where: { cateringOrder: { event: { tenantId } } }, _count: { _all: true } });
+    return new Map(rows.map((r) => [r.label, r._count._all]));
+  },
+};
+
 // Key staff are unique per (event, contact, title), so a rename onto a title
 // the same person already holds on that event folds the duplicate away.
 const keyStaffTitles: CustomTarget = {
@@ -181,7 +205,7 @@ export const OPTION_SECTIONS = {
   program: { title: "Program", lists: ["function_type", "schedule_type", "presentation_type", "presenter_role", "booth_type"] },
   orders: {
     title: "Orders",
-    lists: ["service_style", "meal_type", "unit", "setup_type", "per_av_setup", "delivery_method", "media_type", "print_distribution"],
+    lists: ["service_style", "meal_type", "dietary_need", "unit", "setup_type", "per_av_setup", "delivery_method", "media_type", "print_distribution"],
   },
   hotels: {
     title: "Hotels",
@@ -371,6 +395,12 @@ export const OPTION_CATEGORIES = {
       col("rfpSpaceRequest", "functionType", (t) => ({ kind: "FB", rfp: inEvent(t) })),
       col("hotelProposalMeal", "mealType", (t) => ({ proposal: inEvent(t) })),
     ],
+  },
+  dietary_need: {
+    title: "Dietary Needs",
+    description: "Special meals counted on catering orders and picked on speaker profiles.",
+    resource: SETTINGS,
+    renameTargets: [dietaryCounts, arrayCol("SpeakerProfile", "dietaryNeeds")],
   },
   unit: {
     title: "Units",

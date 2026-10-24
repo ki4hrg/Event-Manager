@@ -868,6 +868,7 @@ model CateringOrder {
   timelineItems              TimelineItem[]
   equipmentItems             EquipmentItem[]
   lineItems                  CateringOrderLineItem[]
+  dietaryCounts              CateringOrderDietaryCount[]
   menuSections               CateringOrderMenuSection[]
   additionalServiceLocations CateringOrderServiceLocation[]
   contacts                   CateringOrderContact[]
@@ -1059,6 +1060,19 @@ model CateringOrderLineItem {
 
   @@index([cateringOrderId])
   @@map("BEOLineItem")
+}
+
+// Special-meal counts on a catering order (BEO): how many guests need each
+// dietary_need option. Free-form detail stays in CateringOrder.dietaryNotes.
+model CateringOrderDietaryCount {
+  id              String        @id @default(cuid())
+  cateringOrderId String
+  cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  label           String // @option dietary_need
+  count           Int
+  sortOrder       Int           @default(0)
+
+  @@unique([cateringOrderId, label])
 }
 
 model CateringOrderMenuSection {
@@ -3348,6 +3362,7 @@ model SpeakerProfile {
   travelNotes   String?
   hotel         String?
   dietary       String?
+  dietaryNeeds  String[]  @default([]) // @option dietary_need
   avNeeds       String?
   shirtSize     String?
   notes         String?
