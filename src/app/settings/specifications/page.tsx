@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getOptions, createOption, updateOption, deleteOption, reorderOptions, type OptionCategory } from "../actions";
+import { getOptions, createOption, updateOption, deleteOption, reorderOptions } from "../actions";
+import type { OptionCategory } from "@/lib/optionCategories";
 import { OptionList } from "../OptionList";
 
 export const dynamic = "force-dynamic";

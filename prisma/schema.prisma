@@ -279,15 +279,18 @@ enum LocationKind {
   CONTAINER
 }
 
-// Customizable options for dropdowns
+// Customizable options for dropdowns. Records store an option's label, not its
+// id: every column holding one is tagged `// @option <category>` and listed in
+// that category's renameTargets (src/lib/optionCategories.ts), which renames,
+// merges and delete checks walk. A new label column needs both.
 model CustomOption {
   id        String   @id @default(cuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category  String // an OptionCategory (src/app/settings/actions.ts)
+  category  String // an OptionCategory (src/lib/optionCategories.ts)
   label     String // The display label and stored value (e.g., "Meal / BEO", "Speaker")
   color     String? // Optional color for badges (e.g., "orange", "blue")
-  group     String? // Optional grouping key; used by "substatus" category to tie options to an EntityStatus value
+  group     String? // Optional fixed key or parent label: the category's group source in the registry (substatus status, meal bucket, area region)
   isSystem  Boolean  @default(false) // System entries cannot be deleted from the UI
   sortOrder Int      @default(0)
   models    String[] @default([])
@@ -305,7 +308,7 @@ model Equipment {
   tenantId         String
   tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name             String
-  category         String // references equipment_category CustomOption label
+  category         String // @option equipment_category
   sortOrder        Int               @default(0)
   inputItems       InputItem[]       @relation("InputItemEquipment")
   monitorMixes     MonitorMix[]      @relation("MonitorMixEquipment")
@@ -336,7 +339,7 @@ model StorageLocation {
   tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   kind      LocationKind      @default(PLACE)
-  type      String? // references a location_type CustomOption label
+  type      String? // @option location_type
   parentId  String?
   parent    StorageLocation?  @relation("StorageLocationTree", fields: [parentId], references: [id], onDelete: SetNull)
   children  StorageLocation[] @relation("StorageLocationTree")
@@ -460,8 +463,8 @@ model Event {
   // Where the event looks for hotels (and reports by area): whole regions
   // (hotel_region labels) and single areas (hotel_area labels). Hotel RFPs
   // use these unless they set their own.
-  regions                 String[]                     @default([])
-  areas                   String[]                     @default([])
+  regions                 String[]                     @default([]) // @option hotel_region
+  areas                   String[]                     @default([]) // @option hotel_area
   functionNumbersLockedAt DateTime?
   specification           EventSpecification?
   specVips                EventSpecVip[]
@@ -508,12 +511,12 @@ model Venue {
   // Hotels module: a venue that sells sleeping rooms. brand / area are
   // hotel_brand / hotel_area option labels (an area's group is its region).
   isLodging      Boolean         @default(false)
-  brand          String?
-  area           String?
+  brand          String? // @option hotel_brand
+  area           String? // @option hotel_area
   // hotel_amenity option labels: what the property has or provides as a
   // matter of course (shuttle, restaurant, complimentary breakfast). The
   // hotel's profile, filtered on when choosing RFP recipients.
-  amenities      String[]        @default([])
+  amenities      String[]        @default([]) // @option hotel_amenity
   hotelProposals HotelProposal[]
   rfpRecipients  RfpRecipient[]
   rooms          Room[]
@@ -598,7 +601,7 @@ model Contact {
   phone                       String?
   organization                String?
   notes                       String?
-  roles                       String[]                  @default([])
+  roles                       String[]                  @default([]) // @option contact_role
   functions                   FunctionContact[]
   venues                      VenueContact[]
   presentations               PresentationContact[]
@@ -685,11 +688,11 @@ model Function {
   id                        String                         @id @default(cuid())
   name                      String
   description               String?
-  type                      String                         @default("")
+  type                      String                         @default("") // @option function_type
   notes                     String?
   offSiteLocation           String?
   status                    EntityStatus?
-  substatus                 String?
+  substatus                 String? // @option substatus
   eventId                   String
   breakoutGroupId           String?
   // ESG function number ("12", "4a"). Assigned by src/lib/functionNumbers.ts;
@@ -701,7 +704,7 @@ model Function {
   hold24Hour                Boolean                        @default(false)
   // The set-up the function needs before any setup order exists (a
   // setup_type label); new setup orders from the function start from it.
-  defaultSetup              String?
+  defaultSetup              String? // @option setup_type
   expectedAttendance        Int?
   setForCount               Int?
   actualAttendance          Int?
@@ -749,7 +752,7 @@ model FunctionSchedule {
   id         String   @id @default(cuid())
   functionId String
   function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
-  type       String // From CustomOption category "schedule_type"
+  type       String // @option schedule_type
   startTime  DateTime
   endTime    DateTime
   notes      String?
@@ -788,7 +791,7 @@ model AVOrder {
   id                String                @id @default(cuid())
   name              String
   status            EntityStatus?
-  substatus         String?
+  substatus         String? // @option substatus
   eventId           String
   event             Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
   copiedFromId      String?
@@ -839,13 +842,13 @@ model CateringOrder {
   id                         String                         @id @default(cuid())
   name                       String
   status                     EntityStatus?
-  substatus                  String?
+  substatus                  String? // @option substatus
   eventId                    String
   event                      Event                          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   functionId                 String?                        @unique
   function                   Function?                      @relation(fields: [functionId], references: [id], onDelete: SetNull)
-  serviceStyle               String?
-  mealType                   String?
+  serviceStyle               String? // @option service_style
+  mealType                   String? // @option meal_type
   expectedCount              Int?
   confirmedCount             Int?
   guaranteeCount             Int?
@@ -947,9 +950,9 @@ model EquipmentItem {
 model SetupOrder {
   id                String                   @id @default(cuid())
   name              String?
-  setupType         String?
+  setupType         String? // @option setup_type
   status            EntityStatus?
-  substatus         String?
+  substatus         String? // @option substatus
   eventId           String
   event             Event                    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   roomId            String?
@@ -1171,9 +1174,9 @@ model PresentationSlot {
 model Presentation {
   id                    String                         @id @default(cuid())
   title                 String
-  type                  String                         @default("")
+  type                  String                         @default("") // @option presentation_type
   status                EntityStatus?
-  substatus             String?
+  substatus             String? // @option substatus
   description           String?
   schedulingNotes       String?                        @map("notes")
   internalNotes         String?
@@ -1211,7 +1214,7 @@ model PresentationContact {
   id             String       @id @default(cuid())
   presentationId String
   contactId      String
-  role           String? // "Presenter", "Co-Presenter", "Moderator", "Panelist"
+  role           String? // @option presenter_role; "Presenter", "Co-Presenter", "Moderator", "Panelist"
   isPrimary      Boolean      @default(false)
   sortOrder      Int          @default(0)
   presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
@@ -1232,9 +1235,9 @@ model WorkflowTemplate {
   sortOrder                Int                @default(0)
   defaultForEntityTypes    String[]           @default([])
   pendingStatusValue       EntityStatus? // status applied when assigned but no steps completed yet
-  pendingSubstatusValue    String?
+  pendingSubstatusValue    String? // @option substatus
   completionStatusValue    EntityStatus? // status applied when all steps in this workflow are complete
-  completionSubstatusValue String?
+  completionSubstatusValue String? // @option substatus
   steps                    WorkflowStep[]
   instances                WorkflowInstance[]
   formLinks                FormLink[]
@@ -1255,7 +1258,7 @@ model WorkflowStep {
   sortOrder             Int                      @default(0)
   computedKey           String? // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
   pendingStatusValue    EntityStatus? // status applied while this step is the current (first incomplete) step
-  pendingSubstatusValue String?
+  pendingSubstatusValue String? // @option substatus
   items                 WorkflowChecklistItem[]
   completions           WorkflowStepCompletion[]
   createdAt             DateTime                 @default(now())
@@ -1378,7 +1381,7 @@ model VendorContact {
   id          String  @id @default(cuid())
   vendorId    String
   contactId   String
-  contactType String? // from vendor_contact_type CustomOption
+  contactType String? // @option vendor_contact_type
   isPrimary   Boolean @default(false)
   vendor      Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   contact     Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -1565,15 +1568,15 @@ model MediaDeliverable {
   id                String                         @id @default(cuid())
   name              String
   status            EntityStatus?
-  substatus         String?
+  substatus         String? // @option substatus
   eventId           String
   event             Event                          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   copiedFromId      String?
   copiedFrom        MediaDeliverable?              @relation("MediaDeliverableCopies", fields: [copiedFromId], references: [id], onDelete: SetNull)
   copies            MediaDeliverable[]             @relation("MediaDeliverableCopies")
-  mediaType         String? // references media_type CustomOption
+  mediaType         String? // @option media_type
   description       String?
-  delivery          String? // references delivery_method CustomOption
+  delivery          String? // @option delivery_method
   notes             String?
   functionLinks     MediaDeliverableFunction[]
   presentationLinks MediaDeliverablePresentation[]
@@ -1633,7 +1636,7 @@ model PrintOrder {
   id               String               @id @default(cuid())
   name             String
   status           EntityStatus?
-  substatus        String?
+  substatus        String? // @option substatus
   packingStatus    PackingStatus?
   eventId          String
   event            Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -1677,7 +1680,7 @@ model PrintItem {
   quantity           Int?
   acquisitionState   AcquisitionState @default(TO_PROCURE)
   packingStatus      PackingStatus    @default(NEEDED)
-  distributionMethod String?
+  distributionMethod String? // @option print_distribution
   distributionNotes  String?
   designerVendorId   String?
   designerVendor     Vendor?          @relation("PrintItemDesignerVendor", fields: [designerVendorId], references: [id], onDelete: SetNull)
@@ -1727,7 +1730,7 @@ model SupplyOrder {
   id                String                    @id @default(cuid())
   name              String
   status            EntityStatus?
-  substatus         String?
+  substatus         String? // @option substatus
   eventId           String
   event             Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
   roomId            String?
@@ -1827,7 +1830,7 @@ model FileUpload {
   storedName String
   mimeType   String
   fileSize   Int
-  fileType   String?
+  fileType   String? // @option file_type
 
   eventId            String?
   event              Event?            @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -1942,7 +1945,7 @@ model EventStatusDefault {
   eventId   String
   modelType StatusModelType
   status    EntityStatus
-  substatus String?
+  substatus String? // @option substatus
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
@@ -2063,9 +2066,9 @@ model EventSpecification {
   narrative      Json      @default("{}")
 
   // §A Event profile
-  eventType               String?
-  eventScope              String?
-  eventFrequency          String?
+  eventType               String? // @option event_type
+  eventScope              String? // @option event_scope
+  eventFrequency          String? // @option event_frequency
   isMandatory             Boolean?
   spousesInvited          Boolean?
   childrenInvited         Boolean?
@@ -2083,7 +2086,7 @@ model EventSpecification {
   exhibitingCompanies     Int?
   // §G Housing
   thirdPartyHousing       Boolean?
-  reservationMethod       String?
+  reservationMethod       String? // @option reservation_method
   // §J Exhibits
   masterExhibitFunctionId String?
   masterExhibitFunction   Function?   @relation("SpecMasterExhibit", fields: [masterExhibitFunctionId], references: [id], onDelete: SetNull)
@@ -2285,7 +2288,7 @@ model ExhibitBoothGroup {
   functionId            String?
   function              Function?       @relation(fields: [functionId], references: [id], onDelete: SetNull)
   location              String?
-  boothType             String?
+  boothType             String? // @option booth_type
   startAt               DateTime?
   endAt                 DateTime?
   setupBy               DateTime?
@@ -2335,7 +2338,7 @@ model ExhibitBooth {
   function              Function?          @relation(fields: [functionId], references: [id], onDelete: SetNull)
   boothNumber           String?
   location              String?
-  boothType             String?
+  boothType             String? // @option booth_type
   name                  String
   companyName           String?
   contactId             String?
@@ -2388,7 +2391,7 @@ model EventPostEvent {
   narrative  Json     @default("{}")
 
   // §I Event information
-  primaryFacilityType    String?
+  primaryFacilityType    String? // @option per_facility_type
   offsiteVenueUsed       Boolean?
   onSiteRegistrations    Int?
   noShows                Int?
@@ -2402,11 +2405,11 @@ model EventPostEvent {
   usedSleepingRooms      Boolean?
   hotelCount             Int?
   peakNightRooms         Int?
-  housingPerformedBy     String?
+  housingPerformedBy     String? // @option per_housing_provider
   // §V Food & beverage
   icwFunctions           Boolean?
   // §VI Function space
-  largestFunctionAvSetup String?
+  largestFunctionAvSetup String? // @option per_av_setup
   extensiveAvRooms       Int?
   registrationAreas      Int?
   lounges                Int?
@@ -2514,7 +2517,7 @@ model HotelProposal {
   venue               Venue                     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   // proposal_status option label; the option's group (REQUESTED / PENDING /
   // ACCEPTED / DECLINED) is the workflow stage the app keys off.
-  status              String
+  status              String // @option proposal_status
   // Where the lead came from: the hotel directly, or a lead-source vendor (a
   // CVB, a third-party planner) and its contact. Neither = not set.
   leadSourceDirect    Boolean                   @default(false)
@@ -2523,7 +2526,7 @@ model HotelProposal {
   leadSourceContactId String?
   leadSourceContact   Contact?                  @relation("HotelProposalLeadSourceContact", fields: [leadSourceContactId], references: [id], onDelete: SetNull)
   contractType        HotelContractType?
-  guestType           String? // hotel_guest_type option label
+  guestType           String? // @option hotel_guest_type
   submittedOn         DateTime?                 @db.Date
   checkIn             DateTime?                 @db.Date
   checkOut            DateTime?                 @db.Date
@@ -2612,7 +2615,7 @@ model HotelProposalMeal {
   id         String        @id @default(cuid())
   proposalId String
   proposal   HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  mealType   String
+  mealType   String // @option meal_type
   price      Decimal?      @db.Decimal(10, 2)
   sortOrder  Int           @default(0)
 
@@ -2623,7 +2626,7 @@ model HotelProposalNight {
   id         String        @id @default(cuid())
   proposalId String
   proposal   HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  roomType   String? // null = Run of House
+  roomType   String? // @option hotel_room_type; null = Run of House
   night      DateTime      @db.Date
   rate       Decimal?      @db.Decimal(10, 2)
   rooms      Int?
@@ -2677,7 +2680,7 @@ model HotelBlock {
   isHq              Boolean               @default(false)
   checkIn           DateTime?             @db.Date
   checkOut          DateTime?             @db.Date
-  reservationMethod String? // reservation_method option label
+  reservationMethod String? // @option reservation_method
   groupCode         String?
   bookingLink       String?
   bookingPhone      String?
@@ -2709,7 +2712,7 @@ model HotelBlockNight {
   id                String     @id @default(cuid())
   blockId           String
   block             HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
-  roomType          String? // null = Run of House
+  roomType          String? // @option hotel_room_type; null = Run of House
   night             DateTime   @db.Date
   rate              Decimal?   @db.Decimal(10, 2)
   contractedRooms   Int?
@@ -2759,7 +2762,7 @@ model HotelPickupGuest {
   confirmationNumber String?
   checkIn            DateTime?          @db.Date
   checkOut           DateTime?          @db.Date
-  roomType           String?
+  roomType           String? // @option hotel_room_type
   cancelled          Boolean            @default(false)
   rawStatus          String?
   // When the reservation was made / cancelled, from reports that carry them.
@@ -2778,7 +2781,7 @@ model HotelPickupCount {
   blockId  String
   block    HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
   night    DateTime   @db.Date
-  roomType String?
+  roomType String? // @option hotel_room_type
   rooms    Int
 
   @@index([blockId])
@@ -2820,7 +2823,7 @@ model Rfp {
   event                Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   kind                 RfpKind
   // OTHER: what is being bought (an rfp_service option label).
-  service              String?
+  service              String? // @option rfp_service
   title                String
   status               RfpStatus          @default(DRAFT)
   responseDue          DateTime?          @db.Date
@@ -2843,20 +2846,20 @@ model Rfp {
   peakRooms            Int?
   // Event history shows only blocks of this RFP's contract / guest types.
   historyMatching      Boolean            @default(false)
-  reservationMethod    String? // reservation_method option label
+  reservationMethod    String? // @option reservation_method
   commissionNotes      String? // rebates, assessments or commissions on rates
   fbMinimum            Decimal?           @db.Decimal(10, 2)
   // What the F&B minimum includes: keys from FB_INCLUDES (src/lib/rfp/sections.ts).
   fbIncludes           String[]           @default([])
   fbHistoricalSpend    Decimal?           @db.Decimal(10, 2)
-  amenities            String[]           @default([]) // hotel_amenity option labels
+  amenities            String[]           @default([]) // @option hotel_amenity
   // Final decision maker: a contact (usually key staff) or free text.
   decisionMakerId      String?
   decisionMakerContact Contact?           @relation("RfpDecisionMaker", fields: [decisionMakerId], references: [id], onDelete: SetNull)
   decisionMaker        String?
   // Regions / areas the RFP targets; both empty uses the event's.
-  regions              String[]           @default([])
-  areas                String[]           @default([])
+  regions              String[]           @default([]) // @option hotel_region
+  areas                String[]           @default([]) // @option hotel_area
   siteVisitBy          DateTime?          @db.Date
   spaceRequests        RfpSpaceRequest[]
   recipients           RfpRecipient[]
@@ -2914,10 +2917,10 @@ model RfpSpaceRequest {
   startTime       String?
   endTime         String?
   // function_type label for MEETING rows, meal_type label for FB rows.
-  functionType    String?
+  functionType    String? // @option function_type (MEETING) / meal_type (FB)
   name            String
   attendance      Int?
-  setup           String? // setup_type option label
+  setup           String? // @option setup_type
   areaSqFt        Int?
   av              String?
   hold24          Boolean              @default(false)
@@ -2955,7 +2958,7 @@ model RfpConcession {
   id        String                    @id @default(cuid())
   rfpId     String
   rfp       Rfp                       @relation(fields: [rfpId], references: [id], onDelete: Cascade)
-  label     String
+  label     String // @option rfp_concession (HOTEL) / rfp_term
   value     String?
   required  Boolean                   @default(false)
   sortOrder Int                       @default(0)
@@ -2981,7 +2984,7 @@ model HotelProposalAmenity {
   id         String        @id @default(cuid())
   proposalId String
   proposal   HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  label      String // hotel_amenity option label
+  label      String // @option hotel_amenity
   status     AmenityStatus
   note       String? // the offer's wording, dates
   sortOrder  Int           @default(0)
@@ -2997,7 +3000,7 @@ model HotelProposalConcession {
   proposal     HotelProposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   concessionId String?
   concession   RfpConcession? @relation(fields: [concessionId], references: [id], onDelete: Cascade)
-  label        String? // rfp_concession option label; unrequested rows only
+  label        String? // @option rfp_concession; unrequested rows only
   offered      String?
   met          ConcessionMet?
   sortOrder    Int            @default(0)
@@ -3012,7 +3015,7 @@ model RfpHotelBlock {
   rfpId              String
   rfp                Rfp                  @relation(fields: [rfpId], references: [id], onDelete: Cascade)
   contractType       HotelContractType
-  guestType          String? // hotel_guest_type option label
+  guestType          String? // @option hotel_guest_type
   targetRate         Decimal?             @db.Decimal(10, 2)
   // A ceiling ("must be no more than") rather than a target to aim for.
   targetRateRequired Boolean              @default(false)
@@ -3028,7 +3031,7 @@ model RfpHotelBlockNight {
   id       String        @id @default(cuid())
   blockId  String
   block    RfpHotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
-  roomType String? // null = run of house
+  roomType String? // @option hotel_room_type; null = run of house
   night    DateTime      @db.Date
   rooms    Int
 
@@ -3293,7 +3296,7 @@ model FormSubmission {
   draftKey           String              @unique
   // Driven by the approval workflow, as on orders.
   status             EntityStatus?
-  substatus          String?
+  substatus          String? // @option substatus
   // The approval template the link required at submit; apply refuses unless an
   // instance of it is present and complete.
   requiredTemplateId String?

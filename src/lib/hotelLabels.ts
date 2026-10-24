@@ -7,12 +7,11 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { labelKey } from "@/lib/hotels";
+// Circular with the registry, which builds its merge targets from this
+// module; each side reads the other only inside function bodies.
+import { LIST_HOMES, OPTION_CATEGORIES } from "@/lib/optionCategories";
 
 export type HotelLabelCategory = "hotel_amenity" | "rfp_concession" | "rfp_term";
-
-const LIST_NAMES: Record<HotelLabelCategory, string> = { hotel_amenity: "amenity", rfp_concession: "concession", rfp_term: "RFP term" };
-const LIST_HOMES: Record<HotelLabelCategory, string> = { hotel_amenity: "Settings › Hotels", rfp_concession: "Settings › Hotels", rfp_term: "Settings › Vendors" };
-
 
 // Each input label as the list spells it (matched by labelKey). An unknown
 // label throws, unless it's in `keep` — a label the record already holds,
@@ -32,7 +31,7 @@ export async function requireListLabels(
     const listed = byKey.get(labelKey(label));
     if (listed) return listed;
     if (kept.has(label)) return label;
-    throw new Error(`"${label}" isn't in the ${LIST_NAMES[category]} list (${LIST_HOMES[category]})`);
+    throw new Error(`"${label}" isn't in the ${OPTION_CATEGORIES[category].mergeable.noun} list (${LIST_HOMES[category]})`);
   });
 }
 
@@ -103,35 +102,44 @@ export async function mergeHotelLabel(tx: Prisma.TransactionClient, tenantId: st
   }
 }
 
-// Labels in use that aren't on the list (typed before the lists were strict),
-// with how many records hold each.
-export async function offListHotelLabels(tenantId: string, category: HotelLabelCategory): Promise<{ label: string; uses: number }[]> {
-  const options = await prisma.customOption.findMany({ where: { tenantId, category }, select: { label: true } });
-  const listed = new Set(options.map((o) => o.label));
+// How many records hold each label of the list, on or off it (labels typed
+// before the lists were strict show up here too).
+export async function hotelLabelUses(db: Prisma.TransactionClient, tenantId: string, category: HotelLabelCategory): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   const add = (label: string | null) => {
-    if (label && !listed.has(label)) counts.set(label, (counts.get(label) ?? 0) + 1);
+    if (label) counts.set(label, (counts.get(label) ?? 0) + 1);
   };
   const inTenant = { event: { tenantId } } as const;
-  if (category === "hotel_amenity") {
-    const [venues, rfps, rows] = await Promise.all([
-      prisma.venue.findMany({ where: { tenantId }, select: { amenities: true } }),
-      prisma.rfp.findMany({ where: inTenant, select: { amenities: true } }),
-      prisma.hotelProposalAmenity.findMany({ where: { proposal: inTenant }, select: { label: true } }),
-    ]);
-    venues.forEach((v) => v.amenities.forEach(add));
-    rfps.forEach((r) => r.amenities.forEach(add));
-    rows.forEach((r) => add(r.label));
-  } else if (category === "rfp_term") {
-    const rows = await prisma.rfpConcession.findMany({ where: { rfp: { ...inTenant, kind: { not: "HOTEL" } } }, select: { label: true } });
-    rows.forEach((r) => add(r.label));
-  } else {
-    const [requested, offered] = await Promise.all([
-      prisma.rfpConcession.findMany({ where: { rfp: { ...inTenant, kind: "HOTEL" } }, select: { label: true } }),
-      prisma.hotelProposalConcession.findMany({ where: { label: { not: null }, proposal: inTenant }, select: { label: true } }),
-    ]);
-    requested.forEach((r) => add(r.label));
-    offered.forEach((r) => add(r.label));
+  switch (category) {
+    case "hotel_amenity": {
+      const [venues, rfps, rows] = await Promise.all([
+        db.venue.findMany({ where: { tenantId }, select: { amenities: true } }),
+        db.rfp.findMany({ where: inTenant, select: { amenities: true } }),
+        db.hotelProposalAmenity.findMany({ where: { proposal: inTenant }, select: { label: true } }),
+      ]);
+      venues.forEach((v) => v.amenities.forEach(add));
+      rfps.forEach((r) => r.amenities.forEach(add));
+      rows.forEach((r) => add(r.label));
+      break;
+    }
+    case "rfp_term": {
+      const rows = await db.rfpConcession.findMany({ where: { rfp: { ...inTenant, kind: { not: "HOTEL" } } }, select: { label: true } });
+      rows.forEach((r) => add(r.label));
+      break;
+    }
+    case "rfp_concession": {
+      const [requested, offered] = await Promise.all([
+        db.rfpConcession.findMany({ where: { rfp: { ...inTenant, kind: "HOTEL" } }, select: { label: true } }),
+        db.hotelProposalConcession.findMany({ where: { label: { not: null }, proposal: inTenant }, select: { label: true } }),
+      ]);
+      requested.forEach((r) => add(r.label));
+      offered.forEach((r) => add(r.label));
+      break;
+    }
+    default: {
+      const _exhaustive: never = category;
+      throw new Error(`Unhandled label category: ${_exhaustive}`);
+    }
   }
-  return Array.from(counts, ([label, uses]) => ({ label, uses })).sort((a, b) => a.label.localeCompare(b.label));
+  return counts;
 }
