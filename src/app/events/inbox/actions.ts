@@ -344,6 +344,7 @@ export async function getOfferReview(id: string, eventId: string, index: number)
     meals: (offer.meals ?? []).map((m) => ({ mealType: m.mealType, price: text(m.price) })),
   };
   const rfpChoice = rfpChoices.find((c) => c.id === offer.rfpBlockId) ?? null;
+  const answers = new Map(offer.concessions.map((c) => [c.concessionId, c]));
   // Each of the hotel's proposals, revised by the offer: what the offer
   // states replaces what the proposal had, the rest carries over.
   const revisions = existing.map((p) => {
