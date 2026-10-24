@@ -29,7 +29,8 @@ import {
 async function resolve(token: unknown) {
   if (typeof token !== "string") redirect("/");
   const link = await getActiveFormLink(token);
-  // The same response for unknown, revoked and expired: Next's 404.
+  // The same response for unknown, revoked and expired: the page's
+  // "isn't available" message.
   if (!link) redirect(`/f/${encodeURIComponent(token)}`);
   return link;
 }

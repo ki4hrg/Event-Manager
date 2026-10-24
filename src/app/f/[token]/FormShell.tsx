@@ -43,6 +43,19 @@ export function FormShell({ form, children }: { form: PublicFormDto; children: R
   );
 }
 
+// A link that can't be used: unknown, revoked, expired, or with nothing left
+// to fill in. One page for every case, with no event context, so a token
+// reveals nothing about why.
+export function FormUnavailable() {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <main className="max-w-3xl mx-auto px-4 py-6">
+        <FormMessage title="This form isn't available.">Contact the event team who sent it.</FormMessage>
+      </main>
+    </div>
+  );
+}
+
 export function FormMessage({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">

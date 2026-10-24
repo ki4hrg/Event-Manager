@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
 import {
   DRAFT_COOKIE,
   activeBundleToken,
@@ -31,7 +30,7 @@ import {
   type ItemRequestBaseline,
   type ItemRequestPayload,
 } from "@/lib/forms/meta";
-import { FormMessage, FormShell, type PublicFormDto } from "./FormShell";
+import { FormMessage, FormShell, FormUnavailable, type PublicFormDto } from "./FormShell";
 import { FunctionReviewForm } from "./FunctionReviewForm";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { ExhibitRequestForm } from "./ExhibitRequestForm";
@@ -45,12 +44,15 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params;
   const robots = { index: false, follow: false };
+  // A link the page shows as unavailable previews as nothing more.
+  const unavailable: Metadata = { title: { absolute: "Form" }, robots };
   const bundle = await getActiveFormBundle(token);
   const link = bundle ? null : await getActiveFormLink(token);
-  if (!bundle && !link) return { title: { absolute: "Form" }, robots };
+  if (!bundle && !link) return unavailable;
   const parts = bundle ? bundle.children : [link!];
   const event = (bundle?.link ?? link!).event;
   const snapshots = await Promise.all(parts.map((p) => formModule(p.formType).snapshot(p)));
+  if (bundle ? !snapshots.some((s) => s?.targetName) : !snapshots[0]) return unavailable;
   const heading = formsHeading(
     parts.map((p, i) => ({ formTitle: FORM_TYPE_LABEL[p.formType], targetName: snapshots[i]?.targetName ?? null })),
     event.name,
@@ -76,7 +78,7 @@ export default async function PublicFormPage({
   const bundle = await getActiveFormBundle(token);
   if (bundle) return <BundleIndex bundle={bundle} />;
   const link = await getActiveFormLink(token);
-  if (!link) notFound();
+  if (!link) return <FormUnavailable />;
   recordFormLinkAccess(link.id);
 
   const timezone = link.event.timezone || "America/Chicago";
@@ -111,7 +113,7 @@ export default async function PublicFormPage({
       </FormShell>
     );
   }
-  if (!snapshot) notFound();
+  if (!snapshot) return <FormUnavailable />;
   if (formLinkIsFull(link)) {
     return (
       <FormShell form={{ ...form, intro: null }}>
@@ -235,7 +237,7 @@ async function BundleIndex({ bundle }: { bundle: NonNullable<Awaited<ReturnType<
       : null,
     intro: readFormLinkConfig(link.config, new Set()).intro ?? null,
   };
-  if (shown.length === 0) notFound();
+  if (shown.length === 0) return <FormUnavailable />;
   return (
     <FormShell form={form}>
       <ul className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">

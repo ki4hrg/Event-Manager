@@ -74,6 +74,7 @@ These are binding for every new form type.
 - **Uploads.** The upload route checks the Origin header and Content-Length before parsing. The file type comes from its magic bytes (`sniffPublicUpload`), not from the client.
 - **Email never carries submitter text.** Receipts go only to the link's `recipientEmail`.
 - **Headers.** `/f/*` sends `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`. `/api/files` sends `nosniff`.
+- **Dead links.** Unknown, revoked and expired tokens (and a link with nothing left to fill in) render one identical message, "This form isn't available. Contact the event team who sent it." (`FormUnavailable`), with no event context and a noindex title.
 
 To add a form type, see [checklists/adding-form-type.md](./checklists/adding-form-type.md).
 
