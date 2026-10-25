@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { ENTITY_FK_FIELD, getUploadDir, getUploadPath, MAX_UPLOAD_BYTES } from "@/lib/uploads";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
-import { blockTypeLabel, dateFromKey, dateKey, formatDateKey, formatMoney, formatNight, offerContractType, roomTypeLabel, toContractTypeOption } from "@/lib/hotels";
+import { blockNames, blockTypeLabel, dateFromKey, dateKey, formatDateKey, formatMoney, formatNight, offerContractType, roomTypeLabel, toContractTypeOption } from "@/lib/hotels";
 import { getOptionsForTenant } from "@/lib/options";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, guessDateOrder, rowsToGuests, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
@@ -252,13 +252,17 @@ async function parseBlocks(eventId: string): Promise<ParseBlock[]> {
       checkIn: true,
       checkOut: true,
       groupCode: true,
+      contractType: true,
+      guestType: true,
       nights: { select: { roomType: true } },
       proposal: { select: { venue: { select: { name: true } } } },
     },
   });
+  // A hotel with several blocks names each by its type.
+  const names = blockNames(blocks.map((b) => ({ ...b, hotel: b.proposal.venue.name })));
   return blocks.map((b) => ({
     id: b.id,
-    hotel: b.proposal.venue.name,
+    hotel: names.get(b.id) ?? b.proposal.venue.name,
     checkIn: b.checkIn ? dateKey(b.checkIn) : null,
     checkOut: b.checkOut ? dateKey(b.checkOut) : null,
     groupCode: b.groupCode,

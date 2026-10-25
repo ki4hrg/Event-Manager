@@ -22,6 +22,21 @@ async function assertBlockInEvent(blockId: string, eventId: string) {
   if (!b) throw new PermissionError("NOT_FOUND");
 }
 
+// A block's contract and guest types are the tenant's labels; ones the block
+// already holds (`held`) may stay.
+async function assertBlockLabels(eventId: string, args: { contractType: string | null; guestType: string | null }, held: (string | null)[]) {
+  const wanted = [
+    { category: "hotel_contract_type", label: args.contractType, noun: "contract type" },
+    { category: "hotel_guest_type", label: args.guestType, noun: "guest type" },
+  ].filter((w) => w.label && !held.includes(w.label));
+  if (wanted.length === 0) return;
+  const tenantId = await requireEventTenantId(eventId);
+  for (const w of wanted) {
+    const found = await prisma.customOption.findFirst({ where: { tenantId, category: w.category, label: w.label! }, select: { id: true } });
+    if (!found) throw new Error(`Unknown ${w.noun}: ${w.label}`);
+  }
+}
+
 // Today in the event's timezone, as a DATE.
 const eventToday = (timezone: string) => dateFromKey(getDateKeyInTimezone(new Date(), timezone));
 
@@ -50,15 +65,19 @@ export async function writePickupSnapshot(tx: Prisma.TransactionClient, blockId:
 // ---------------------------------------------------------------------------
 // Blocks
 
-export async function createHotelBlockCore(proposalId: string, eventId: string, userId: string) {
+// One accepted proposal can become several blocks (attendees and staff from
+// one offer): each starts from the proposal's stay, terms, charges and room
+// grid, with its own guest type (the proposal's unless given).
+export async function createHotelBlockCore(proposalId: string, eventId: string, userId: string, opts: { guestType?: string | null } = {}) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   const tenantId = await requireEventTenantId(eventId);
   const proposal = await prisma.hotelProposal.findFirst({
     where: { id: proposalId, eventId },
-    include: { nights: true, charges: true, block: { select: { id: true } } },
+    include: { nights: true, charges: true },
   });
   if (!proposal) throw new PermissionError("NOT_FOUND");
-  if (proposal.block) throw new Error("This proposal already has a block");
+  const guestType = opts.guestType !== undefined ? opts.guestType || null : proposal.guestType;
+  await assertBlockLabels(eventId, { contractType: proposal.contractType, guestType }, [proposal.contractType, proposal.guestType]);
   const status = await prisma.customOption.findFirst({
     where: { tenantId, category: "proposal_status", label: proposal.status },
     select: { group: true },
@@ -71,6 +90,8 @@ export async function createHotelBlockCore(proposalId: string, eventId: string, 
     const block = await tx.hotelBlock.create({
       data: {
         proposalId,
+        contractType: proposal.contractType,
+        guestType,
         isHq: hasHq === 0,
         checkIn: proposal.checkIn,
         checkOut: proposal.checkOut,
@@ -115,6 +136,8 @@ export type BlockNightArgs = {
 };
 
 export type BlockWriteArgs = {
+  contractType: string | null; // hotel_contract_type option label
+  guestType: string | null; // hotel_guest_type option label
   isHq: boolean;
   checkIn: string | null;
   checkOut: string | null;
@@ -141,6 +164,8 @@ const day = (v: string | null) => (v ? dateFromKey(v) : null);
 export async function updateHotelBlockCore(blockId: string, eventId: string, args: BlockWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   await assertBlockInEvent(blockId, eventId);
+  const held = await prisma.hotelBlock.findUniqueOrThrow({ where: { id: blockId }, select: { contractType: true, guestType: true } });
+  await assertBlockLabels(eventId, args, [held.contractType, held.guestType]);
   if (args.checkIn && args.checkOut && args.checkOut <= args.checkIn) throw new Error("Check-out must be after check-in");
   if (args.allowedAttrition != null && (args.allowedAttrition < 0 || args.allowedAttrition > 100)) {
     throw new Error("Allowed attrition must be between 0 and 100");
@@ -173,6 +198,8 @@ export async function updateHotelBlockCore(blockId: string, eventId: string, arg
     const block = await tx.hotelBlock.update({
       where: { id: blockId },
       data: {
+        contractType: args.contractType,
+        guestType: args.guestType,
         isHq: args.isHq,
         checkIn: day(args.checkIn),
         checkOut: day(args.checkOut),
@@ -402,6 +429,8 @@ export function toBlockValues(b: Prisma.HotelBlockGetPayload<{ include: { nights
   const dec = (v: Prisma.Decimal | null) => (v == null ? null : v.toString());
   const d = (v: Date | null) => (v ? dateKey(v) : null);
   return {
+    contractType: b.contractType,
+    guestType: b.guestType,
     isHq: b.isHq,
     checkIn: d(b.checkIn),
     checkOut: d(b.checkOut),

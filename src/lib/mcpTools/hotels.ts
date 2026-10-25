@@ -263,6 +263,8 @@ async function currentProposal(id: string, eventId: string): Promise<ProposalWri
 }
 
 const blockProps = {
+  contractType: { type: ["string", "null"], description: CONTRACT_TYPE_DESCRIPTION },
+  guestType: { type: ["string", "null"], description: "Who the block's rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
   isHq: { type: "boolean", description: "The event's headquarters hotel (only one per event)." },
   checkIn: { type: ["string", "null"], description: "YYYY-MM-DD." },
   checkOut: { type: ["string", "null"], description: "YYYY-MM-DD." },
@@ -307,7 +309,7 @@ const blockDetailInclude = {
   charges: { orderBy: { sortOrder: "asc" as const } },
   pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true } },
   pickupCounts: { select: { night: true, roomType: true, rooms: true } },
-  proposal: { select: { id: true, contractType: true, guestType: true, venue: { select: { id: true, name: true } } } },
+  proposal: { select: { id: true, venue: { select: { id: true, name: true } } } },
 };
 
 async function blockEvent(blockId: string): Promise<string> {
@@ -320,7 +322,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "list_hotel_proposals",
     description:
-      "List an event's hotel proposals: hotel, status, block type, stay dates, revision, lead source, and whether it became a block. Returns summary shape — use `get_hotel_proposal` for full detail (room grid, charges, amenities, terms, revision history).",
+      "List an event's hotel proposals: hotel, status, block type, stay dates, revision, lead source, and the blocks booked from it (one per guest type). Returns summary shape — use `get_hotel_proposal` for full detail (room grid, charges, amenities, terms, revision history).",
     inputSchema: { type: "object", properties: { eventId: { type: "string" } }, required: ["eventId"], additionalProperties: false },
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");
@@ -338,7 +340,7 @@ export const hotelTools: McpToolDefinition[] = [
           leadSourceDirect: true,
           leadSourceVendor: { select: { id: true, name: true } },
           venue: { select: { id: true, name: true } },
-          block: { select: { id: true } },
+          blocks: { select: { id: true, contractType: true, guestType: true }, orderBy: { createdAt: "asc" } },
           rfp: { select: { id: true, title: true } },
           rfpBlockId: true,
         },
@@ -364,7 +366,7 @@ export const hotelTools: McpToolDefinition[] = [
         include: {
           ...proposalValuesInclude,
           versions: { orderBy: { revision: "desc" } },
-          block: { select: { id: true } },
+          blocks: { select: { id: true, contractType: true, guestType: true }, orderBy: { createdAt: "asc" } },
           rfp: { select: { id: true, title: true } },
           concessions: { include: { concession: { select: { label: true, value: true, required: true } } }, orderBy: { sortOrder: "asc" } },
         },
@@ -428,7 +430,7 @@ export const hotelTools: McpToolDefinition[] = [
   },
   {
     name: "delete_hotel_proposal",
-    description: "Delete a hotel proposal, its documents, revisions and its block (with all pickup).",
+    description: "Delete a hotel proposal, its documents, revisions and its blocks (with all pickup).",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
@@ -443,7 +445,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "list_hotel_blocks",
     description:
-      "List an event's hotel blocks with hotel, HQ flag, stay, cut-off and pickup totals (blocked, contracted, picked up, %, peak night). Returns summary shape — use `get_hotel_block` for full detail (nights with per-night pickup, charges, booking details).",
+      "List an event's hotel blocks with hotel, contract and guest type (a hotel can have several blocks from one proposal), HQ flag, stay, cut-off and pickup totals (blocked, contracted, picked up, %, peak night). Returns summary shape — use `get_hotel_block` for full detail (nights with per-night pickup, charges, booking details).",
     inputSchema: { type: "object", properties: { eventId: { type: "string" } }, required: ["eventId"], additionalProperties: false },
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");
@@ -453,8 +455,8 @@ export const hotelTools: McpToolDefinition[] = [
         id: b.id,
         proposalId: b.proposal.id,
         hotel: b.proposal.venue,
-        contractType: b.proposal.contractType,
-        guestType: b.proposal.guestType,
+        contractType: b.contractType,
+        guestType: b.guestType,
         isHq: b.isHq,
         checkIn: b.checkIn,
         checkOut: b.checkOut,
@@ -480,14 +482,22 @@ export const hotelTools: McpToolDefinition[] = [
   },
   {
     name: "create_hotel_block",
-    description: "Turn an accepted proposal (status in the ACCEPTED stage) into the event's block for that hotel. Copies the stay, terms, charges and room grid (as contracted rooms).",
+    description:
+      "Add a block from an accepted proposal (status in the ACCEPTED stage). One proposal can become several blocks, one per guest type (attendees and staff from one offer). Copies the stay, terms, charges, contract type and room grid (as contracted rooms); adjust each block's rooms with update_hotel_block.",
     inputSchema: {
       type: "object",
-      properties: { proposalId: { type: "string" }, eventId: { type: "string" } },
+      properties: {
+        proposalId: { type: "string" },
+        eventId: { type: "string" },
+        guestType: { type: ["string", "null"], description: "The block's hotel_guest_type label. Default: the proposal's." },
+      },
       required: ["proposalId", "eventId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => createHotelBlockCore(requireString(args, "proposalId"), requireString(args, "eventId"), userId),
+    handler: (args, { userId }) =>
+      createHotelBlockCore(requireString(args, "proposalId"), requireString(args, "eventId"), userId, {
+        guestType: args.guestType === undefined ? undefined : typeof args.guestType === "string" ? args.guestType : null,
+      }),
   },
   {
     name: "update_hotel_block",

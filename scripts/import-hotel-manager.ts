@@ -507,9 +507,12 @@ async function main() {
               });
             }
           }
+          // A block keeps its proposal's contract and guest type.
+          const types = await tx.hotelProposal.findUniqueOrThrow({ where: { id: proposalId }, select: { contractType: true, guestType: true } });
           const block = await tx.hotelBlock.create({
             data: {
               proposalId,
+              ...types,
               isHq: false,
               checkIn: checkIn ? dateFromKey(checkIn) : null,
               checkOut: checkOut ? dateFromKey(checkOut) : null,

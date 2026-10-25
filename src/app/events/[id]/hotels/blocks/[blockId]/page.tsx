@@ -79,7 +79,7 @@ export default async function BlockPage({
         meta={
           <div className="space-y-1">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {[blockTypeLabel(block.proposal.contractType, block.proposal.guestType), `${totals.pickedUp} of ${totals.blocked} room nights picked up${totals.percent != null ? ` · ${totals.percent}%` : ""}`]
+              {[blockTypeLabel(block.contractType, block.guestType), `${totals.pickedUp} of ${totals.blocked} room nights picked up${totals.percent != null ? ` · ${totals.percent}%` : ""}`]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
@@ -113,7 +113,9 @@ export default async function BlockPage({
             roomTypes={choices.roomTypes}
             reservationMethods={choices.reservationMethods}
             chargeTypes={choices.chargeTypes}
-            contractKind={contractKindOf(block.proposal.contractType, choices.contractTypes)}
+            contractTypes={choices.contractTypes.map((t) => t.label)}
+            guestTypes={choices.guestTypes}
+            contractKind={contractKindOf(block.contractType, choices.contractTypes)}
             action={updateAction}
           />
           <DaysOutCard points={daysOut} blocked={totals.blocked} />

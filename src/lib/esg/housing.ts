@@ -7,7 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import { dateKey } from "@/lib/hotels";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
-import { blockPickup, pickupDaysOut, snapshotAsOf } from "@/lib/hotelPickup";
+import { blockPickup, pickupDaysOut, snapshotAsOf, type NightPickup } from "@/lib/hotelPickup";
 
 export type HousingRoomBlock = {
   facilityName: string;
@@ -101,55 +101,69 @@ export async function loadHousingInput(eventId: string, spec: SpecHousingFields)
   const event = await prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true } });
   const today = getDateKeyInTimezone(new Date(), event?.timezone ?? "America/Chicago");
 
-  blocks.sort((a, b) => Number(b.isHq) - Number(a.isHq) || a.proposal.venue.name.localeCompare(b.proposal.venue.name));
+  // One row per hotel: the blocks one offer became (attendees, staff) add
+  // up, and their count is the PER's sub-blocks.
+  const byHotel = new Map<string, typeof blocks>();
+  for (const b of blocks) byHotel.set(b.proposal.venue.id, [...(byHotel.get(b.proposal.venue.id) ?? []), b]);
+  const hotels = Array.from(byHotel.values()).map((group) => ({ venue: group[0].proposal.venue, isHq: group.some((b) => b.isHq), group }));
+  hotels.sort((a, b) => Number(b.isHq) - Number(a.isHq) || a.venue.name.localeCompare(b.venue.name));
 
   const actualByNight = new Map<string, number>();
   let anyPickup = false;
+  const earliest = (dates: (Date | null)[]) => dates.filter((d): d is Date => d != null).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+  const total = (ns: (number | null)[]) => (ns.every((n) => n == null) ? null : ns.reduce<number>((s, n) => s + (n ?? 0), 0));
 
-  const perHotels: PerHotelRow[] = blocks.map((b) => {
-    const rows = blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
-    const nightKeysSorted = Array.from(new Set(rows.map((r) => r.night))).sort();
+  const perHotels: PerHotelRow[] = hotels.map(({ venue, isHq, group }) => {
+    const parts = group.map((b) => ({ b, rows: blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts }) }));
+    const nightKeysSorted = Array.from(new Set(parts.flatMap((p) => p.rows.map((r) => r.night)))).sort();
     const firstNight = nightKeysSorted[0] ?? null;
-    const sum = (night: string, pick: (r: (typeof rows)[number]) => number | null) => {
-      const vals = rows.filter((r) => r.night === night).map(pick);
-      return vals.every((v) => v == null) ? null : vals.reduce<number>((s, v) => s + (v ?? 0), 0);
-    };
+    const sum = (night: string, pick: (r: NightPickup) => number | null) => total(parts.flatMap((p) => p.rows.filter((r) => r.night === night).map(pick)));
     const nights = nightKeysSorted.map((night) => {
       const actual = sum(night, (r) => r.pickedUp) ?? 0;
       if (actual > 0) anyPickup = true;
       actualByNight.set(night, (actualByNight.get(night) ?? 0) + actual);
+      // Blank when any of the hotel's blocks can't say.
       const daysOut = Object.fromEntries(
-        DAYS_OUT.map((d) => [`pickup${d}`, pickupDaysOut({ snapshots: b.pickupSnapshots, guests: b.pickupGuests, counts: b.pickupCounts, nights: b.nights }, firstNight, d, night, today)]),
+        DAYS_OUT.map((d) => {
+          const vals = parts.map(({ b }) =>
+            pickupDaysOut({ snapshots: b.pickupSnapshots, guests: b.pickupGuests, counts: b.pickupCounts, nights: b.nights }, firstNight, d, night, today),
+          );
+          return [`pickup${d}`, vals.some((v) => v == null) ? null : vals.reduce<number>((s, v) => s + (v ?? 0), 0)];
+        }),
       ) as Record<`pickup${(typeof DAYS_OUT)[number]}`, number | null>;
       return { dateKey: night, contracted: sum(night, (r) => r.contracted), final: sum(night, (r) => r.blocked), ...daysOut, actual };
     });
-    const cutoff = b.cutoffDate ? dateKey(b.cutoffDate) : null;
-    const atCutoff = cutoff ? snapshotAsOf(b.pickupSnapshots, cutoff, today) : null;
+    const cutoffDate = earliest(group.map((b) => b.cutoffDate));
+    const atCutoff = group.map((b) => {
+      const snap = b.cutoffDate ? snapshotAsOf(b.pickupSnapshots, dateKey(b.cutoffDate), today) : null;
+      return snap ? Object.values(snap).reduce((s, n) => s + (typeof n === "number" ? n : 0), 0) : null;
+    });
+    const contractedOn = earliest(group.map((b) => b.contractedOn));
     return {
-      facilityName: b.proposal.venue.name,
-      isHq: b.isHq,
-      hotelType: b.proposal.venue.brand,
+      facilityName: venue.name,
+      isHq,
+      hotelType: venue.brand,
       singleOccupied: null,
       doubleOccupied: null,
       suites: null,
-      compRooms: b.compRooms,
-      staffRooms: b.staffRooms,
-      subBlocks: null,
-      contractedDate: b.contractedOn ? dateKey(b.contractedOn) : null,
+      compRooms: total(group.map((b) => b.compRooms)),
+      staffRooms: total(group.map((b) => b.staffRooms)),
+      subBlocks: group.length > 1 ? group.length : null,
+      contractedDate: contractedOn ? dateKey(contractedOn) : null,
       finalBlockDate: null,
-      cutoffDate: cutoff,
-      cutoffExercised: b.cutoffExercised,
-      pickupAtCutoff: atCutoff ? Object.values(atCutoff).reduce((s, n) => s + (typeof n === "number" ? n : 0), 0) : null,
+      cutoffDate: cutoffDate ? dateKey(cutoffDate) : null,
+      cutoffExercised: group.find((b) => b.cutoffExercised != null)?.cutoffExercised ?? null,
+      pickupAtCutoff: total(atCutoff),
       nights,
-      comments: b.notes,
+      comments: group.map((b) => b.notes).filter(Boolean).join("\n") || null,
     };
   });
 
   return {
     source: "hotels",
-    roomBlocks: blocks.map((b, i) => ({
-      facilityName: b.proposal.venue.name,
-      isHq: b.isHq,
+    roomBlocks: hotels.map((h, i) => ({
+      facilityName: h.venue.name,
+      isHq: h.isHq,
       nights: perHotels[i].nights.map((n) => ({ dateKey: n.dateKey, rooms: n.final })),
     })),
     reservationMethod: spec?.reservationMethod ?? blocks.find((b) => b.reservationMethod)?.reservationMethod ?? null,
@@ -157,7 +171,7 @@ export async function loadHousingInput(eventId: string, spec: SpecHousingFields)
     perHotels,
     perSummary: {
       usedSleepingRooms: true,
-      hotelCount: new Set(blocks.map((b) => b.proposal.venue.id)).size,
+      hotelCount: hotels.length,
       peakNightRooms: anyPickup ? Math.max(...Array.from(actualByNight.values())) : null,
       performedBy: null,
     },

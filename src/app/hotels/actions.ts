@@ -49,7 +49,7 @@ export async function getVenueHotelHistory(venueId: string) {
       revision: true,
       contractType: true,
       guestType: true,
-      block: { select: { id: true } },
+      blocks: { select: { id: true, guestType: true }, orderBy: { createdAt: "asc" } },
       event: { select: { id: true, name: true, startDate: true, timezone: true } },
     },
     orderBy: { event: { startDate: "desc" } },
@@ -65,15 +65,15 @@ async function contractTypeOptions(tenantId: string): Promise<ContractTypeOption
 function blockRow(b: BlockForTotals, contractTypes: ContractTypeOption[]) {
   const rows = blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
   const totals = pickupTotals(rows);
-  const attrition = appliedAttrition(b.allowedAttrition != null ? Number(b.allowedAttrition) : null, contractKindOf(b.proposal.contractType, contractTypes));
+  const attrition = appliedAttrition(b.allowedAttrition != null ? Number(b.allowedAttrition) : null, contractKindOf(b.contractType, contractTypes));
   const floor = attrition != null ? 100 - attrition : null;
   return {
     blockId: b.id,
     hotelId: b.proposal.venue.id,
     hotel: b.proposal.venue.name,
     isHq: b.isHq,
-    contractType: b.proposal.contractType,
-    guestType: b.proposal.guestType,
+    contractType: b.contractType,
+    guestType: b.guestType,
     cutoffDate: b.cutoffDate ? dateKey(b.cutoffDate) : null,
     floor,
     atRisk: floor != null && totals.percent != null && totals.percent < floor,
@@ -92,7 +92,7 @@ export async function getHotelPickupHistory(filters: HotelHistoryFilters) {
     where: {
       AND: [
         eventWhere,
-        { hotelProposals: { some: { block: { isNot: null } } } },
+        { hotelProposals: { some: { blocks: { some: {} } } } },
         filters.seriesId === "__blank__" ? { seriesId: null } : filters.seriesId ? { seriesId: filters.seriesId } : {},
         filters.from ? { startDate: { gte: new Date(`${filters.from}T00:00:00Z`) } } : {},
         filters.to ? { startDate: { lte: new Date(`${filters.to}T23:59:59Z`) } } : {},
@@ -106,12 +106,12 @@ export async function getHotelPickupHistory(filters: HotelHistoryFilters) {
       actualAttendance: true,
       membershipCount: true,
       series: { select: { id: true, name: true } },
-      hotelProposals: { where: { block: { isNot: null } }, select: { block: { select: blockPickupSelect } } },
+      hotelProposals: { where: { blocks: { some: {} } }, select: { blocks: { select: blockPickupSelect } } },
     },
     orderBy: { startDate: "desc" },
   });
   return events.map((e) => {
-    const hotels = e.hotelProposals.flatMap((p) => (p.block ? [blockRow(p.block, contractTypes)] : []));
+    const hotels = e.hotelProposals.flatMap((p) => p.blocks.map((b) => blockRow(b, contractTypes)));
     const byNight = new Map<string, number>();
     for (const h of hotels) for (const r of h.byNight) byNight.set(r.night, (byNight.get(r.night) ?? 0) + r.pickedUp);
     const blocked = hotels.reduce((s, h) => s + h.blocked, 0);

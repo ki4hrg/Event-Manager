@@ -790,7 +790,7 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
         meals: { select: { mealType: true, price: true }, orderBy: { sortOrder: "asc" } },
         amenities: { select: { label: true, status: true } },
         venue: { select: { name: true, amenities: true } },
-        block: { select: { id: true } },
+        _count: { select: { blocks: true } },
         nights: { select: { night: true, rooms: true, rate: true } },
         charges: { select: { chargeType: true, amount: true, scope: true, kind: true }, orderBy: { sortOrder: "asc" } },
         concessions: { select: { concessionId: true, label: true, offered: true, met: true }, orderBy: { sortOrder: "asc" } },
@@ -806,6 +806,6 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
     meetingSpace: meetingRequests(rfp.spaceRequests),
     mealTypes: rfpMealTypes(rfp.spaceRequests),
     fbMinimum: rfp.fbMinimum,
-    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, profile: p.venue.amenities, hasBlock: p.block != null })),
+    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, profile: p.venue.amenities, hasBlock: p._count.blocks > 0 })),
   });
 }

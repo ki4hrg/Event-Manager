@@ -118,7 +118,9 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                   </p>
                 </div>
                 <span className="flex items-center gap-2">
-                  {p.block && <span className="text-xs text-gray-500 dark:text-gray-400">Block</span>}
+                  {p.blocks.length > 0 && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{p.blocks.length === 1 ? "Block" : `${p.blocks.length} blocks`}</span>
+                  )}
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor(p.status)}`}>{p.status}</span>
                 </span>
               </Link>
@@ -135,7 +137,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
           <div className={listCard}>
             {blocks.map((b) => {
               const t = pickupTotals(blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts }));
-              const attrition = appliedAttrition(b.allowedAttrition != null ? Number(b.allowedAttrition) : null, contractKindOf(b.proposal.contractType, choices.contractTypes));
+              const attrition = appliedAttrition(b.allowedAttrition != null ? Number(b.allowedAttrition) : null, contractKindOf(b.contractType, choices.contractTypes));
               const floor = attrition != null ? 100 - attrition : null;
               const low = floor != null && t.percent != null && t.percent < floor;
               return (
@@ -147,7 +149,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {[
-                        blockTypeLabel(b.proposal.contractType, b.proposal.guestType),
+                        blockTypeLabel(b.contractType, b.guestType),
                         b.checkIn && b.checkOut ? `${formatDateKey(dateKey(b.checkIn))} – ${formatDateKey(dateKey(b.checkOut))}` : null,
                         b.cutoffDate ? `cut-off ${formatDateKey(dateKey(b.cutoffDate))}` : null,
                       ]

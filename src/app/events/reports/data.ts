@@ -2294,11 +2294,10 @@ export async function getHotelInfoReportData(eventId: string, filters: HotelInfo
   // Labels the tenant no longer has drop out, so a stale link means no filter.
   const guestTypes = (filters.guestTypes ?? []).filter((t) => guestTypeOptions.includes(t));
   const blocks = await prisma.hotelBlock.findMany({
+    // Each block's own guest type: one hotel can hold several (attendees, staff).
     where: {
-      proposal: {
-        eventId,
-        ...(guestTypes.length ? { guestType: { in: guestTypes } } : {}),
-      },
+      proposal: { eventId },
+      ...(guestTypes.length ? { guestType: { in: guestTypes } } : {}),
     },
     select: {
       id: true,
@@ -2312,12 +2311,11 @@ export async function getHotelInfoReportData(eventId: string, filters: HotelInfo
       bookingPhone: true,
       distanceMiles: true,
       driveMinutes: true,
+      guestType: true,
       nights: { select: { roomType: true, rate: true } },
       charges: { select: { chargeType: true, amount: true, scope: true }, orderBy: { sortOrder: "asc" } },
       proposal: {
         select: {
-          contractType: true,
-          guestType: true,
           amenities: { select: { label: true, status: true } },
           venue: { select: { name: true, address: true, city: true, state: true, zip: true, brand: true, amenities: true } },
         },
@@ -2341,7 +2339,7 @@ export async function getHotelInfoReportData(eventId: string, filters: HotelInfo
         name: b.proposal.venue.name,
         brand: b.proposal.venue.brand,
         isHq: b.isHq,
-        guestType: b.proposal.guestType,
+        guestType: b.guestType,
         address: [b.proposal.venue.address, [b.proposal.venue.city, b.proposal.venue.state].filter(Boolean).join(", "), b.proposal.venue.zip]
           .filter(Boolean)
           .join(" "),

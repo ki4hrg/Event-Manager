@@ -495,13 +495,21 @@ export const OPTION_CATEGORIES = {
     description: "Contract types for hotel proposals and RFPs.",
     groups: { kind: "fixed", label: "Attrition", choices: CONTRACT_KINDS },
     resource: SETTINGS,
-    renameTargets: [col("hotelProposal", "contractType", inEvent), col("rfpHotelBlock", "contractType", (t) => ({ rfp: inEvent(t) }))],
+    renameTargets: [
+      col("hotelProposal", "contractType", inEvent),
+      col("hotelBlock", "contractType", (t) => ({ proposal: inEvent(t) })),
+      col("rfpHotelBlock", "contractType", (t) => ({ rfp: inEvent(t) })),
+    ],
   },
   hotel_guest_type: {
     title: "Guest Types",
     description: "Guest types for hotel proposals and RFPs.",
     resource: SETTINGS,
-    renameTargets: [col("hotelProposal", "guestType", inEvent), col("rfpHotelBlock", "guestType", (t) => ({ rfp: inEvent(t) }))],
+    renameTargets: [
+      col("hotelProposal", "guestType", inEvent),
+      col("hotelBlock", "guestType", (t) => ({ proposal: inEvent(t) })),
+      col("rfpHotelBlock", "guestType", (t) => ({ rfp: inEvent(t) })),
+    ],
   },
   // Labels are day counts (daysOutLabelError); nothing stores them.
   hotel_days_out: {

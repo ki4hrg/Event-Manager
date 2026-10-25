@@ -48,6 +48,7 @@ async function History({ seriesId, from, to, byHotel }: { seriesId?: string; fro
       Series: e.series?.name ?? "",
       Start: e.startDate,
       Hotel: h?.hotel ?? "All",
+      "Block type": h ? blockTypeLabel(h.contractType, h.guestType) : null,
       Blocked: h ? h.blocked : e.blocked,
       "Picked up": h ? h.pickedUp : e.pickedUp,
       "Pickup %": h ? h.percent : e.percent,
@@ -88,7 +89,7 @@ async function History({ seriesId, from, to, byHotel }: { seriesId?: string; fro
                       {e.series && <div className="text-gray-500 dark:text-gray-400">{e.series.name}</div>}
                     </td>
                     <td className={reportTd}>{formatDateKey(e.startDate)}</td>
-                    <td className={`${reportTd} text-right`}>{e.hotels.length}</td>
+                    <td className={`${reportTd} text-right`}>{new Set(e.hotels.map((h) => h.hotelId)).size}</td>
                     <td className={`${reportTd} text-right`}>{e.blocked}</td>
                     <td className={`${reportTd} text-right`}>{e.pickedUp}</td>
                     <td className={`${reportTd} text-right`}>{pct(e.percent)}</td>
@@ -129,6 +130,7 @@ async function Monitoring() {
     Event: b.event.name,
     Start: b.event.startDate,
     Hotel: b.hotel,
+    "Block type": blockTypeLabel(b.contractType, b.guestType),
     "Cut-off": b.cutoffDate,
     Blocked: b.blocked,
     "Picked up": b.pickedUp,
@@ -174,6 +176,7 @@ async function Monitoring() {
                     <Link href={`/events/${b.event.id}/hotels/blocks/${b.blockId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                       {b.hotel}
                     </Link>
+                    {blockTypeLabel(b.contractType, b.guestType) && <div className="text-gray-500 dark:text-gray-400">{blockTypeLabel(b.contractType, b.guestType)}</div>}
                   </td>
                   <td className={reportTd}>{formatDateKey(b.cutoffDate)}</td>
                   <td className={`${reportTd} text-right`}>{b.blocked}</td>

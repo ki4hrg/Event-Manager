@@ -80,6 +80,16 @@ export function blockTypeLabel(contractType: string | null, guestType: string | 
   return [contractType, guestType].filter(Boolean).join(" · ") || null;
 }
 
+// What tells an event's blocks apart: the hotel, plus the block's type where
+// the hotel has more than one ("Hilton · Contract · Staff").
+export function blockNames(blocks: { id: string; hotel: string; contractType: string | null; guestType: string | null }[]): Map<string, string> {
+  const perHotel = new Map<string, number>();
+  for (const b of blocks) perHotel.set(b.hotel, (perHotel.get(b.hotel) ?? 0) + 1);
+  return new Map(
+    blocks.map((b) => [b.id, (perHotel.get(b.hotel) ?? 0) > 1 ? `${b.hotel} · ${blockTypeLabel(b.contractType, b.guestType) ?? "Block"}` : b.hotel]),
+  );
+}
+
 // A night's null room type is the Run of House allotment.
 export const RUN_OF_HOUSE = "Run of House";
 export const roomTypeLabel = (roomType: string | null) => roomType ?? RUN_OF_HOUSE;

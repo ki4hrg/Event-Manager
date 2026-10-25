@@ -2603,7 +2603,9 @@ model HotelProposal {
   nights              HotelProposalNight[]
   charges             HotelCharge[]
   versions            HotelProposalVersion[]
-  block               HotelBlock?
+  // The blocks booked from this offer: one per guest type when one offer
+  // covers several (attendees and staff from one hotel).
+  blocks              HotelBlock[]
   files               FileUpload[]
   // The RFP and requested block this offer answers, when it came from one.
   rfpId               String?
@@ -2712,14 +2714,17 @@ model HotelProposalVersion {
   @@index([createdById])
 }
 
-// The booked block an accepted proposal became (1:1). Nights start as copies
-// of the proposal's: contractedRooms keeps the signed number, rooms is the
-// current (final) block. Pickup is computed, never stored per night — see
-// src/lib/hotelPickup.ts.
+// A booked block from an accepted proposal; one proposal can become several,
+// each with its own guest type (and contract type), both starting from the
+// proposal's. Nights start as copies of the proposal's: contractedRooms keeps
+// the signed number, rooms is the current (final) block. Pickup is computed,
+// never stored per night — see src/lib/hotelPickup.ts.
 model HotelBlock {
   id                String                @id @default(cuid())
-  proposalId        String                @unique
+  proposalId        String
   proposal          HotelProposal         @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  contractType      String? // @option hotel_contract_type
+  guestType         String? // @option hotel_guest_type
   isHq              Boolean               @default(false)
   checkIn           DateTime?             @db.Date
   checkOut          DateTime?             @db.Date
@@ -2748,6 +2753,7 @@ model HotelBlock {
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
+  @@index([proposalId])
   @@index([updatedById])
 }
 
