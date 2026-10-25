@@ -63,7 +63,9 @@ import { PrintOrderPanel } from "../../../print-orders/PrintOrderPanel";
 import { SupplyOrderPanel } from "../../../supply-orders/SupplyOrderPanel";
 import { MediaDeliverablePanel } from "../../../media-deliverables/MediaDeliverablePanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
-import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { WorkflowStrips } from "@/components/WorkflowStrips";
+import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/(admin)/workflows/actions";
@@ -318,7 +320,7 @@ export default async function FunctionPage({
               )}
               {fn.name}
             </h1>
-            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+            <WorkflowStatusBadge summary={workflowBadgeSummary(workflowInstances)} />
           </div>
           <LastUpdated
             updatedAt={fn.updatedAt}
@@ -364,6 +366,8 @@ export default async function FunctionPage({
           />
         </div>
       </div>
+
+      <WorkflowStrips instances={workflowInstances} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-8">

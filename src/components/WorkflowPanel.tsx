@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ENTITY_TYPE_RESOURCE, type WorkflowEntityType } from "@/app/events/workflows/entity-types";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { instanceProgress } from "@/lib/workflowProgress";
 import type {
   WorkflowInstance as PrismaWorkflowInstance,
   WorkflowTemplate,
@@ -61,36 +62,6 @@ function LockIcon() {
   );
 }
 
-function computeProgress(
-  steps: StepWithItems[],
-  completedStepIds: Set<string>,
-  completedItemIds: Set<string>
-) {
-  let total = 0;
-  let done = 0;
-  for (const step of steps) {
-    if (step.items.length === 0) {
-      total += 1;
-      if (completedStepIds.has(step.id)) done += 1;
-    } else {
-      for (const item of step.items) {
-        total += 1;
-        if (completedItemIds.has(item.id)) done += 1;
-      }
-    }
-  }
-  return { total, done };
-}
-
-function isStepComplete(
-  step: StepWithItems,
-  completedStepIds: Set<string>,
-  completedItemIds: Set<string>
-): boolean {
-  if (step.items.length === 0) return completedStepIds.has(step.id);
-  return step.items.every((item) => completedItemIds.has(item.id));
-}
-
 function WorkflowInstancePanel({
   instance,
   isCancelled,
@@ -109,9 +80,9 @@ function WorkflowInstancePanel({
   toggleItem: (instanceId: string, itemId: string) => Promise<void>;
 }) {
   const [pending, setPending] = useState<string | null>(null);
-  const completedStepIds = new Set(instance.stepCompletions.map((c) => c.stepId));
   const completedItemIds = new Set(instance.itemCompletions.map((c) => c.itemId));
-  const { total, done } = computeProgress(instance.template.steps, completedStepIds, completedItemIds);
+  const progress = instanceProgress(instance);
+  const { ticksTotal: total, ticksDone: done } = progress;
   const allDone = total > 0 && done === total;
 
   const handleToggleStep = async (stepId: string) => {
@@ -159,11 +130,10 @@ function WorkflowInstancePanel({
       {instance.template.steps.length > 0 && (
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
           {instance.template.steps.map((step, index) => {
-            const stepDone = isStepComplete(step, completedStepIds, completedItemIds);
+            const stepDone = progress.steps[index].status === "done";
             const isChecklistStep = step.items.length > 0;
             const stepPending = pending === `step:${step.id}`;
-            const prevStep = index > 0 ? instance.template.steps[index - 1] : null;
-            const prevDone = prevStep ? isStepComplete(prevStep, completedStepIds, completedItemIds) : true;
+            const prevDone = index === 0 || progress.steps[index - 1].status === "done";
             // Read-only reuses the lock the cancelled state already defines:
             // checkboxes render as static markers rather than buttons.
             const isLocked = isCancelled || !canWrite || (!stepDone && !prevDone);
@@ -228,7 +198,7 @@ function WorkflowInstancePanel({
                   )}
                   {isChecklistStep && !stepDone && (
                     <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-                      {step.items.filter((i) => completedItemIds.has(i.id)).length}/{step.items.length}
+                      {progress.steps[index].itemsDone}/{progress.steps[index].itemsRequired}
                     </span>
                   )}
                   {isLocked && !stepDone && !isChecklistStep && (

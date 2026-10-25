@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import type { getSupplyOrders } from "./actions";
-import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
+import type { WorkflowRowSummary } from "@/lib/workflowProgress";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
@@ -19,7 +19,7 @@ type SupplyOrder = Awaited<ReturnType<typeof getSupplyOrders>>[number];
 type Props = {
   supplyOrders: SupplyOrder[];
   eventId: string;
-  workflowSummaries: Record<string, WorkflowBadgeSummary>;
+  workflowSummaries: Record<string, WorkflowRowSummary>;
   initialStatus?: string;
   initialRoom?: string;
   initialLinked?: string;

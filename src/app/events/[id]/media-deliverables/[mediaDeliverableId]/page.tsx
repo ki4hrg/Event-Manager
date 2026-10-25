@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
-import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { WorkflowStrips } from "@/components/WorkflowStrips";
+import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
@@ -210,7 +212,7 @@ export default async function MediaDeliverablePage({
               {mediaDeliverable.name}
             </h1>
             <EntityStatusBadge status={entityStatus} substatus={mediaDeliverable.substatus ?? null} />
-            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+            <WorkflowStatusBadge summary={workflowBadgeSummary(workflowInstances)} />
           </div>
           <LastUpdated
             updatedAt={mediaDeliverable.updatedAt}
@@ -230,6 +232,8 @@ export default async function MediaDeliverablePage({
           />
         </div>
       </div>
+
+      <WorkflowStrips instances={workflowInstances} />
 
       <MediaDeliverableTabs basePath={`/events/${eventId}/media-deliverables/${mediaDeliverableId}`} activeTab={activeTab} />
 

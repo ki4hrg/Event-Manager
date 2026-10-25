@@ -5,7 +5,7 @@ import { reportTh as th, reportTd as td } from "@/lib/reportStyles";
 import { getFunctionsForTable } from "@/app/events/functions/actions";
 import { getEvent } from "@/app/events/event";
 import { getWorkflowBadgeSummaries } from "@/app/events/workflows/actions";
-import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
+import type { WorkflowRowSummary } from "@/lib/workflowProgress";
 import type { FunctionForTable } from "@/app/events/functions/actions";
 import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
@@ -46,11 +46,13 @@ function formatDateTime(date: Date | null, timezone: string): string {
   });
 }
 
-function workflowLabel(summary: WorkflowBadgeSummary | undefined): string {
-  if (!summary || summary.count === 0) return "—";
-  if (summary.total === 0) return "—";
-  if (summary.done === summary.total) return "Done";
-  return `In progress (${summary.done}/${summary.total})`;
+// Each workflow's step in progress, or Done.
+function workflowLabel(summary: WorkflowRowSummary | undefined): string {
+  const drawn = summary?.workflows.filter((w) => w.steps.length > 0) ?? [];
+  if (drawn.length === 0) return "—";
+  return drawn
+    .map((w) => w.steps.find((s) => s.status === "active" || s.status === "partial")?.label ?? "Done")
+    .join("; ");
 }
 
 export default async function FunctionTablePrintPage({
@@ -73,7 +75,7 @@ export default async function FunctionTablePrintPage({
   const hidden = parseHiddenColumns(storedHidden, FUNCTION_TABLE_COLUMNS);
   const show = (key: FunctionTableColumn) => !hidden.has(key);
 
-  const workflowSummaries: Record<string, WorkflowBadgeSummary> =
+  const workflowSummaries: Record<string, WorkflowRowSummary> =
     functions.length > 0
       ? await getWorkflowBadgeSummaries("function", functions.map((f) => f.id), eventId)
       : {};

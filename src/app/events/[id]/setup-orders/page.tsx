@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { StepFilterChip } from "@/components/StepFilterChip";
+import { atWorkflowStep, stepFilterLabel } from "@/lib/workflowProgress";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/event";
@@ -20,10 +23,10 @@ export default async function SetupOrdersPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string; vendor?: string; function?: string; linked?: string }>;
+  searchParams?: Promise<{ status?: string; vendor?: string; function?: string; linked?: string; step?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus, vendor: initialVendor, function: initialFunction, linked: initialLinked } = (await searchParams) ?? {};
+  const { status: initialStatus, vendor: initialVendor, function: initialFunction, linked: initialLinked, step } = (await searchParams) ?? {};
   const [event, setupOrders, substatuses, responsiblePartyVendors, hiddenColumns] = await Promise.all([
     getEvent(eventId),
     getSetupOrders(eventId),
@@ -37,6 +40,8 @@ export default async function SetupOrdersPage({
   const workflowSummaries = setupOrders.length > 0
     ? await getWorkflowBadgeSummaries("setup_order", setupOrders.map((o) => o.id), eventId)
     : {};
+  const stepLabel = stepFilterLabel(workflowSummaries, step);
+  const shown = stepLabel && step ? setupOrders.filter((r) => atWorkflowStep(workflowSummaries[r.id], step)) : setupOrders;
 
   const vendors = flattenResponsiblePartyOptions(responsiblePartyVendors);
 
@@ -73,9 +78,13 @@ export default async function SetupOrdersPage({
         </h1>
       </div>
 
-
+      {stepLabel && (
+        <Suspense fallback={null}>
+          <StepFilterChip label={stepLabel} />
+        </Suspense>
+      )}
       <SetupOrderList
-        setupOrders={setupOrders}
+        setupOrders={shown}
         eventId={eventId}
         workflowSummaries={workflowSummaries}
         substatuses={substatuses}

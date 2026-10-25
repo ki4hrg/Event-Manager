@@ -4,6 +4,7 @@
 
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { countAtSteps, instanceProgress, isInstanceComplete } from "@/lib/workflowProgress";
 import { WORKFLOW_ENTITY_DELEGATES } from "./entity-delegates";
 
 export type { WorkflowEntityType } from "./entity-types";
@@ -53,13 +54,7 @@ export async function workflowCompletionCore(entityType: WorkflowEntityType, ent
       itemCompletions: { select: { itemId: true } },
     },
   });
-  const complete = instances.every((inst) => {
-    const steps = new Set(inst.stepCompletions.map((c) => c.stepId));
-    const items = new Set(inst.itemCompletions.map((c) => c.itemId));
-    return inst.template.steps.every((s) =>
-      s.items.length === 0 ? steps.has(s.id) : s.items.every((i) => items.has(i.id)),
-    );
-  });
+  const complete = instances.every(isInstanceComplete);
   return { complete, templateIds: new Set(instances.map((i) => i.templateId)), count: instances.length };
 }
 
@@ -74,15 +69,6 @@ export async function updateEntityStatusCore(
   substatus: string | null,
 ) {
   await WORKFLOW_ENTITY_DELEGATES[entityType].updateStatus(entityId, eventId, status, substatus);
-}
-
-function isStepDone(
-  step: { id: string; items: { id: string }[] },
-  completedStepIds: Set<string>,
-  completedItemIds: Set<string>
-): boolean {
-  if (step.items.length === 0) return completedStepIds.has(step.id);
-  return step.items.every((item) => completedItemIds.has(item.id));
 }
 
 type ResolvedStatus = { status: EntityStatus | null; substatus: string | null };
@@ -109,22 +95,10 @@ async function resolveWorkflowStatus(entityType: WorkflowEntityType, entityId: s
     },
   });
 
-  type InstanceSets = { completedStepIds: Set<string>; completedItemIds: Set<string> };
-  const instanceSets = new Map<string, InstanceSets>(
-    instances.map((inst) => [
-      inst.id,
-      {
-        completedStepIds: new Set(inst.stepCompletions.map((c) => c.stepId)),
-        completedItemIds: new Set(inst.itemCompletions.map((c) => c.itemId)),
-      },
-    ])
-  );
+  const progress = new Map(instances.map((inst) => [inst.id, instanceProgress(inst)]));
 
   // Phase 0: workflow just assigned (no completions at all) → apply template-level pending status.
-  const hasAnyCompletion = instances.some((inst) => {
-    const { completedStepIds, completedItemIds } = instanceSets.get(inst.id)!;
-    return completedStepIds.size > 0 || completedItemIds.size > 0;
-  });
+  const hasAnyCompletion = instances.some((inst) => inst.stepCompletions.length > 0 || inst.itemCompletions.length > 0);
   if (!hasAnyCompletion) {
     for (const instance of instances) {
       if (instance.template.pendingStatusValue) {
@@ -133,25 +107,20 @@ async function resolveWorkflowStatus(entityType: WorkflowEntityType, entityId: s
     }
   }
 
-  // Phase 1: find the first uncompleted step with pendingStatusValue across all instances.
-  // Among instances, prefer the most-advanced one (highest sortOrder of first uncompleted step).
+  // Phase 1: each instance's current step (the first not done) with a pendingStatusValue.
+  // Among instances, prefer the most-advanced one (highest sortOrder of current step).
   let pendingStatus: EntityStatus | null = null;
   let pendingSubstatus: string | null = null;
   let highestPendingOrder: number | null = null;
 
   for (const instance of instances) {
-    const { completedStepIds, completedItemIds } = instanceSets.get(instance.id)!;
-
-    for (const step of instance.template.steps) {
-      if (!isStepDone(step, completedStepIds, completedItemIds)) {
-        if (step.pendingStatusValue) {
-          if (highestPendingOrder === null || step.sortOrder > highestPendingOrder) {
-            highestPendingOrder = step.sortOrder;
-            pendingStatus = step.pendingStatusValue;
-            pendingSubstatus = step.pendingSubstatusValue ?? null;
-          }
-        }
-        break; // Steps are sequential — stop at first uncompleted per instance
+    const { current } = progress.get(instance.id)!;
+    const step = current === null ? null : instance.template.steps[current];
+    if (step?.pendingStatusValue) {
+      if (highestPendingOrder === null || step.sortOrder > highestPendingOrder) {
+        highestPendingOrder = step.sortOrder;
+        pendingStatus = step.pendingStatusValue;
+        pendingSubstatus = step.pendingSubstatusValue ?? null;
       }
     }
   }
@@ -166,11 +135,7 @@ async function resolveWorkflowStatus(entityType: WorkflowEntityType, entityId: s
   let completionSubstatus: string | null = null;
 
   for (const instance of instances) {
-    const { completedStepIds, completedItemIds } = instanceSets.get(instance.id)!;
-    const allDone = instance.template.steps.every((s) =>
-      isStepDone(s, completedStepIds, completedItemIds)
-    );
-    if (allDone && instance.template.completionStatusValue) {
+    if (progress.get(instance.id)!.current === null && instance.template.completionStatusValue) {
       completionStatus = instance.template.completionStatusValue;
       completionSubstatus = instance.template.completionSubstatusValue ?? null;
       break;
@@ -197,3 +162,33 @@ async function applyAssignedWorkflowStatus(entityType: WorkflowEntityType, entit
   return { status, substatus };
 }
 
+
+// For the event overview: how many of the given records sit at each step of
+// each of the tenant's default templates for the type. Templates no record
+// carries are left out. Permission and event ownership of `entityIds` are the
+// caller's job.
+export async function defaultWorkflowStepCounts(entityType: WorkflowEntityType, entityIds: string[], eventId: string) {
+  if (entityIds.length === 0) return [];
+  const templates = await prisma.workflowTemplate.findMany({
+    where: { defaultForEntityTypes: { has: entityType }, tenant: { events: { some: { id: eventId } } } },
+    select: { id: true, name: true, steps: { orderBy: { sortOrder: "asc" }, select: { id: true, label: true } } },
+    orderBy: { name: "asc" },
+  });
+  const drawn = templates.filter((t) => t.steps.length > 0);
+  if (drawn.length === 0) return [];
+  const instances = await prisma.workflowInstance.findMany({
+    where: { entityType, entityId: { in: entityIds }, templateId: { in: drawn.map((t) => t.id) } },
+    select: {
+      templateId: true,
+      template: { select: { steps: { orderBy: { sortOrder: "asc" }, select: { id: true, items: { select: { id: true } } } } } },
+      stepCompletions: { select: { stepId: true } },
+      itemCompletions: { select: { itemId: true } },
+    },
+  });
+  return drawn
+    .map((t) => {
+      const mine = instances.filter((i) => i.templateId === t.id);
+      return { templateId: t.id, name: t.name, records: mine.length, steps: countAtSteps(t, mine) };
+    })
+    .filter((t) => t.records > 0);
+}

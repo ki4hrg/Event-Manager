@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { colorClasses } from "@/lib/colors";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
+import { WorkflowBadge } from "@/components/WorkflowBadge";
+import type { WorkflowRowSummary } from "@/lib/workflowProgress";
 import { EmptyState } from "@/components/EmptyState";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
@@ -48,6 +50,7 @@ type PresentationListProps = {
   initialSlot?: string;
   initialSpeaker?: string;
   initialHiddenColumns: string[];
+  workflowSummaries: Record<string, WorkflowRowSummary>;
   duplicatePresentation: (id: string) => Promise<void>;
   deletePresentation: (id: string) => Promise<void>;
   deletePresentations: (ids: string[]) => Promise<void>;
@@ -83,6 +86,7 @@ export function PresentationList({
   initialSlot,
   initialSpeaker,
   initialHiddenColumns,
+  workflowSummaries,
   duplicatePresentation,
   deletePresentation,
   deletePresentations,
@@ -396,6 +400,7 @@ export function PresentationList({
                           </span>
                         )}
                         <EntityStatusBadge status={p.status} substatus={p.substatus} />
+                        <WorkflowBadge summary={workflowSummaries[p.id]} />
                         {speaker && (
                           <span className="text-gray-600 dark:text-gray-400">
                             {speaker}
@@ -451,6 +456,7 @@ export function PresentationList({
                   {canSelect && <th className={`${thBase} w-8`}><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" /></th>}
                   <th className={thSortable} onClick={() => handleSort("title")}>Title{sortIndicator(sortField === "title", sortDir)}</th>
                   {show("status") && <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>}
+                  {show("workflow") && <th className={thBase}>Workflow</th>}
                   {show("type") && <th className={thSortable} onClick={() => handleSort("type")}>Type{sortIndicator(sortField === "type", sortDir)}</th>}
                   {show("track") && <th className={thSortable} onClick={() => handleSort("track")}>Track{sortIndicator(sortField === "track", sortDir)}</th>}
                   {show("speaker") && <th className={thSortable} onClick={() => handleSort("speaker")}>Primary Speaker{sortIndicator(sortField === "speaker", sortDir)}</th>}
@@ -469,6 +475,7 @@ export function PresentationList({
                       </select>
                     </td>
                   )}
+                  {show("workflow") && <td className={filterCell} />}
                   {show("type") && (
                     <td className={filterCell}>
                       <select value={filters.type} onChange={(e) => setFilter("type", e.target.value)} className={filterInput}>
@@ -501,6 +508,7 @@ export function PresentationList({
                         <Link href={`/events/${eventId}/presentations/${p.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{p.title}</Link>
                       </td>
                       {show("status") && <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={p.status} substatus={p.substatus} /></td>}
+                      {show("workflow") && <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[p.id]} /></td>}
                       {show("type") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{p.type ? resolveOptionLabel(p.type, presentationTypes) : "—"}</td>}
                       {show("track") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{p.track?.name ?? "—"}</td>}
                       {show("speaker") && (

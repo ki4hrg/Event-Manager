@@ -16,7 +16,7 @@ import {
 } from "../../../../../hotels/actions";
 import { PickupImport } from "../../../../../hotels/PickupImport";
 import { PickupGuests } from "../../../../../hotels/PickupGuests";
-import { HotelWorkflow } from "../../../../../hotels/HotelWorkflow";
+import { ProgressStrip } from "@/components/ProgressStrip";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +86,11 @@ export default async function PickupPage({
         />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">Pickup · {venue.name}</h1>
       </div>
-      {workflow && <HotelWorkflow steps={workflow} current="GUESTS" />}
+      {workflow && (
+        <div className="mb-6">
+          <ProgressStrip steps={workflow} current="GUESTS" label="Hotel workflow" />
+        </div>
+      )}
       <div className="max-w-5xl space-y-6">
         <PickupGuests
           guests={block.pickupGuests.map((g) => ({

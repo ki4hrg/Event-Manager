@@ -7,7 +7,7 @@ import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { FunctionForTable } from "./actions";
 import { getDateKeyInTimezone, formatDateHeading } from "@/lib/agendaUtils";
 import { colorClasses } from "@/lib/colors";
-import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
+import type { WorkflowRowSummary } from "@/lib/workflowProgress";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { ViewToggle } from "@/components/ui/ViewToggle";
@@ -27,7 +27,7 @@ type FunctionListProps = {
   substatuses: CustomOption[];
   // Schedule types grouped MAIN in Settings; they date each function.
   mainScheduleTypes: string[];
-  workflowSummaries?: Record<string, WorkflowBadgeSummary>;
+  workflowSummaries?: Record<string, WorkflowRowSummary>;
   initialStatus?: string;
   initialSchedule?: string;
   initialRoom?: string;

@@ -16,7 +16,7 @@ import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { hasPermission } from "@/lib/permissions";
 import { addVenueAmenity } from "@/app/venues/actions";
 import { AddBlockForm } from "../../../../hotels/AddBlockForm";
-import { HotelWorkflow } from "../../../../hotels/HotelWorkflow";
+import { ProgressStrip } from "@/components/ProgressStrip";
 import {
   createHotelBlock,
   getHotelWorkflow,
@@ -118,7 +118,11 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         }
       />
 
-      {workflow && <HotelWorkflow steps={workflow} current="PROPOSAL" />}
+      {workflow && (
+        <div className="mb-6">
+          <ProgressStrip steps={workflow} current="PROPOSAL" label="Hotel workflow" />
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0">
           {/* Autosaves: not keyed on updatedAt, or each save would remount it. */}

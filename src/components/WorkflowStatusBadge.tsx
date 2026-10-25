@@ -1,42 +1,4 @@
-import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
-
-type WorkflowInstanceForBadge = {
-  stepCompletions: { stepId: string }[];
-  itemCompletions: { itemId: string }[];
-  template: {
-    steps: {
-      id: string;
-      items: { id: string }[];
-    }[];
-  };
-};
-
-export function computeWorkflowBadgeSummary(
-  instances: WorkflowInstanceForBadge[]
-): WorkflowBadgeSummary | null {
-  if (instances.length === 0) return null;
-
-  let done = 0;
-  let total = 0;
-
-  for (const instance of instances) {
-    const completedStepIds = new Set(instance.stepCompletions.map((c) => c.stepId));
-    const completedItemIds = new Set(instance.itemCompletions.map((c) => c.itemId));
-    for (const step of instance.template.steps) {
-      if (step.items.length === 0) {
-        total++;
-        if (completedStepIds.has(step.id)) done++;
-      } else {
-        for (const item of step.items) {
-          total++;
-          if (completedItemIds.has(item.id)) done++;
-        }
-      }
-    }
-  }
-
-  return { count: instances.length, done, total };
-}
+import type { WorkflowBadgeSummary } from "@/lib/workflowProgress";
 
 type Props = {
   summary: WorkflowBadgeSummary | null;

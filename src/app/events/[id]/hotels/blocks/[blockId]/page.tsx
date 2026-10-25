@@ -13,7 +13,7 @@ import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { hasPermission } from "@/lib/permissions";
 import { getEvent } from "@/app/events/event";
 import { clearPickup, deleteHotelBlock, getBlockFormChoices, getHotelBlock, getHotelWorkflow, updateHotelBlock } from "../../../../hotels/actions";
-import { HotelWorkflow } from "../../../../hotels/HotelWorkflow";
+import { ProgressStrip } from "@/components/ProgressStrip";
 import { toBlockValues } from "../../../../hotels/blockCore";
 import { BlockForm } from "../../../../hotels/BlockForm";
 import { PickupPanel } from "../../../../hotels/PickupPanel";
@@ -106,7 +106,11 @@ export default async function BlockPage({
         }
       />
 
-      {workflow && <HotelWorkflow steps={workflow} current="BLOCK" />}
+      {workflow && (
+        <div className="mb-6">
+          <ProgressStrip steps={workflow} current="BLOCK" label="Hotel workflow" />
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 min-w-0 space-y-6">
           {/* Autosaves: not keyed on updatedAt, or each save would remount it. */}

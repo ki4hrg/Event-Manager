@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { StepFilterChip } from "@/components/StepFilterChip";
+import { atWorkflowStep, stepFilterLabel } from "@/lib/workflowProgress";
 import { FormLinkEntry } from "../../forms/FormLinkEntry";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -18,10 +20,10 @@ export default async function SupplyOrdersPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string; room?: string; linked?: string }>;
+  searchParams?: Promise<{ status?: string; room?: string; linked?: string; step?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus, room: initialRoom, linked: initialLinked } = (await searchParams) ?? {};
+  const { status: initialStatus, room: initialRoom, linked: initialLinked, step } = (await searchParams) ?? {};
 
   const [event, supplyOrders] = await Promise.all([
     getEvent(eventId),
@@ -33,6 +35,8 @@ export default async function SupplyOrdersPage({
   const workflowSummaries = supplyOrders.length > 0
     ? await getWorkflowBadgeSummaries("supply_order", supplyOrders.map((o) => o.id), eventId)
     : {};
+  const stepLabel = stepFilterLabel(workflowSummaries, step);
+  const shown = stepLabel && step ? supplyOrders.filter((r) => atWorkflowStep(workflowSummaries[r.id], step)) : supplyOrders;
 
   const deleteSupplyOrderAction = async (formData: FormData) => {
     "use server";
@@ -60,8 +64,13 @@ export default async function SupplyOrdersPage({
         <FormLinkEntry eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
       </div>
 
+      {stepLabel && (
+        <Suspense fallback={null}>
+          <StepFilterChip label={stepLabel} />
+        </Suspense>
+      )}
       <SupplyOrderList
-        supplyOrders={supplyOrders}
+        supplyOrders={shown}
         eventId={eventId}
         workflowSummaries={workflowSummaries}
         initialStatus={initialStatus}

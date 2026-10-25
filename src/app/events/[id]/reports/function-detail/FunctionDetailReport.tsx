@@ -25,6 +25,7 @@ import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/lib/partyLabel";
 import { labelMicroCaps } from "@/lib/reportStyles";
 import { formatDietaryCounts } from "@/lib/dietary";
+import { instanceProgress } from "@/lib/workflowProgress";
 
 type OptionList = { label: string; color?: string | null }[];
 
@@ -1116,8 +1117,8 @@ function WorkflowBlock({ instances }: { instances: Fn["workflowInstances"] }) {
   return (
     <div className="space-y-3">
       {instances.map((inst) => {
-        const stepIds = new Set(inst.stepCompletions.map((c) => c.stepId));
-        const itemIds = new Set(inst.itemCompletions.map((c) => c.itemId));
+        const progress = instanceProgress(inst);
+        const itemsDone = inst.itemCompletions.length;
         return (
           <div
             key={inst.id}
@@ -1132,25 +1133,25 @@ function WorkflowBlock({ instances }: { instances: Fn["workflowInstances"] }) {
               </p>
             )}
             <ul className="text-sm space-y-0.5">
-              {inst.template.steps
-                ?.sort((a, b) => a.sortOrder - b.sortOrder)
-                .map((s) => (
+              {inst.template.steps.map((s, i) => {
+                const done = progress.steps[i].status === "done";
+                return (
                   <li
                     key={s.id}
                     className="text-gray-700 dark:text-gray-300 flex items-baseline gap-2"
                   >
                     <span
                       className={
-                        stepIds.has(s.id)
+                        done
                           ? "text-green-600 dark:text-green-400"
-                          : "text-gray-400"
+                          : "text-gray-400 dark:text-gray-500"
                       }
                     >
-                      {stepIds.has(s.id) ? "✓" : "○"}
+                      {done ? "✓" : "○"}
                     </span>
                     <span
                       className={
-                        stepIds.has(s.id)
+                        done
                           ? "text-gray-900 dark:text-gray-100"
                           : ""
                       }
@@ -1158,11 +1159,12 @@ function WorkflowBlock({ instances }: { instances: Fn["workflowInstances"] }) {
                       {s.label}
                     </span>
                   </li>
-                ))}
+                );
+              })}
             </ul>
-            {itemIds.size > 0 && (
+            {itemsDone > 0 && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {itemIds.size} checklist item{itemIds.size === 1 ? "" : "s"} complete
+                {itemsDone} checklist item{itemsDone === 1 ? "" : "s"} complete
               </p>
             )}
           </div>
