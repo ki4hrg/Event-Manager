@@ -43,7 +43,7 @@ const listInclude = {
   venue: { select: { id: true, name: true, city: true, state: true, brand: true } },
   nights: { select: { night: true, roomType: true, rooms: true, rate: true } },
   blocks: { select: { id: true }, orderBy: { createdAt: "asc" } },
-  rfp: { select: { id: true, title: true } },
+  rfp: { select: { id: true, title: true, status: true } },
   leadSourceVendor: { select: { name: true } },
   _count: { select: { files: true } },
 } as const;
