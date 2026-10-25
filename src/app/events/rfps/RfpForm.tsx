@@ -39,6 +39,7 @@ export type RfpValues = {
   dateNotes: string | null;
   alternateDates: { startDate: string; endDate: string }[];
   peakRooms: number | null;
+  multiProperty: boolean;
   historyMatching: boolean;
   reservationMethod: string | null;
   commissionNotes: string | null;
@@ -238,6 +239,12 @@ export function RfpForm({
             <input type="checkbox" name="datesFlexible" value="true" defaultChecked={values.datesFlexible} className={checkClass} />
             Dates flexible
           </label>
+          {hotel && (
+            <label className={checkLabel}>
+              <input type="checkbox" name="multiProperty" value="true" defaultChecked={values.multiProperty} className={checkClass} />
+              Several properties
+            </label>
+          )}
           {alternates.map((a, i) => (
             <div key={i} className="flex flex-wrap items-end gap-2">
               <label className={labelClass}>

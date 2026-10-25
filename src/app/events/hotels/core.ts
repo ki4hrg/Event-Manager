@@ -570,12 +570,22 @@ async function addRecipient(tx: Prisma.TransactionClient, rfpId: string, venueId
 
 // A hotel RFP is decided once every block it requested has an accepted
 // proposal (a proposal_status in the ACCEPTED stage): an issued one closes,
-// as a vendor RFP does when its quote is accepted. Never reopens one.
+// as a vendor RFP does when its quote is accepted. A several-property RFP
+// waits until its accepted proposals together cover each block's rooms on
+// every night. Never reopens one; more proposals may still be accepted.
 export async function closeAwardedRfp(rfpId: string | null, eventId: string, userId: string) {
   if (!rfpId) return;
   const rfp = await prisma.rfp.findFirst({
     where: { id: rfpId, eventId, kind: "HOTEL", status: "ISSUED" },
-    select: { hotelBlocks: { select: { proposals: { select: { status: true } } } } },
+    select: {
+      multiProperty: true,
+      hotelBlocks: {
+        select: {
+          nights: { select: { night: true, rooms: true } },
+          proposals: { select: { status: true, nights: { select: { night: true, rooms: true } } } },
+        },
+      },
+    },
   });
   if (!rfp || rfp.hotelBlocks.length === 0) return;
   const accepted = new Set(
@@ -586,8 +596,21 @@ export async function closeAwardedRfp(rfpId: string | null, eventId: string, use
       })
     ).map((o) => o.label),
   );
-  if (!rfp.hotelBlocks.every((b) => b.proposals.some((p) => accepted.has(p.status)))) return;
+  const decided = (b: (typeof rfp.hotelBlocks)[number]) => {
+    const won = b.proposals.filter((p) => accepted.has(p.status));
+    if (!rfp.multiProperty) return won.length > 0;
+    if (won.length === 0) return false;
+    const held = roomsByNight(won.flatMap((p) => p.nights));
+    return Object.entries(roomsByNight(b.nights)).every(([night, want]) => (held[night] ?? 0) >= want);
+  };
+  if (!rfp.hotelBlocks.every(decided)) return;
   await prisma.rfp.update({ where: { id: rfpId, eventId }, data: { status: "CLOSED", updatedById: userId } });
+}
+
+function roomsByNight(nights: { night: Date; rooms: number | null }[]) {
+  const out: Record<string, number> = {};
+  for (const n of nights) out[dateKey(n.night)] = (out[dateKey(n.night)] ?? 0) + (n.rooms ?? 0);
+  return out;
 }
 
 export async function createHotelProposalCore(eventId: string, args: ProposalWriteArgs, userId: string) {

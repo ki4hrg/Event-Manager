@@ -314,11 +314,11 @@ export async function getRfpLineItemCandidates(id: string, eventId: string): Pro
   return rfpLineItemCandidatesCore(id, eventId, session.user.id);
 }
 
-export async function getRfpComparison(id: string, eventId: string) {
+export async function getRfpComparison(id: string, eventId: string, combine: string[] = []) {
   const rfp = await prisma.rfp.findFirst({ where: { id, eventId }, select: { kind: true } });
   if (!rfp) return null;
   const session = await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
-  return getRfpComparisonCore(id, eventId, session.user.id);
+  return getRfpComparisonCore(id, eventId, session.user.id, combine);
 }
 
 // A requested block filled from past pickup (src/lib/hotelPattern.ts), dated
@@ -381,6 +381,7 @@ function readRfp(formData: FormData): RfpWriteArgs {
     dateNotes: str("dateNotes"),
     alternateDates: readJson<{ startDate: string; endDate: string }>(formData, "alternateDates"),
     peakRooms: formData.get("peakRooms") ? parseInt(formData.get("peakRooms") as string) : null,
+    multiProperty: formData.get("multiProperty") === "true",
     historyMatching: formData.get("historyMatching") === "true",
     reservationMethod: pick("reservationMethod"),
     commissionNotes: str("commissionNotes"),

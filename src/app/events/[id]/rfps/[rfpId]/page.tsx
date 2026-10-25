@@ -162,6 +162,7 @@ export default async function VendorRfpPage({
                   dateNotes: rfp.dateNotes,
                   alternateDates: rfp.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
                   peakRooms: null,
+                  multiProperty: false,
                   historyMatching: false,
                   reservationMethod: null,
                   commissionNotes: null,

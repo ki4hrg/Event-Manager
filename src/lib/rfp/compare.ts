@@ -1,9 +1,16 @@
 // Proposal comparison: each proposal answering an RFP against the block it was
 // asked for. One group per requested block, plus one for RFP proposals not
 // tied to a block. Read by the compare page and its .docx. Pure.
+//
+// A block can be met by several hotels: a several-property RFP always, a
+// one-property RFP when a second offer is accepted. The combined set is the
+// accepted proposals plus any picked to try (`combine`); with one hotel or
+// more on a several-property RFP, or two or more otherwise, the group sums
+// it against the request. A several-property RFP doesn't mark one offer
+// short of the whole request — the set's gap and excess carry that.
 
 import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope } from "@prisma/client";
-import { CHARGE_SCOPE_LABELS, dateKey, formatDateKey, formatMoney, formatNight, MET_LABELS } from "@/lib/hotels";
+import { CHARGE_SCOPE_LABELS, dateKey, formatDateKey, formatMoney, formatNight, MET_LABELS, type ContractKind, type ProposalStage } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
 import { spaceSummary, type SpaceRequestDoc, type StoredSpace } from "@/lib/rfp/proposalSpace";
 
@@ -12,6 +19,7 @@ type Dec = { toString(): string } | null;
 export type CompareInput = {
   title: string;
   eventName: string;
+  multiProperty: boolean;
   amenities: string[]; // requested
   blocks: { id: string; contractType: string; guestType: string | null; targetRate: Dec; nights: { night: Date; rooms: number }[] }[];
   concessions: { id: string; label: string; value: string | null; required: boolean }[];
@@ -22,6 +30,10 @@ export type CompareInput = {
     id: string;
     hotel: string;
     status: string;
+    stage: ProposalStage | null;
+    contractKind: ContractKind | null;
+    brand: string | null;
+    area: string | null;
     revision: number;
     rfpBlockId: string | null;
     hasBlock: boolean;
@@ -49,6 +61,11 @@ export type CompareOffer = {
   id: string;
   hotel: string;
   status: string;
+  stage: ProposalStage | null;
+  // In the combined set: accepted, or picked to try.
+  combined: boolean;
+  brand: string | null;
+  area: string | null;
   revision: number;
   hasBlock: boolean;
   byNight: Record<string, number>;
@@ -80,16 +97,36 @@ export type CompareOffer = {
   met: { met: number; partial: number; notMet: number; requiredNotMet: number };
 };
 
+// The combined set summed against the request. over: rooms past the request
+// per night, overContracted: the part of it held with attrition (a contract
+// type with no kind counts as one).
+export type CompareCombined = {
+  hotels: string[];
+  byNight: Record<string, number>;
+  gap: Record<string, number>;
+  over: Record<string, number>;
+  overContracted: Record<string, number>;
+  peak: number;
+  roomNights: number;
+  avgRate: number | null;
+  rateRange: [number, number] | null;
+  roomRevenue: number | null;
+  brands: number;
+  areas: number;
+};
+
 export type CompareGroup = {
   label: string;
   requested: { byNight: Record<string, number>; peak: number; roomNights: number; targetRate: number | null } | null;
   nights: string[];
   offers: CompareOffer[];
+  combined: CompareCombined | null;
 };
 
 export type RfpComparison = {
   title: string;
   eventName: string;
+  multiProperty: boolean;
   amenities: string[];
   concessions: CompareInput["concessions"];
   meetingSpace: SpaceRequestDoc[];
@@ -109,7 +146,12 @@ function byNight(nights: { night: Date; rooms: number | null }[]) {
   return out;
 }
 
-function offer(p: CompareInput["proposals"][number], requested: Record<string, number> | null, concessions: CompareInput["concessions"]): CompareOffer {
+function offer(
+  p: CompareInput["proposals"][number],
+  requested: Record<string, number> | null,
+  concessions: CompareInput["concessions"],
+  combine: Set<string>,
+): CompareOffer {
   const rooms = byNight(p.nights);
   const priced = p.nights.filter((n) => n.rooms && n.rate != null);
   const revenue = sum(priced.map((n) => n.rooms! * num(n.rate)!));
@@ -125,6 +167,10 @@ function offer(p: CompareInput["proposals"][number], requested: Record<string, n
     id: p.id,
     hotel: p.hotel,
     status: p.status,
+    stage: p.stage,
+    combined: p.stage === "ACCEPTED" || (p.stage !== "DECLINED" && combine.has(p.id)),
+    brand: p.brand,
+    area: p.area,
     revision: p.revision,
     hasBlock: p.hasBlock,
     byNight: rooms,
@@ -162,27 +208,99 @@ function offer(p: CompareInput["proposals"][number], requested: Record<string, n
   };
 }
 
-function group(label: string, requested: CompareGroup["requested"], proposals: CompareInput["proposals"], concessions: CompareInput["concessions"]): CompareGroup {
-  const offers = proposals.map((p) => offer(p, requested?.byNight ?? null, concessions)).sort((a, b) => a.hotel.localeCompare(b.hotel));
-  const nights = Array.from(new Set([...Object.keys(requested?.byNight ?? {}), ...offers.flatMap((o) => Object.keys(o.byNight))])).sort();
-  return { label, requested, nights, offers };
+function combinedOf(
+  offers: CompareOffer[],
+  kinds: Map<string, ContractKind | null>,
+  requested: Record<string, number> | null,
+  nightsOf: Map<string, CompareInput["proposals"][number]["nights"]>,
+): CompareCombined {
+  const set = offers.filter((o) => o.combined);
+  const rooms: Record<string, number> = {};
+  const contracted: Record<string, number> = {};
+  for (const o of set) {
+    for (const [night, n] of Object.entries(o.byNight)) {
+      rooms[night] = (rooms[night] ?? 0) + n;
+      if (kinds.get(o.id) !== "COURTESY") contracted[night] = (contracted[night] ?? 0) + n;
+    }
+  }
+  const gap: Record<string, number> = {};
+  const over: Record<string, number> = {};
+  const overContracted: Record<string, number> = {};
+  if (requested) {
+    for (const night of Array.from(new Set([...Object.keys(requested), ...Object.keys(rooms)]))) {
+      const want = requested[night] ?? 0;
+      const have = rooms[night] ?? 0;
+      if (have < want) gap[night] = want - have;
+      if (have > want) over[night] = have - want;
+      if ((contracted[night] ?? 0) > want) overContracted[night] = contracted[night] - want;
+    }
+  }
+  const priced = set.flatMap((o) => (nightsOf.get(o.id) ?? []).filter((n) => n.rooms && n.rate != null));
+  const pricedRooms = sum(priced.map((n) => n.rooms!));
+  const revenue = sum(priced.map((n) => n.rooms! * num(n.rate)!));
+  const rates = set.flatMap((o) => (o.avgRate != null ? [o.avgRate] : []));
+  const distinct = (vs: (string | null)[]) => new Set(vs.filter(Boolean)).size;
+  return {
+    hotels: set.map((o) => o.hotel),
+    byNight: rooms,
+    gap,
+    over,
+    overContracted,
+    peak: Math.max(0, ...Object.values(rooms)),
+    roomNights: sum(Object.values(rooms)),
+    avgRate: pricedRooms ? Math.round((revenue / pricedRooms) * 100) / 100 : null,
+    rateRange: rates.length ? [Math.min(...rates), Math.max(...rates)] : null,
+    roomRevenue: priced.length ? revenue : null,
+    brands: distinct(set.map((o) => o.brand)),
+    areas: distinct(set.map((o) => o.area)),
+  };
 }
 
-export function buildComparison(input: CompareInput): RfpComparison {
+function group(
+  label: string,
+  requested: CompareGroup["requested"],
+  proposals: CompareInput["proposals"],
+  input: CompareInput,
+  combine: Set<string>,
+): CompareGroup {
+  const offers = proposals
+    .map((p) => offer(p, requested?.byNight ?? null, input.concessions, combine))
+    // Several properties: by price point, low to high (unpriced last).
+    .sort((a, b) => (input.multiProperty ? (a.avgRate ?? Infinity) - (b.avgRate ?? Infinity) : 0) || a.hotel.localeCompare(b.hotel));
+  const nights = Array.from(new Set([...Object.keys(requested?.byNight ?? {}), ...offers.flatMap((o) => Object.keys(o.byNight))])).sort();
+  const inSet = offers.filter((o) => o.combined).length;
+  const combined =
+    inSet >= (input.multiProperty ? 1 : 2)
+      ? combinedOf(
+          offers,
+          new Map(proposals.map((p) => [p.id, p.contractKind])),
+          requested?.byNight ?? null,
+          new Map(proposals.map((p) => [p.id, p.nights])),
+        )
+      : null;
+  return { label, requested, nights, offers, combined };
+}
+
+// combine: proposal ids to try in the combined set beside the accepted ones;
+// ids that aren't this RFP's proposals are ignored.
+export function buildComparison(input: CompareInput, combine: string[] = []): RfpComparison {
+  const picked = new Set(combine);
   const groups = input.blocks.map((b) => {
     const req = byNight(b.nights);
     return group(
       blockLabel(b.contractType, b.guestType),
       { byNight: req, peak: Math.max(0, ...Object.values(req)), roomNights: sum(Object.values(req)), targetRate: num(b.targetRate) },
       input.proposals.filter((p) => p.rfpBlockId === b.id),
-      input.concessions,
+      input,
+      picked,
     );
   });
   const loose = input.proposals.filter((p) => !p.rfpBlockId || !input.blocks.some((b) => b.id === p.rfpBlockId));
-  if (loose.length) groups.push(group("Not tied to a requested block", null, loose, input.concessions));
+  if (loose.length) groups.push(group("Not tied to a requested block", null, loose, input, picked));
   return {
     title: input.title,
     eventName: input.eventName,
+    multiProperty: input.multiProperty,
     amenities: input.amenities,
     concessions: input.concessions,
     meetingSpace: input.meetingSpace,
@@ -192,6 +310,21 @@ export function buildComparison(input: CompareInput): RfpComparison {
   };
 }
 
+// ?combine=id1,id2 — the proposals tried in the combined set.
+export const COMBINE_PARAM = "combine";
+export function parseCombine(param: string | string[] | undefined): string[] {
+  return (Array.isArray(param) ? param.join(",") : (param ?? "")).split(",").filter(Boolean);
+}
+export function combineQuery(ids: string[]): string {
+  return ids.length ? `?${COMBINE_PARAM}=${ids.map(encodeURIComponent).join(",")}` : "";
+}
+
+// "Hilton, Marriott · 2 brands · 1 area"
+export function combinedSummary(c: CompareCombined): string {
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  return [c.hotels.join(", "), c.brands ? plural(c.brands, "brand") : null, c.areas ? plural(c.areas, "area") : null].filter(Boolean).join(" · ");
+}
+
 export function metSummary(o: CompareOffer, total: number): string {
   if (total === 0) return "—";
   return [`${o.met.met}/${total} met`, o.met.partial ? `${o.met.partial} partial` : null, o.met.requiredNotMet ? `${o.met.requiredNotMet} required open` : null]
@@ -199,7 +332,9 @@ export function metSummary(o: CompareOffer, total: number): string {
     .join(" · ");
 }
 
-export type CompareRow = { label: string; requested: string; cells: { text: string; short: boolean }[] };
+// combined: the combined set's value, when the group has one ("" where a
+// measure doesn't sum).
+export type CompareRow = { label: string; requested: string; combined: { text: string; short: boolean } | null; cells: { text: string; short: boolean }[] };
 
 const money = (n: number | null) => (n == null ? "—" : formatMoney(n));
 
@@ -210,26 +345,75 @@ export function comparisonRows(
   g: CompareGroup,
   concessions: CompareInput["concessions"],
   amenities: string[] = [],
-  asked: Pick<RfpComparison, "meetingSpace" | "mealTypes" | "fbMinimum"> = { meetingSpace: [], mealTypes: [], fbMinimum: null },
+  asked: Pick<RfpComparison, "meetingSpace" | "mealTypes" | "fbMinimum" | "multiProperty"> = { meetingSpace: [], mealTypes: [], fbMinimum: null, multiProperty: false },
 ): CompareRow[] {
   const req = g.requested;
-  const row = (label: string, requested: string, cell: (o: CompareOffer) => { text: string; short?: boolean }): CompareRow => ({
+  const c = g.combined;
+  // One offer of several isn't short for holding part of the request.
+  const whole = !asked.multiProperty;
+  const share = (n: number, of: number) => (asked.multiProperty && of > 0 ? ` · ${Math.round((n / of) * 100)}%` : "");
+  const row = (
+    label: string,
+    requested: string,
+    cell: (o: CompareOffer) => { text: string; short?: boolean },
+    combined?: { text: string; short?: boolean },
+  ): CompareRow => ({
     label,
     requested,
+    combined: c ? { text: combined?.text ?? "", short: combined?.short ?? false } : null,
     cells: g.offers.map((o) => {
-      const c = cell(o);
-      return { text: c.text, short: c.short ?? false };
+      const v = cell(o);
+      return { text: v.text, short: v.short ?? false };
     }),
   });
+  const nightMark = (night: string) => {
+    if (!c) return { text: "" };
+    const n = c.byNight[night] ?? 0;
+    if (c.gap[night]) return { text: `${n} (−${c.gap[night]})`, short: true };
+    if (c.overContracted[night]) return { text: `${n} (+${c.over[night]}, ${c.overContracted[night]} contracted)`, short: true };
+    if (c.over[night]) return { text: `${n} (+${c.over[night]})` };
+    return { text: String(n) };
+  };
+  const anyOverContracted = !!c && Object.keys(c.overContracted).length > 0;
   return [
-    row("Status", "", (o) => ({ text: `${o.status}${o.revision > 1 ? ` · rev ${o.revision}` : ""}${o.hasBlock ? " · block" : ""}` })),
-    row("Room nights", req ? String(req.roomNights) : "—", (o) => ({ text: String(o.roomNights), short: !!req && o.roomNights < req.roomNights })),
-    row("Peak night", req ? String(req.peak) : "—", (o) => ({ text: String(o.peak), short: !!req && o.peak < req.peak })),
-    row("Average rate", req?.targetRate != null ? `target ${money(req.targetRate)}` : "—", (o) => ({
-      text: `${money(o.avgRate)}${o.avgRate != null && o.taxIncluded === true ? " incl. tax" : ""}`,
-      short: req?.targetRate != null && o.avgRate != null && o.avgRate > req.targetRate,
-    })),
-    row("Room revenue", "", (o) => ({ text: money(o.roomRevenue) })),
+    row(
+      "Status",
+      "",
+      (o) => ({ text: `${o.status}${o.revision > 1 ? ` · rev ${o.revision}` : ""}${o.hasBlock ? " · block" : ""}${c && o.combined ? " · combined" : ""}` }),
+      c ? { text: `${c.hotels.length} ${c.hotels.length === 1 ? "hotel" : "hotels"}` } : undefined,
+    ),
+    row(
+      "Room nights",
+      req ? String(req.roomNights) : "—",
+      (o) => ({ text: `${o.roomNights}${share(o.roomNights, req?.roomNights ?? 0)}`, short: whole && !!req && o.roomNights < req.roomNights }),
+      c
+        ? {
+            text: `${c.roomNights}${req && c.roomNights !== req.roomNights ? ` (${c.roomNights > req.roomNights ? "+" : "−"}${Math.abs(c.roomNights - req.roomNights)})` : ""}`,
+            short: (!!req && c.roomNights < req.roomNights) || anyOverContracted,
+          }
+        : undefined,
+    ),
+    row(
+      "Peak night",
+      req ? String(req.peak) : "—",
+      (o) => ({ text: String(o.peak), short: whole && !!req && o.peak < req.peak }),
+      c ? { text: String(c.peak), short: !!req && c.peak < req.peak } : undefined,
+    ),
+    row(
+      "Average rate",
+      req?.targetRate != null ? `target ${money(req.targetRate)}` : "—",
+      (o) => ({
+        text: `${money(o.avgRate)}${o.avgRate != null && o.taxIncluded === true ? " incl. tax" : ""}`,
+        short: req?.targetRate != null && o.avgRate != null && o.avgRate > req.targetRate,
+      }),
+      c
+        ? {
+            text: `${money(c.avgRate)}${c.rateRange && c.rateRange[0] !== c.rateRange[1] ? `\n${money(c.rateRange[0])}–${money(c.rateRange[1])}` : ""}`,
+            short: req?.targetRate != null && c.avgRate != null && c.avgRate > req.targetRate,
+          }
+        : undefined,
+    ),
+    row("Room revenue", "", (o) => ({ text: money(o.roomRevenue) }), c ? { text: money(c.roomRevenue) } : undefined),
     row("Attrition", "", (o) => ({ text: o.attrition ?? "—" })),
     row("Guaranteed revenue", "", (o) => ({ text: o.guaranteedRevenue ?? "—" })),
     row("Valid until", "", (o) => ({ text: o.validUntil ? formatDateKey(o.validUntil) : "—" })),
@@ -274,10 +458,15 @@ export function comparisonRows(
     ),
     row("Also offered", "", (o) => ({ text: o.alsoOffered.join("\n") || "—" })),
     ...g.nights.map((night) =>
-      row(formatNight(night), req ? String(req.byNight[night] ?? 0) : "", (o) => ({
-        text: `${o.byNight[night] ?? 0}${o.shortfall[night] ? ` (−${o.shortfall[night]})` : ""}`,
-        short: !!o.shortfall[night],
-      })),
+      row(
+        formatNight(night),
+        req ? String(req.byNight[night] ?? 0) : "",
+        (o) =>
+          whole
+            ? { text: `${o.byNight[night] ?? 0}${o.shortfall[night] ? ` (−${o.shortfall[night]})` : ""}`, short: !!o.shortfall[night] }
+            : { text: String(o.byNight[night] ?? 0) },
+        nightMark(night),
+      ),
     ),
   ];
 }
