@@ -1,7 +1,7 @@
 # Workflow progress: strips, dots, automatic steps, deadlines and owners
 
-Status: phase 1 implemented (strips, dots, overview counts on today's
-workflows); phases 2–3 proposed. From an interview with the owner; no open
+Status: phases 1 (strips, dots, overview counts) and 2 (completion modes,
+checks, optional items) implemented; phase 3 proposed. From an interview with the owner; no open
 questions. It folds in
 [#43 deadlines](./43-deadlines-expected-completion.md) and
 [#44 responsibility per step](./44-responsibility-per-step.md): one design,
@@ -159,6 +159,20 @@ The RFP checks read through `RfpLineItem.{avOrderId, cateringOrderId,
 printOrderId}`, which is how a vendor RFP already remembers its source
 orders. So an AV template can run "RFP issued → Quotes in → Awarded → Advance
 sent", and a catering template can use only "Awarded".
+
+**As built (phase 2).** The editor offers the checks that apply to every
+record type the template is the default for (all of them when it's the
+default for none). `ITEMS_ENTERED` counts AV order equipment, catering line
+items or menu sections, setup tables / details / equipment, print items and
+supply items. Equipment, print and supply lines also need a quantity above
+zero. `QUOTES_IN` holds once any of the order's RFP lines has a quote line.
+A function is `SCHEDULED` with a schedule entry and a room, an off-site
+location, or as a breakout block. `HEADCOUNT_SET` reads a catering order's
+guarantee count and a function's expected attendance. Media deliverables
+also get `VENDOR_ASSIGNED` (their provider) and `LINKED_TO_FUNCTION`.
+Unticking a required item drops its step's confirm and cascades later steps;
+an optional item moves nothing. Changing a template step's mode doesn't
+re-derive existing records' statuses; their next write or tick does.
 
 **Storage.** An `AUTO` step's state is never stored: it is computed on read,
 so dots, strips and counts can't drift. The one stored thing that can go

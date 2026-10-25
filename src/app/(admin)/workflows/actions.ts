@@ -7,7 +7,22 @@ import { requireActiveTenantId } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
-import type { EntityStatus } from "@prisma/client";
+import type { EntityStatus, WorkflowCompletionMode } from "@prisma/client";
+import { isWorkflowCheckKey } from "@/lib/workflowChecks";
+
+const COMPLETION_MODES: readonly WorkflowCompletionMode[] = ["MANUAL", "AUTO", "PROMPT"];
+
+// The step's completion fields, when the form posts them (the label and status
+// forms don't). Automatic and confirm modes need a known check; manual drops it.
+function parseCompletion(formData: FormData) {
+  if (!formData.has("completionMode")) return {};
+  const mode = formData.get("completionMode") as WorkflowCompletionMode;
+  if (!COMPLETION_MODES.includes(mode)) throw new Error("Unknown completion mode");
+  if (mode === "MANUAL") return { completionMode: mode, computedKey: null };
+  const key = formData.get("computedKey") as string | null;
+  if (!isWorkflowCheckKey(key)) throw new Error("Pick what completes the step");
+  return { completionMode: mode, computedKey: key };
+}
 
 // --- Templates ---
 
@@ -169,7 +184,7 @@ export async function updateWorkflowStep(id: string, templateId: string, formDat
 
   await prisma.workflowStep.update({
     where: { id, templateId },
-    data: { label, pendingStatusValue, pendingSubstatusValue },
+    data: { label, pendingStatusValue, pendingSubstatusValue, ...parseCompletion(formData) },
   });
   await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
@@ -226,8 +241,9 @@ export async function updateChecklistItem(id: string, templateId: string, formDa
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   await assertTemplateInTenant(templateId, session.tenantId);
   const label = formData.get("label") as string;
+  const required = formData.has("required") ? { required: formData.get("required") === "true" } : {};
 
-  await prisma.workflowChecklistItem.update({ where: { id, step: { templateId } }, data: { label } });
+  await prisma.workflowChecklistItem.update({ where: { id, step: { templateId } }, data: { label, ...required } });
   await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
 }

@@ -6,12 +6,14 @@ import type {
   WorkflowTemplate,
   WorkflowStep,
   WorkflowChecklistItem,
+  WorkflowCompletionMode,
   CustomOption,
   EntityStatus,
 } from "@prisma/client";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { WORKFLOW_ENTITY_LABELS } from "@/app/events/workflows/entity-types";
+import { WORKFLOW_CHECKS, checksForEntityTypes, isWorkflowCheckKey, type WorkflowCheckKey } from "@/lib/workflowChecks";
 
 type StepWithItems = WorkflowStep & { items: WorkflowChecklistItem[] };
 type TemplateWithSteps = WorkflowTemplate & {
@@ -37,6 +39,15 @@ type WorkflowEditorProps = {
 };
 
 const ENTITY_TYPE_OPTIONS = Object.entries(WORKFLOW_ENTITY_LABELS).map(([value, label]) => ({ value, label }));
+
+const MODE_OPTIONS: { value: WorkflowCompletionMode; label: string }[] = [
+  { value: "MANUAL", label: "Ticked by hand" },
+  { value: "AUTO", label: "Automatically" },
+  { value: "PROMPT", label: "Confirm when ready" },
+];
+
+const selectClass =
+  "w-full sm:w-auto min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm";
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -98,6 +109,21 @@ function ChecklistItemRow({
         <span className="text-sm text-gray-700 dark:text-gray-300 break-words min-w-0">{item.label}</span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        <form action={(fd) => updateItem(item.id, fd)}>
+          <input type="hidden" name="label" value={item.label} />
+          <input type="hidden" name="required" value={item.required ? "false" : "true"} />
+          <button
+            type="submit"
+            title={item.required ? "Make optional" : "Make required"}
+            className={`text-xs px-1.5 py-0.5 rounded ${
+              item.required
+                ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                : "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+            }`}
+          >
+            {item.required ? "Required" : "Optional"}
+          </button>
+        </form>
         <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
           Edit
         </button>
@@ -115,6 +141,7 @@ function ChecklistItemRow({
 function StepRow({
   step,
   index,
+  checks,
   substatuses,
   updateStep,
   deleteStep,
@@ -124,6 +151,7 @@ function StepRow({
 }: {
   step: StepWithItems;
   index: number;
+  checks: WorkflowCheckKey[];
   substatuses: CustomOption[];
   updateStep: (id: string, formData: FormData) => Promise<void>;
   deleteStep: (id: string) => Promise<void>;
@@ -135,6 +163,10 @@ function StepRow({
   const [addingItem, setAddingItem] = useState(false);
   const [editPendingStatus, setEditPendingStatus] = useState<string>(step.pendingStatusValue ?? "");
   const filteredPendingSubstatuses = substatuses.filter((s) => s.group === (editPendingStatus || null));
+  const [mode, setMode] = useState<WorkflowCompletionMode>(step.completionMode);
+  const savedCheck = isWorkflowCheckKey(step.computedKey) ? step.computedKey : null;
+  // A check the template's record types can't use still shows, so it can be changed.
+  const checkOptions = savedCheck && !checks.includes(savedCheck) ? [savedCheck, ...checks] : checks;
 
   return (
     <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2">
@@ -183,6 +215,11 @@ function StepRow({
               {step.items.length > 0 && (
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   ({step.items.length} checklist item{step.items.length !== 1 ? "s" : ""})
+                </span>
+              )}
+              {step.completionMode !== "MANUAL" && savedCheck && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                  {step.completionMode === "AUTO" ? "Auto" : "Confirm"}: {WORKFLOW_CHECKS[savedCheck].label}
                 </span>
               )}
             </div>
@@ -251,6 +288,50 @@ function StepRow({
               </select>
             )}
           </form>
+          <form
+            action={async (fd) => {
+              await updateStep(step.id, fd);
+            }}
+            className="grid grid-cols-1 gap-2 pl-6 sm:flex sm:items-center"
+          >
+            <input type="hidden" name="label" value={step.label} />
+            <input type="hidden" name="pendingStatusValue" value={editPendingStatus} />
+            <input type="hidden" name="pendingSubstatusValue" value={step.pendingSubstatusValue ?? ""} />
+            <label className="text-xs text-gray-500 dark:text-gray-400 sm:w-16 sm:shrink-0">Completes</label>
+            <select
+              name="completionMode"
+              value={mode}
+              onChange={(e) => {
+                const next = e.target.value as WorkflowCompletionMode;
+                setMode(next);
+                // Automatic and confirm modes need a check; pick one before saving.
+                if (next === "MANUAL" || savedCheck) e.currentTarget.form?.requestSubmit();
+              }}
+              disabled={checkOptions.length === 0 && mode === "MANUAL"}
+              className={selectClass}
+            >
+              {MODE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {mode !== "MANUAL" && (
+              <select
+                name="computedKey"
+                defaultValue={savedCheck ?? ""}
+                onChange={(e) => e.target.value && e.currentTarget.form?.requestSubmit()}
+                className={selectClass}
+              >
+                {!savedCheck && <option value="">When…</option>}
+                {checkOptions.map((k) => (
+                  <option key={k} value={k}>
+                    {WORKFLOW_CHECKS[k].label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </form>
         </>
       )}
 
@@ -314,6 +395,7 @@ export function WorkflowEditor({
   const filteredAddPendingSubstatuses = substatuses.filter((s) => s.group === (addStepPendingStatus || null));
   const filteredTemplatePendingSubstatuses = substatuses.filter((s) => s.group === (editTemplatePendingStatus || null));
   const filteredCompletionSubstatuses = substatuses.filter((s) => s.group === (editCompletionStatus || null));
+  const checks = checksForEntityTypes(template.defaultForEntityTypes);
 
   return (
     <div className="space-y-6">
@@ -539,6 +621,7 @@ export function WorkflowEditor({
               key={`${step.id}-${step.updatedAt.toISOString()}`}
               step={step}
               index={index}
+              checks={checks}
               substatuses={substatuses}
               updateStep={updateStep}
               deleteStep={deleteStep}

@@ -198,20 +198,23 @@ function WorkflowInstancePanel({
                     </span>
                   )}
                   {note && <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{note}</span>}
-                  {sp.status === "prompt" && !isLocked && (
-                    <button
-                      onClick={() => handleToggleStep(step.id)}
-                      disabled={stepPending}
-                      title={sp.check ? WORKFLOW_CHECKS[sp.check].label : undefined}
-                      className="text-xs px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 shrink-0 disabled:opacity-50"
-                    >
-                      Looks done · Confirm
-                    </button>
-                  )}
                   {isLocked && !stepDone && tickable && (
                     <span className="shrink-0"><LockIcon /></span>
                   )}
                 </div>
+                {sp.status === "prompt" && !isLocked && (
+                  <div className="flex items-center gap-2 pl-12 pr-4 pb-2.5 -mt-1">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Looks done</span>
+                    <button
+                      onClick={() => handleToggleStep(step.id)}
+                      disabled={stepPending}
+                      title={sp.check ? WORKFLOW_CHECKS[sp.check].label : undefined}
+                      className="text-xs px-2 py-0.5 rounded bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50"
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                )}
 
                 {isChecklistStep && (
                   <div className="pb-1">
