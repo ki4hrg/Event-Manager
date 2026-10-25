@@ -14,7 +14,7 @@ export async function loadHotelConcessions(eventId: string): Promise<HotelConces
     select: { label: true },
   });
   const proposals = await prisma.hotelProposal.findMany({
-    where: { eventId, OR: [{ status: { in: accepted.map((s) => s.label) } }, { block: { isNot: null } }] },
+    where: { eventId, OR: [{ status: { in: accepted.map((s) => s.label) } }, { blocks: { some: {} } }] },
     select: {
       venue: { select: { name: true } },
       concessions: {

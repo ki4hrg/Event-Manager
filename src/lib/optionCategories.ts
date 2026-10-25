@@ -11,7 +11,7 @@
 
 import { EntityStatus, PackingStatus, PermissionResource, Prisma } from "@prisma/client";
 import { FUNCTION_SPACES, MEAL_BUCKETS, SCHEDULE_ROLES } from "@/lib/esg/apex";
-import { CHARGE_SCOPES, PROPOSAL_STAGES } from "@/lib/hotels";
+import { CHARGE_SCOPES, CONTRACT_KINDS, PROPOSAL_STAGES } from "@/lib/hotels";
 import { CONCESSION_GROUPS } from "@/lib/rfp/sections";
 import { hotelLabelUses, mergeHotelLabel, type HotelLabelCategory } from "@/lib/hotelLabels";
 import { MAIN_SCHEDULE_GROUP } from "@/lib/scheduleTypes";
@@ -230,12 +230,14 @@ export const OPTION_SECTIONS = {
     title: "Hotels",
     lists: [
       "hotel_room_type",
+      "hotel_contract_type",
       "hotel_guest_type",
       "hotel_amenity",
       "hotel_charge",
       "hotel_brand",
       "reservation_method",
       "proposal_status",
+      "hotel_days_out",
       "per_housing_provider",
     ],
   },
@@ -505,11 +507,34 @@ export const OPTION_CATEGORIES = {
     resource: SETTINGS,
     renameTargets: HOTEL_ROOM_TYPE_TARGETS,
   },
+  // group: whether blocks of the type carry attrition (CONTRACT_KINDS).
+  hotel_contract_type: {
+    title: "Contract Types",
+    description: "Contract types for hotel proposals and RFPs.",
+    groups: { kind: "fixed", label: "Attrition", choices: CONTRACT_KINDS },
+    resource: SETTINGS,
+    renameTargets: [
+      col("hotelProposal", "contractType", inEvent),
+      col("hotelBlock", "contractType", (t) => ({ proposal: inEvent(t) })),
+      col("rfpHotelBlock", "contractType", (t) => ({ rfp: inEvent(t) })),
+    ],
+  },
   hotel_guest_type: {
     title: "Guest Types",
     description: "Guest types for hotel proposals and RFPs.",
     resource: SETTINGS,
-    renameTargets: [col("hotelProposal", "guestType", inEvent), col("rfpHotelBlock", "guestType", (t) => ({ rfp: inEvent(t) }))],
+    renameTargets: [
+      col("hotelProposal", "guestType", inEvent),
+      col("hotelBlock", "guestType", (t) => ({ proposal: inEvent(t) })),
+      col("rfpHotelBlock", "guestType", (t) => ({ rfp: inEvent(t) })),
+    ],
+  },
+  // Labels are day counts (daysOutLabelError); nothing stores them.
+  hotel_days_out: {
+    title: "Pickup Checkpoints",
+    description: "Days before a block's first night to compare pickup at.",
+    resource: SETTINGS,
+    renameTargets: [],
   },
   hotel_amenity: {
     title: "Amenities",

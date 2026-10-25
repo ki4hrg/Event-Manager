@@ -38,7 +38,7 @@ export default async function NewRfpPage({
   let blocks: RfpBlockArgs[] = [];
   if (sp.basis) {
     const basis = sp.basis === "highest" || sp.basis === "latest" ? sp.basis : "average";
-    const contractType = parseContractTypes(sp.contract)[0] ?? null;
+    const contractType = parseContractTypes(sp.contract, choices.contractTypes)[0] ?? null;
     const guestType = sp.guest && choices.guestTypes.includes(sp.guest) ? sp.guest : null;
     const adjust = Number.parseInt(sp.adjust ?? "", 10);
     const seriesId = choices.series.some((s) => s.id === sp.series) ? sp.series! : null;
@@ -56,7 +56,7 @@ export default async function NewRfpPage({
     if (fill.nights.length) {
       blocks = [
         {
-          contractType: contractType ?? "CONTRACT",
+          contractType: contractType ?? choices.contractTypes[0] ?? "",
           guestType: guestType ?? choices.guestTypes[0] ?? null,
           targetRate: null,
           notes: null,

@@ -8,10 +8,10 @@
 
 import { randomUUID } from "crypto";
 import { mkdirSync, writeFileSync } from "fs";
-import type { HotelContractType, Prisma, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
+import type { Prisma, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermissionForUser, PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
-import { addDays, blockTypeLabel, CONTRACT_TYPE_LABELS, dateFromKey, dateKey } from "@/lib/hotels";
+import { addDays, blockTypeLabel, dateFromKey, dateKey } from "@/lib/hotels";
 import { buildRfpDocument } from "@/lib/rfp/document";
 import { effectiveScope, scopeLabels } from "@/lib/areas";
 import { resolveRfpFileType, rfpFileTypeLabel } from "@/lib/fileTypes";
@@ -81,7 +81,7 @@ export type RfpSpaceArgs = {
 
 export type RfpBlockArgs = {
   id?: string | null; // an existing block keeps its id (and its proposals' links)
-  contractType: HotelContractType;
+  contractType: string; // hotel_contract_type option label
   guestType: string | null; // hotel_guest_type option label
   targetRate: number | null;
   targetRateRequired?: boolean; // a ceiling, not a target
@@ -92,7 +92,7 @@ export type RfpBlockArgs = {
 // Fill from history: which past blocks to draw on (null = any).
 export type RfpFillArgs = {
   seriesId: string | null;
-  contractType: HotelContractType | null;
+  contractType: string | null;
   guestType: string | null;
   basis: PatternBasis;
   adjust: number;
@@ -231,8 +231,13 @@ export async function deleteRfpCore(id: string, eventId: string, userId: string)
   await prisma.rfp.delete({ where: { id, eventId } });
 }
 
-async function validBlocks(eventId: string, blocks: RfpBlockArgs[]) {
+// `held`: contract types the RFP's blocks already hold, which may stay.
+async function validBlocks(eventId: string, blocks: RfpBlockArgs[], held: string[] = []) {
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { startDate: true, endDate: true } });
+  const contractTypes = new Set([
+    ...(await prisma.customOption.findMany({ where: { tenantId: await requireEventTenantId(eventId), category: "hotel_contract_type" }, select: { label: true } })).map((o) => o.label),
+    ...held,
+  ]);
   const shift = (d: Date, days: number) => dateKey(new Date(d.getTime() + days * 86_400_000));
   const first = shift(event.startDate, -NIGHT_WINDOW_DAYS);
   const last = shift(event.endDate, NIGHT_WINDOW_DAYS);
@@ -250,7 +255,8 @@ async function validBlocks(eventId: string, blocks: RfpBlockArgs[]) {
         seen.add(key);
         return { roomType, night: dateFromKey(n.night), rooms: n.rooms };
       });
-    if (!CONTRACT_TYPE_LABELS[b.contractType]) throw new Error(`Unknown contract type: ${b.contractType}`);
+    if (!b.contractType) throw new Error("Contract type is required");
+    if (!contractTypes.has(b.contractType)) throw new Error(`Unknown contract type: ${b.contractType}`);
     return { id: b.id ?? null, contractType: b.contractType, guestType: b.guestType || null, targetRate: b.targetRate, targetRateRequired: b.targetRateRequired === true, notes: b.notes?.trim() || null, nights };
   });
 }
@@ -265,8 +271,9 @@ function alignIds<T>(given: T[], kept: (row: T) => boolean, saved: string[]): (s
 
 export async function saveRfpBlocksCore(id: string, eventId: string, blocks: RfpBlockArgs[], userId: string) {
   await authorizeRfp(id, eventId, "WRITE", userId);
-  const rows = await validBlocks(eventId, blocks);
-  const existing = new Set((await prisma.rfpHotelBlock.findMany({ where: { rfpId: id }, select: { id: true } })).map((b) => b.id));
+  const current = await prisma.rfpHotelBlock.findMany({ where: { rfpId: id }, select: { id: true, contractType: true } });
+  const rows = await validBlocks(eventId, blocks, current.map((b) => b.contractType));
+  const existing = new Set(current.map((b) => b.id));
   const kept = rows.flatMap((b) => (b.id && existing.has(b.id) ? [b.id] : []));
   return prisma.$transaction(async (tx) => {
     // Blocks are updated in place so proposals answering them stay linked; a
@@ -797,7 +804,7 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
         meals: { select: { mealType: true, price: true }, orderBy: { sortOrder: "asc" } },
         amenities: { select: { label: true, status: true } },
         venue: { select: { name: true, amenities: true } },
-        block: { select: { id: true } },
+        _count: { select: { blocks: true } },
         nights: { select: { night: true, rooms: true, rate: true } },
         charges: { select: { chargeType: true, amount: true, scope: true, kind: true }, orderBy: { sortOrder: "asc" } },
         concessions: { select: { concessionId: true, label: true, offered: true, met: true }, orderBy: { sortOrder: "asc" } },
@@ -813,6 +820,6 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
     meetingSpace: meetingRequests(rfp.spaceRequests),
     mealTypes: rfpMealTypes(rfp.spaceRequests),
     fbMinimum: rfp.fbMinimum,
-    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, profile: p.venue.amenities, hasBlock: p.block != null })),
+    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, profile: p.venue.amenities, hasBlock: p._count.blocks > 0 })),
   });
 }

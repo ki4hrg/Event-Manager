@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
-import { CONTRACT_TYPES, formatNight } from "@/lib/hotels";
+import { formatNight } from "@/lib/hotels";
 import { rangeEndFor } from "@/lib/dateRange";
 
 const fieldClass =
@@ -78,7 +78,17 @@ export function HotelReportFilters({ series }: { series: { id: string; name: str
   );
 }
 
-export function PatternFilters({ series, cities, guestTypes }: { series: { id: string; name: string }[]; cities: string[]; guestTypes: string[] }) {
+export function PatternFilters({
+  series,
+  cities,
+  contractTypes,
+  guestTypes,
+}: {
+  series: { id: string; name: string }[];
+  cities: string[];
+  contractTypes: string[];
+  guestTypes: string[];
+}) {
   const { sp, set } = useSetParam();
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -98,9 +108,9 @@ export function PatternFilters({ series, cities, guestTypes }: { series: { id: s
         Contract
         <select value={sp.get("contract") ?? ""} onChange={(e) => set("contract", e.target.value)} className={fieldClass}>
           <option value="">All</option>
-          {CONTRACT_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
+          {contractTypes.map((t) => (
+            <option key={t} value={t}>
+              {t}
             </option>
           ))}
         </select>

@@ -6,7 +6,7 @@
 // checks in for that night — so nights run from check-in up to, but not
 // including, check-out.
 
-import type { AmenityStatus, ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
+import type { AmenityStatus, ConcessionMet, HotelChargeScope } from "@prisma/client";
 
 // proposal_status options carry one of these as their group.
 export type ProposalStage = "REQUESTED" | "PENDING" | "ACCEPTED" | "DECLINED";
@@ -18,44 +18,103 @@ export const PROPOSAL_STAGES: { value: ProposalStage; label: string }[] = [
   { value: "DECLINED", label: "Declined" },
 ];
 
-// A block's type is its contract type (fixed: contract carries attrition,
-// courtesy doesn't) plus its guest type (a hotel_guest_type option label).
-export const CONTRACT_TYPES: { value: HotelContractType; label: string }[] = [
-  { value: "CONTRACT", label: "Contract" },
-  { value: "COURTESY", label: "Courtesy" },
+// A block's type is its contract type (a hotel_contract_type option label:
+// Contract, Courtesy, Room block agreement, …) plus its guest type (a
+// hotel_guest_type option label). A contract type's group is its kind:
+// whether it carries attrition. Anything fixed (the offer reader's answer, an
+// APEX field) maps from the kind, never from a label.
+export type ContractKind = "CONTRACT" | "COURTESY";
+
+export const CONTRACT_KINDS: { value: ContractKind; label: string; description: string }[] = [
+  { value: "CONTRACT", label: "Carries attrition", description: "The group commits to the rooms." },
+  { value: "COURTESY", label: "No attrition", description: "Rooms held without a commitment, released at cut-off." },
 ];
 
-export const CONTRACT_TYPE_LABELS: Record<HotelContractType, string> = {
-  CONTRACT: "Contract",
-  COURTESY: "Courtesy",
-};
+export const isContractKind = (v: string | null | undefined): v is ContractKind => v === "CONTRACT" || v === "COURTESY";
+
+// A hotel_contract_type option: its label and kind (the option's group).
+export type ContractTypeOption = { label: string; kind: ContractKind | null };
+
+export const toContractTypeOption = (o: { label: string; group: string | null }): ContractTypeOption => ({
+  label: o.label,
+  kind: isContractKind(o.group) ? o.group : null,
+});
+
+export function contractKindOf(contractType: string | null, options: ContractTypeOption[]): ContractKind | null {
+  return contractType ? (options.find((o) => o.label === contractType)?.kind ?? null) : null;
+}
+
+// The first contract type of a kind (the tenant's list order): what a fixed
+// answer (the offer reader's CONTRACT / COURTESY) becomes.
+export function contractTypeForKind(kind: ContractKind | null | undefined, options: ContractTypeOption[]): string | null {
+  return kind ? (options.find((o) => o.kind === kind)?.label ?? null) : null;
+}
+
+// The contract type of an offer read as CONTRACT / COURTESY (or not said):
+// the requested RFP block's when it is of that kind or the offer doesn't
+// say, else the tenant's first of that kind.
+export function offerContractType(kind: ContractKind | null | undefined, requested: string | null, options: ContractTypeOption[]): string | null {
+  if (!kind || (requested && contractKindOf(requested, options) === kind)) return requested;
+  return contractTypeForKind(kind, options) ?? requested;
+}
+
+// The allowed attrition % that applies to a block: none for a type held
+// without attrition; the block's own otherwise (a type with no kind yet
+// keeps it, as before contract types were configurable).
+export function appliedAttrition(allowedAttrition: number | null, kind: ContractKind | null): number | null {
+  if (kind == null) return allowedAttrition;
+  switch (kind) {
+    case "CONTRACT":
+      return allowedAttrition;
+    case "COURTESY":
+      return null;
+    default: {
+      const _exhaustive: never = kind;
+      throw new Error(`Unhandled contract kind: ${_exhaustive}`);
+    }
+  }
+}
 
 // "Contract · Attendees"; either half may be missing.
-export function blockTypeLabel(contractType: HotelContractType | null, guestType: string | null): string | null {
-  return [contractType ? CONTRACT_TYPE_LABELS[contractType] : null, guestType].filter(Boolean).join(" · ") || null;
+export function blockTypeLabel(contractType: string | null, guestType: string | null): string | null {
+  return [contractType, guestType].filter(Boolean).join(" · ") || null;
+}
+
+// What tells an event's blocks apart: the hotel, plus the block's type where
+// the hotel has more than one ("Hilton · Contract · Staff").
+export function blockNames(blocks: { id: string; hotel: string; contractType: string | null; guestType: string | null }[]): Map<string, string> {
+  const perHotel = new Map<string, number>();
+  for (const b of blocks) perHotel.set(b.hotel, (perHotel.get(b.hotel) ?? 0) + 1);
+  return new Map(
+    blocks.map((b) => [b.id, (perHotel.get(b.hotel) ?? 0) > 1 ? `${b.hotel} · ${blockTypeLabel(b.contractType, b.guestType) ?? "Block"}` : b.hotel]),
+  );
 }
 
 // A night's null room type is the Run of House allotment.
 export const RUN_OF_HOUSE = "Run of House";
 export const roomTypeLabel = (roomType: string | null) => roomType ?? RUN_OF_HOUSE;
 
-export const CHARGE_SCOPES: { value: HotelChargeScope; label: string }[] = [
-  { value: "PER_NIGHT", label: "Per night" },
-  { value: "PER_STAY", label: "Per stay" },
-  { value: "PER_PERSON", label: "Per person" },
-  { value: "PER_PERSON_PER_NIGHT", label: "Per person per night" },
-  { value: "PER_DAY", label: "Per day" },
-  { value: "PER_PERSON_PER_DAY", label: "Per person per day" },
-];
-
+// What an amount is charged per. PER_NIGHT is per room per night, PER_ROOM
+// once per room for the stay, ONE_TIME once for the group. Fixed (an enum,
+// not an option list): each names what an amount multiplies by, which a free
+// label couldn't promise. hotel_charge options store one as their group.
 export const CHARGE_SCOPE_LABELS: Record<HotelChargeScope, string> = {
   PER_NIGHT: "Per night",
   PER_STAY: "Per stay",
+  PER_ROOM: "Per room",
   PER_PERSON: "Per person",
   PER_PERSON_PER_NIGHT: "Per person per night",
   PER_DAY: "Per day",
   PER_PERSON_PER_DAY: "Per person per day",
+  ONE_TIME: "One-time",
 };
+
+export const CHARGE_SCOPES: { value: HotelChargeScope; label: string }[] = (Object.keys(CHARGE_SCOPE_LABELS) as HotelChargeScope[]).map((value) => ({
+  value,
+  label: CHARGE_SCOPE_LABELS[value],
+}));
+
+export const isChargeScope = (v: unknown): v is HotelChargeScope => typeof v === "string" && Object.hasOwn(CHARGE_SCOPE_LABELS, v);
 
 // A hotel_charge option: its label, and the scope a new charge of that type
 // starts with (the option's group).
@@ -63,7 +122,7 @@ export type ChargeTypeOption = { label: string; scope: HotelChargeScope | null }
 
 export const toChargeTypeOption = (o: { label: string; group: string | null }): ChargeTypeOption => ({
   label: o.label,
-  scope: o.group && Object.hasOwn(CHARGE_SCOPE_LABELS, o.group) ? (o.group as HotelChargeScope) : null,
+  scope: isChargeScope(o.group) ? o.group : null,
 });
 
 // Picking a charge type fills an unset scope with the type's.
@@ -93,6 +152,19 @@ export function coveredByProfile(profile: string[]) {
 
 // How a proposal states one of the hotel's amenities (unset: not mentioned).
 export const AMENITY_STATUS_LABELS: Record<AmenityStatus, string> = { CONFIRMED: "Confirmed", UNAVAILABLE: "Unavailable" };
+
+// Pickup checkpoints (hotel_days_out): each label is a whole number of days
+// before a block's first night, 1–365.
+export function daysOutLabelError(label: string): string | null {
+  const n = Number(label.trim());
+  return /^\d+$/.test(label.trim()) && n >= 1 && n <= 365 ? null : "Enter a whole number of days, 1–365";
+}
+
+// The tenant's checkpoints, furthest out first; labels that aren't valid
+// day counts drop out.
+export function daysOutCheckpoints(labels: string[]): number[] {
+  return Array.from(new Set(labels.filter((l) => !daysOutLabelError(l)).map((l) => Number(l.trim())))).sort((a, b) => b - a);
+}
 
 // The stage of a proposal_status label, from the tenant's options.
 export function stageOf(
@@ -162,9 +234,9 @@ export function hotelInfoGuestTypes(param: string | undefined, stored?: { guestT
   return Array.from(new Set((stored?.blockTypes ?? []).map((t) => (t === "STAFF" ? "Staff" : "Attendees"))));
 }
 
-// "CONTRACT,COURTESY" (a URL param) → validated contract-type list; unknown
-// values drop out, so a stale link means no filter.
-export function parseContractTypes(raw: string | undefined): HotelContractType[] {
-  const valid = new Set<string>(CONTRACT_TYPES.map((t) => t.value));
-  return (raw ?? "").split(",").filter((t): t is HotelContractType => valid.has(t));
+// "Contract,Courtesy" (a URL param) → the tenant's contract-type labels it
+// names; unknown values drop out, so a stale link means no filter.
+export function parseContractTypes(raw: string | undefined, labels: string[]): string[] {
+  const valid = new Set(labels);
+  return (raw ?? "").split(",").filter((t) => valid.has(t));
 }

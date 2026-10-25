@@ -19,7 +19,7 @@ import {
   propagateLabelRename,
   type OptionCategory,
 } from "@/lib/optionCategories";
-import { duplicateLabelError, inUseError } from "./optionLabels";
+import { duplicateLabelError, inUseError, labelFormError } from "./optionLabels";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -67,10 +67,10 @@ function revalidateList(category: OptionCategory) {
 }
 
 // One spelling per list: a label matching another option but for case or
-// spacing is refused (labelKey).
+// spacing is refused (labelKey); so is one not in the list's required form.
 async function assertUniqueLabel(tenantId: string, category: OptionCategory, label: string, exceptId?: string) {
   const options = await prisma.customOption.findMany({ where: { tenantId, category }, select: { id: true, label: true } });
-  const error = duplicateLabelError(label, options, isMergeable(category), exceptId);
+  const error = labelFormError(category, label) ?? duplicateLabelError(label, options, isMergeable(category), exceptId);
   if (error) throw new Error(error);
 }
 

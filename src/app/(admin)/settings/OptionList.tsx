@@ -28,7 +28,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GroupedOptionItems } from "./GroupedOptionItems";
 import { createOption, deleteOption, mergeOption, reorderOptions, updateOption } from "./actions";
-import { duplicateLabelError, inUseError } from "./optionLabels";
+import { duplicateLabelError, inUseError, labelFormError } from "./optionLabels";
 
 const errorClass = "text-sm text-red-600 dark:text-red-400";
 
@@ -307,7 +307,7 @@ function SortableOptionRow({
       {editing ? (
         <form
           action={async (formData) => {
-            const duplicate = duplicateLabelError(formData.get("label") as string, others, !!mergeable);
+            const duplicate = labelFormError(category, formData.get("label") as string) ?? duplicateLabelError(formData.get("label") as string, others, !!mergeable);
             setError(duplicate);
             if (duplicate) return;
             await updateOption(category, option.id, formData);
@@ -555,7 +555,7 @@ export function OptionList({
       {showAddForm && canWrite && (
         <form
           action={async (formData) => {
-            const duplicate = duplicateLabelError(formData.get("label") as string, localOptions, mergeable);
+            const duplicate = labelFormError(category, formData.get("label") as string) ?? duplicateLabelError(formData.get("label") as string, localOptions, mergeable);
             setAddError(duplicate);
             if (duplicate) return;
             await createOption(category, formData);

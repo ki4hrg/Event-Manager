@@ -165,7 +165,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
       orderBy: { sortOrder: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_region", "hotel_area", "reservation_method", "rfp_concession", "rfp_service", "rfp_term", "unit"] } },
+      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_contract_type", "hotel_guest_type", "hotel_amenity", "hotel_region", "hotel_area", "reservation_method", "rfp_concession", "rfp_service", "rfp_term", "unit"] } },
       select: { category: true, label: true, group: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -188,6 +188,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
     mealTypes: of("meal_type"),
     setupTypes: of("setup_type"),
     roomTypes: of("hotel_room_type"),
+    contractTypes: of("hotel_contract_type"),
     guestTypes: of("hotel_guest_type"),
     amenities: of("hotel_amenity"),
     reservationMethods: of("reservation_method"),

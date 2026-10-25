@@ -26,7 +26,7 @@
 import { randomUUID } from "crypto";
 import { copyFileSync, existsSync, mkdirSync, statSync } from "fs";
 import path from "path";
-import { Prisma, PrismaClient, type HotelChargeScope, type HotelContractType, type HotelPickupMethod } from "@prisma/client";
+import { Prisma, PrismaClient, type HotelChargeScope, type HotelPickupMethod } from "@prisma/client";
 import { dateFromKey, dateKey, nightKeys } from "../src/lib/hotels";
 import { blockPickup, pickupByNight } from "../src/lib/hotelPickup";
 
@@ -85,15 +85,17 @@ const SCOPE: Record<string, HotelChargeScope> = {
   "per-person": "PER_PERSON",
   "per-person-per-night": "PER_PERSON_PER_NIGHT",
 };
-// Hotel-Manager's single block type → contract type + guest type (staff blocks are contracted).
-const BLOCK_TYPE: Record<string, { contractType: HotelContractType; guestType: string }> = {
-  contract: { contractType: "CONTRACT", guestType: "Attendees" },
-  courtesy: { contractType: "COURTESY", guestType: "Attendees" },
-  staff: { contractType: "CONTRACT", guestType: "Staff" },
+// Hotel-Manager's single block type → contract type (a hotel_contract_type
+// label, with the kind its option is created under) + guest type (staff
+// blocks are contracted).
+const BLOCK_TYPE: Record<string, { contractType: string; kind: "CONTRACT" | "COURTESY"; guestType: string }> = {
+  contract: { contractType: "Contract", kind: "CONTRACT", guestType: "Attendees" },
+  courtesy: { contractType: "Courtesy", kind: "COURTESY", guestType: "Attendees" },
+  staff: { contractType: "Contract", kind: "CONTRACT", guestType: "Staff" },
 };
 const blockTypeText = (raw: unknown) => {
   const t = BLOCK_TYPE[String(raw)];
-  return t ? `${t.contractType === "CONTRACT" ? "Contract" : "Courtesy"} · ${t.guestType}` : null;
+  return t ? `${t.contractType} · ${t.guestType}` : null;
 };
 const PICKUP_METHOD: Record<string, HotelPickupMethod> = { merge: "MERGE", replace: "REPLACE", append: "APPEND", "manual-count": "COUNTS" };
 const RESERVATION_METHOD: Record<string, string> = { "self-book": "Individual Reservations", "rooming-list": "Rooming List" };
@@ -376,7 +378,7 @@ async function main() {
               venueId,
               status: status!,
               ...(await leadSource(s(leadById.get(p.lead_source_id as string)?.name))),
-              contractType: BLOCK_TYPE[String(p.block_type)]?.contractType ?? null,
+              contractType: await option("hotel_contract_type", BLOCK_TYPE[String(p.block_type)]?.contractType ?? null, { group: BLOCK_TYPE[String(p.block_type)]?.kind }),
               guestType: await option("hotel_guest_type", BLOCK_TYPE[String(p.block_type)]?.guestType ?? null),
               submittedOn: day(p.submission_date) ? dateFromKey(day(p.submission_date)!) : null,
               checkIn: checkIn ? dateFromKey(checkIn) : null,
@@ -505,9 +507,12 @@ async function main() {
               });
             }
           }
+          // A block keeps its proposal's contract and guest type.
+          const types = await tx.hotelProposal.findUniqueOrThrow({ where: { id: proposalId }, select: { contractType: true, guestType: true } });
           const block = await tx.hotelBlock.create({
             data: {
               proposalId,
+              ...types,
               isHq: false,
               checkIn: checkIn ? dateFromKey(checkIn) : null,
               checkOut: checkOut ? dateFromKey(checkOut) : null,

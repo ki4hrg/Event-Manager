@@ -2522,13 +2522,14 @@ model EventPostEventDistribution {
 // figure hangs off (roomType, night). roomType is a hotel_room_type option
 // label; null means run of house.
 
-// Contract carries attrition liability; courtesy is held without it. Who the
-// rooms are for is the separate guestType (hotel_guest_type option label).
-enum HotelContractType {
-  CONTRACT
-  COURTESY
-}
+// A block's contract type is a hotel_contract_type option label (Contract,
+// Courtesy, Room block agreement, …); the option's group (CONTRACT /
+// COURTESY) says whether it carries attrition. Who the rooms are for is the
+// separate guestType (hotel_guest_type option label).
 
+// What an amount is charged per: the basis any cost math multiplies by.
+// PER_NIGHT is per room per night; PER_ROOM once per room for the stay;
+// ONE_TIME once for the group.
 enum HotelChargeScope {
   PER_NIGHT
   PER_STAY
@@ -2536,6 +2537,8 @@ enum HotelChargeScope {
   PER_PERSON_PER_NIGHT
   PER_DAY
   PER_PERSON_PER_DAY
+  PER_ROOM
+  ONE_TIME
 }
 
 // What a meeting room's rental is waived with.
@@ -2568,7 +2571,7 @@ model HotelProposal {
   leadSourceVendor    Vendor?                   @relation("HotelProposalLeadSource", fields: [leadSourceVendorId], references: [id], onDelete: SetNull)
   leadSourceContactId String?
   leadSourceContact   Contact?                  @relation("HotelProposalLeadSourceContact", fields: [leadSourceContactId], references: [id], onDelete: SetNull)
-  contractType        HotelContractType?
+  contractType        String? // @option hotel_contract_type
   guestType           String? // @option hotel_guest_type
   submittedOn         DateTime?                 @db.Date
   checkIn             DateTime?                 @db.Date
@@ -2603,7 +2606,9 @@ model HotelProposal {
   nights              HotelProposalNight[]
   charges             HotelCharge[]
   versions            HotelProposalVersion[]
-  block               HotelBlock?
+  // The blocks booked from this offer: one per guest type when one offer
+  // covers several (attendees and staff from one hotel).
+  blocks              HotelBlock[]
   files               FileUpload[]
   // The RFP and requested block this offer answers, when it came from one.
   rfpId               String?
@@ -2712,14 +2717,17 @@ model HotelProposalVersion {
   @@index([createdById])
 }
 
-// The booked block an accepted proposal became (1:1). Nights start as copies
-// of the proposal's: contractedRooms keeps the signed number, rooms is the
-// current (final) block. Pickup is computed, never stored per night — see
-// src/lib/hotelPickup.ts.
+// A booked block from an accepted proposal; one proposal can become several,
+// each with its own guest type (and contract type), both starting from the
+// proposal's. Nights start as copies of the proposal's: contractedRooms keeps
+// the signed number, rooms is the current (final) block. Pickup is computed,
+// never stored per night — see src/lib/hotelPickup.ts.
 model HotelBlock {
   id                String                @id @default(cuid())
-  proposalId        String                @unique
+  proposalId        String
   proposal          HotelProposal         @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  contractType      String? // @option hotel_contract_type
+  guestType         String? // @option hotel_guest_type
   isHq              Boolean               @default(false)
   checkIn           DateTime?             @db.Date
   checkOut          DateTime?             @db.Date
@@ -2749,6 +2757,7 @@ model HotelBlock {
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
+  @@index([proposalId])
   @@index([updatedById])
 }
 
@@ -3058,7 +3067,7 @@ model RfpHotelBlock {
   id                 String               @id @default(cuid())
   rfpId              String
   rfp                Rfp                  @relation(fields: [rfpId], references: [id], onDelete: Cascade)
-  contractType       HotelContractType
+  contractType       String // @option hotel_contract_type
   guestType          String? // @option hotel_guest_type
   targetRate         Decimal?             @db.Decimal(10, 2)
   // A ceiling ("must be no more than") rather than a target to aim for.

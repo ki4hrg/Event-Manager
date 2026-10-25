@@ -10,7 +10,7 @@ import { withUserErrors } from "@/lib/userErrors";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { getInboundEmailDomain } from "@/lib/email";
 import { getUploadPath } from "@/lib/uploads";
-import { dateKey } from "@/lib/hotels";
+import { blockNames, dateKey, offerContractType } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type DateOrder, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
 import {
@@ -326,7 +326,7 @@ export async function getOfferReview(id: string, eventId: string, index: number)
     leadSourceDirect: false,
     leadSourceVendorId: offer.leadSourceVendorId ?? null,
     leadSourceContactId: null,
-    contractType: offer.contractType ?? null,
+    contractType: offerContractType(offer.contractType, rfpChoices.find((c) => c.id === offer.rfpBlockId)?.contractType ?? null, choices.contractTypes),
     guestType: null,
     submittedOn: offer.submittedOn,
     checkIn: offer.checkIn,
@@ -481,6 +481,8 @@ export async function getInboxReview(id: string, eventId: string) {
         nights: { select: { roomType: true } },
         pickupCounts: { select: { night: true, roomType: true, rooms: true } },
         _count: { select: { pickupGuests: true } },
+        contractType: true,
+        guestType: true,
         proposal: { select: { venue: { select: { name: true } } } },
       },
       orderBy: [{ isHq: "desc" }, { createdAt: "asc" }],
@@ -560,6 +562,8 @@ export async function getInboxReview(id: string, eventId: string) {
     sheet = { fileName: pdf?.fileName ?? item.subject ?? "Email", headers, rows, columns, roomMap, statusMap, dateOrder: null };
   }
 
+  // A hotel with several blocks names each by its type.
+  const names = blockNames(blocks.map((b) => ({ ...b, hotel: b.proposal.venue.name })));
   return {
     proposal,
     fileName: item.subject ? `Email: ${item.subject}` : "Email",
@@ -567,7 +571,7 @@ export async function getInboxReview(id: string, eventId: string) {
     sheet,
     blocks: blocks.map((b) => ({
       id: b.id,
-      hotel: b.proposal.venue.name,
+      hotel: names.get(b.id) ?? b.proposal.venue.name,
       checkIn: b.checkIn ? dateKey(b.checkIn) : null,
       checkOut: b.checkOut ? dateKey(b.checkOut) : null,
       roomTypes: Array.from(new Set(b.nights.map((n) => n.roomType))),

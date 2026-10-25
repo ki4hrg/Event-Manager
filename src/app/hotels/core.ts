@@ -1,7 +1,7 @@
 // Pure cores for the cross-event Hotels pages. NOT a "use server" file — see
 // src/app/contacts/core.ts for the rationale.
 
-import { PermissionResource, type HotelContractType, type Prisma } from "@prisma/client";
+import { PermissionResource, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { loadPermissionsForUser, requirePermissionForUser } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
@@ -21,15 +21,18 @@ export const blockPickupSelect = {
   isHq: true,
   cutoffDate: true,
   allowedAttrition: true,
+  contractType: true,
+  guestType: true,
   nights: { select: { night: true, roomType: true, rooms: true, contractedRooms: true, otherReservations: true } },
   pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true } },
   pickupCounts: { select: { night: true, roomType: true, rooms: true } },
-  proposal: { select: { contractType: true, guestType: true, venue: { select: { id: true, name: true } } } },
+  proposal: { select: { venue: { select: { id: true, name: true } } } },
 } satisfies Prisma.HotelBlockSelect;
 
 export type BlockForTotals = Prisma.HotelBlockGetPayload<{ select: typeof blockPickupSelect }>;
 
-export type PatternFilters = { seriesId?: string; city?: string; contractTypes: HotelContractType[]; guestTypes: string[]; from?: string; to?: string };
+// contractTypes / guestTypes: hotel_contract_type / hotel_guest_type labels.
+export type PatternFilters = { seriesId?: string; city?: string; contractTypes: string[]; guestTypes: string[]; from?: string; to?: string };
 
 // A block has pickup on file when the hotel's report or a count was loaded.
 // One with nothing loaded is unknown, not zero, so it stays out of the pattern.
@@ -42,10 +45,13 @@ function hasPickup(b: BlockForTotals) {
 export async function pickupPatternCore(filters: PatternFilters, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, "HOTELS", "VIEW", { tenantId });
   const eventWhere = await hotelEventWhere(userId, tenantId);
-  const proposalWhere: Prisma.HotelProposalWhereInput = {
-    block: { isNot: null },
+  // Blocks of the filtered contract / guest types (each block's own).
+  const blockWhere: Prisma.HotelBlockWhereInput = {
     ...(filters.contractTypes.length ? { contractType: { in: filters.contractTypes } } : {}),
     ...(filters.guestTypes.length ? { guestType: { in: filters.guestTypes } } : {}),
+  };
+  const proposalWhere: Prisma.HotelProposalWhereInput = {
+    blocks: { some: blockWhere },
     ...(filters.city ? { venue: { city: filters.city } } : {}),
   };
   const events = await prisma.event.findMany({
@@ -67,7 +73,7 @@ export async function pickupPatternCore(filters: PatternFilters, userId: string,
       actualAttendance: true,
       series: { select: { id: true, name: true } },
       venues: { orderBy: { sortOrder: "asc" }, take: 1, select: { venue: { select: { city: true, state: true } } } },
-      hotelProposals: { where: proposalWhere, select: { block: { select: blockPickupSelect } } },
+      hotelProposals: { where: proposalWhere, select: { blocks: { where: blockWhere, select: blockPickupSelect } } },
     },
     orderBy: { startDate: "desc" },
   });
@@ -75,7 +81,7 @@ export async function pickupPatternCore(filters: PatternFilters, userId: string,
   const noPickup = [];
   for (const e of events) {
     const startDate = dateKey(e.startDate);
-    const blocks = e.hotelProposals.flatMap((p) => (p.block && hasPickup(p.block) ? [p.block] : []));
+    const blocks = e.hotelProposals.flatMap((p) => p.blocks.filter(hasPickup));
     if (blocks.length === 0) {
       noPickup.push({ id: e.id, name: e.name, startDate });
       continue;
@@ -96,7 +102,7 @@ export async function pickupPatternCore(filters: PatternFilters, userId: string,
       series: e.series,
       city: [e.venues[0]?.venue.city, e.venues[0]?.venue.state].filter(Boolean).join(", ") || null,
       actualAttendance: e.actualAttendance,
-      hotels: blocks.map((b) => b.proposal.venue.name),
+      hotels: Array.from(new Set(blocks.map((b) => b.proposal.venue.name))),
       pickedUp,
       blocked,
     });
