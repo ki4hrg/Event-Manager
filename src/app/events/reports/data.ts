@@ -6,6 +6,7 @@
 
 import { roomCapacitiesInclude } from "@/lib/roomCapacity";
 import { prisma } from "@/lib/prisma";
+import { withWorkflowChecks } from "@/lib/workflowCheckData";
 import { optionsWhereForEvent } from "@/lib/options";
 import { roomTypeLabel } from "@/lib/hotels";
 import { Prisma } from "@prisma/client";
@@ -1694,16 +1695,16 @@ export async function getFunctionDetailData(
   const functionIds = functions.map((f) => f.id);
   const workflowInstances =
     functionIds.length > 0
-      ? await prisma.workflowInstance.findMany({
+      ? await withWorkflowChecks(await prisma.workflowInstance.findMany({
           where: { entityType: "function", entityId: { in: functionIds } },
           include: {
             template: {
-              include: { steps: { orderBy: { sortOrder: "asc" }, include: { items: { select: { id: true } } } } },
+              include: { steps: { orderBy: { sortOrder: "asc" }, include: { items: { select: { id: true, required: true } } } } },
             },
             stepCompletions: { include: { step: true } },
             itemCompletions: { include: { item: true } },
           },
-        })
+        }))
       : [];
 
   const workflowsByFunctionId = new Map<string, typeof workflowInstances>();

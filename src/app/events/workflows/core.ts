@@ -5,6 +5,8 @@
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { countAtSteps, instanceProgress, isInstanceComplete } from "@/lib/workflowProgress";
+import { isWorkflowCheckKey } from "@/lib/workflowChecks";
+import { loadWorkflowChecks, withWorkflowChecks } from "@/lib/workflowCheckData";
 import { WORKFLOW_ENTITY_DELEGATES } from "./entity-delegates";
 
 export type { WorkflowEntityType } from "./entity-types";
@@ -45,15 +47,18 @@ export async function autoAssignDefaultWorkflowsCore(
 // checklist item under it), and which templates are assigned. Gates the
 // apply of a form submission behind its approval workflow.
 export async function workflowCompletionCore(entityType: WorkflowEntityType, entityId: string) {
-  const instances = await prisma.workflowInstance.findMany({
+  const rows = await prisma.workflowInstance.findMany({
     where: { entityType, entityId },
     select: {
       templateId: true,
-      template: { select: { steps: { select: { id: true, items: { select: { id: true } } } } } },
+      entityType: true,
+      entityId: true,
+      template: { select: { steps: { orderBy: { sortOrder: "asc" }, select: { id: true, completionMode: true, computedKey: true, items: { select: { id: true, required: true } } } } } },
       stepCompletions: { select: { stepId: true } },
       itemCompletions: { select: { itemId: true } },
     },
   });
+  const instances = await withWorkflowChecks(rows);
   const complete = instances.every(isInstanceComplete);
   return { complete, templateIds: new Set(instances.map((i) => i.templateId)), count: instances.length };
 }
@@ -76,7 +81,7 @@ type ResolvedStatus = { status: EntityStatus | null; substatus: string | null };
 // The status an entity's assigned workflows call for, from their progress.
 // `status: null` means no workflow sets one.
 async function resolveWorkflowStatus(entityType: WorkflowEntityType, entityId: string): Promise<ResolvedStatus> {
-  const instances = await prisma.workflowInstance.findMany({
+  const rows = await prisma.workflowInstance.findMany({
     where: { entityType, entityId },
     // Assignment order, so "first template with a pending status" is stable —
     // a form link's own template is attached before the tenant defaults.
@@ -94,6 +99,8 @@ async function resolveWorkflowStatus(entityType: WorkflowEntityType, entityId: s
       itemCompletions: true,
     },
   });
+  const checks = (await loadWorkflowChecks(entityType, [entityId])).get(entityId) ?? [];
+  const instances = rows.map((r) => ({ ...r, checks }));
 
   const progress = new Map(instances.map((inst) => [inst.id, instanceProgress(inst)]));
 
@@ -176,19 +183,54 @@ export async function defaultWorkflowStepCounts(entityType: WorkflowEntityType, 
   });
   const drawn = templates.filter((t) => t.steps.length > 0);
   if (drawn.length === 0) return [];
-  const instances = await prisma.workflowInstance.findMany({
+  const rows = await prisma.workflowInstance.findMany({
     where: { entityType, entityId: { in: entityIds }, templateId: { in: drawn.map((t) => t.id) } },
     select: {
       templateId: true,
-      template: { select: { steps: { orderBy: { sortOrder: "asc" }, select: { id: true, items: { select: { id: true } } } } } },
+      entityId: true,
+      template: { select: { steps: { orderBy: { sortOrder: "asc" }, select: { id: true, completionMode: true, computedKey: true, items: { select: { id: true, required: true } } } } } },
       stepCompletions: { select: { stepId: true } },
       itemCompletions: { select: { itemId: true } },
     },
   });
+  const checks = await loadWorkflowChecks(entityType, Array.from(new Set(rows.map((r) => r.entityId))));
+  const instances = rows.map((r) => ({ ...r, checks: checks.get(r.entityId) ?? [] }));
   return drawn
     .map((t) => {
       const mine = instances.filter((i) => i.templateId === t.id);
       return { templateId: t.id, name: t.name, records: mine.length, steps: countAtSteps(t, mine) };
     })
     .filter((t) => t.records > 0);
+}
+
+// Keeps the status of records with automatic workflow steps current after a
+// write that can flip a check (src/lib/workflowChecks.ts lists them): re-derives
+// each record's status and writes it where it changed. Records whose workflows
+// have no checked step are left alone, so a hand-set status survives unrelated
+// edits; so are cancelled ones. Uses the global client: call it after the
+// writing transaction commits, never inside it. Narrows `ids` to the event's
+// own records; permission is the caller's job.
+export async function refreshWorkflowStatus(entityType: WorkflowEntityType, ids: string[], eventId: string) {
+  if (ids.length === 0) return;
+  const records = await WORKFLOW_ENTITY_DELEGATES[entityType].findMany(Array.from(new Set(ids)), eventId);
+  const live = records.filter((r) => r.status !== "CANCELLED");
+  if (live.length === 0) return;
+  const checked = await prisma.workflowInstance.findMany({
+    where: {
+      entityType,
+      entityId: { in: live.map((r) => r.id) },
+      template: { steps: { some: { completionMode: { not: "MANUAL" }, computedKey: { not: null } } } },
+    },
+    select: { entityId: true, template: { select: { steps: { select: { computedKey: true } } } } },
+  });
+  const affected = new Set(
+    checked.filter((i) => i.template.steps.some((s) => isWorkflowCheckKey(s.computedKey))).map((i) => i.entityId),
+  );
+  for (const r of live) {
+    if (!affected.has(r.id)) continue;
+    const { status, substatus } = await resolveWorkflowStatus(entityType, r.id);
+    if (status !== r.status || substatus !== r.substatus) {
+      await updateEntityStatusCore(entityType, r.id, eventId, status, substatus);
+    }
+  }
 }

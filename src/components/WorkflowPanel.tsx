@@ -6,6 +6,7 @@ import { ENTITY_TYPE_RESOURCE, type WorkflowEntityType } from "@/app/events/work
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { instanceProgress } from "@/lib/workflowProgress";
+import { WORKFLOW_CHECKS } from "@/lib/workflowChecks";
 import type {
   WorkflowInstance as PrismaWorkflowInstance,
   WorkflowTemplate,
@@ -29,6 +30,7 @@ type InstanceWithData = PrismaWorkflowInstance & {
   template: TemplateWithSteps;
   stepCompletions: WorkflowStepCompletion[];
   itemCompletions: WorkflowChecklistCompletion[];
+  checks: readonly string[];
 };
 
 type AvailableTemplate = { id: string; name: string };
@@ -60,6 +62,10 @@ function LockIcon() {
       <path d="M3.5 6V4a2.5 2.5 0 015 0v2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
     </svg>
   );
+}
+
+function optional(item: { required: boolean }) {
+  return item.required ? null : <span className="text-xs text-gray-400 dark:text-gray-500"> (optional)</span>;
 }
 
 function WorkflowInstancePanel({
@@ -130,13 +136,37 @@ function WorkflowInstancePanel({
       {instance.template.steps.length > 0 && (
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
           {instance.template.steps.map((step, index) => {
-            const stepDone = progress.steps[index].status === "done";
+            const sp = progress.steps[index];
+            const stepDone = sp.status === "done";
             const isChecklistStep = step.items.length > 0;
             const stepPending = pending === `step:${step.id}`;
             const prevDone = index === 0 || progress.steps[index - 1].status === "done";
             // Read-only reuses the lock the cancelled state already defines:
             // checkboxes render as static markers rather than buttons.
             const isLocked = isCancelled || !canWrite || (!stepDone && !prevDone);
+            // Ticked by hand: a manual step with no required items, or a
+            // confirmed prompt step (to take the confirm back). An automatic
+            // step follows its check; a prompt step is confirmed below.
+            const tickable = (sp.mode === "MANUAL" && sp.itemsRequired === 0) || (sp.mode === "PROMPT" && stepDone);
+            const note = stepDone
+              ? null
+              : sp.itemsRequired > 0 && sp.itemsDone < sp.itemsRequired
+                ? `${sp.itemsDone}/${sp.itemsRequired}`
+                : sp.check && !sp.checkHolds
+                  ? WORKFLOW_CHECKS[sp.check].pending
+                  : null;
+            const labelClass = `text-sm ${stepDone ? "text-gray-400 dark:text-gray-500 line-through" : "text-gray-900 dark:text-white"}`;
+            const marker = (hover: boolean) => (
+              <span
+                className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                  stepDone
+                    ? "border-green-500 bg-green-500"
+                    : `border-gray-300 dark:border-gray-600${hover ? " hover:border-blue-400" : ""}`
+                } ${stepPending ? "opacity-50" : ""}`}
+              >
+                {stepDone && <CheckIcon />}
+              </span>
+            );
 
             return (
               <div key={step.id} className={isLocked && !stepDone ? "opacity-50" : undefined}>
@@ -144,64 +174,41 @@ function WorkflowInstancePanel({
                   <span className="text-xs text-gray-400 dark:text-gray-500 w-5 shrink-0 text-right">
                     {index + 1}
                   </span>
-                  {isChecklistStep ? (
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                          stepDone
-                            ? "border-green-500 bg-green-500"
-                            : "border-gray-300 dark:border-gray-600"
-                        }`}
-                      >
-                        {stepDone && <CheckIcon />}
-                      </span>
-                      <span
-                        className={`text-sm ${
-                          stepDone
-                            ? "text-gray-400 dark:text-gray-500 line-through"
-                            : "text-gray-900 dark:text-white"
-                        }`}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-                  ) : isLocked && !stepDone ? (
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center shrink-0" />
-                      <span className="text-sm text-gray-900 dark:text-white">{step.label}</span>
-                    </div>
-                  ) : (
+                  {tickable && !isLocked ? (
                     <button
                       className="flex items-center gap-2 flex-1 min-w-0 text-left"
                       onClick={() => handleToggleStep(step.id)}
                       disabled={stepPending}
                     >
-                      <span
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                          stepDone
-                            ? "border-green-500 bg-green-500"
-                            : "border-gray-300 dark:border-gray-600 hover:border-blue-400"
-                        } ${stepPending ? "opacity-50" : ""}`}
-                      >
-                        {stepDone && <CheckIcon />}
-                      </span>
-                      <span
-                        className={`text-sm ${
-                          stepDone
-                            ? "text-gray-400 dark:text-gray-500 line-through"
-                            : "text-gray-900 dark:text-white"
-                        }`}
-                      >
-                        {step.label}
-                      </span>
+                      {marker(true)}
+                      <span className={labelClass}>{step.label}</span>
                     </button>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {marker(false)}
+                      <span className={labelClass}>{step.label}</span>
+                    </div>
                   )}
-                  {isChecklistStep && !stepDone && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-                      {progress.steps[index].itemsDone}/{progress.steps[index].itemsRequired}
+                  {sp.mode === "AUTO" && sp.check && (
+                    <span
+                      title={WORKFLOW_CHECKS[sp.check].label}
+                      className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 shrink-0"
+                    >
+                      Auto
                     </span>
                   )}
-                  {isLocked && !stepDone && !isChecklistStep && (
+                  {note && <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{note}</span>}
+                  {sp.status === "prompt" && !isLocked && (
+                    <button
+                      onClick={() => handleToggleStep(step.id)}
+                      disabled={stepPending}
+                      title={sp.check ? WORKFLOW_CHECKS[sp.check].label : undefined}
+                      className="text-xs px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 shrink-0 disabled:opacity-50"
+                    >
+                      Looks done · Confirm
+                    </button>
+                  )}
+                  {isLocked && !stepDone && tickable && (
                     <span className="shrink-0"><LockIcon /></span>
                   )}
                 </div>
@@ -219,7 +226,7 @@ function WorkflowInstancePanel({
                         >
                           <span className="w-5 shrink-0" />
                           <span className="w-3.5 h-3.5 rounded border border-gray-300 dark:border-gray-600 flex items-center justify-center shrink-0" />
-                          <span className="text-xs text-gray-700 dark:text-gray-300">{item.label}</span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{item.label}{optional(item)}</span>
                         </div>
                       ) : (
                         <button
@@ -247,6 +254,7 @@ function WorkflowInstancePanel({
                           >
                             {item.label}
                           </span>
+                          {optional(item)}
                         </button>
                       );
                     })}
