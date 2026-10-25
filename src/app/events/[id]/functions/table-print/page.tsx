@@ -5,7 +5,7 @@ import { reportTh as th, reportTd as td } from "@/lib/reportStyles";
 import { getFunctionsForTable } from "@/app/events/functions/actions";
 import { getEvent } from "@/app/events/event";
 import { getWorkflowBadgeSummaries } from "@/app/events/workflows/actions";
-import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
+import type { WorkflowBadgeSummary } from "@/lib/workflowProgress";
 import type { FunctionForTable } from "@/app/events/functions/actions";
 import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
 import { formatFunctionLabel } from "@/lib/functionNumbers";

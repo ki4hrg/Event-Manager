@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { getPrintOrders } from "./actions";
-import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
+import type { WorkflowBadgeSummary } from "@/lib/workflowProgress";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";

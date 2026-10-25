@@ -7,7 +7,7 @@ import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { FunctionForTable } from "./actions";
 import { getDateKeyInTimezone, formatDateHeading } from "@/lib/agendaUtils";
 import { colorClasses } from "@/lib/colors";
-import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
+import type { WorkflowBadgeSummary } from "@/lib/workflowProgress";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { ViewToggle } from "@/components/ui/ViewToggle";

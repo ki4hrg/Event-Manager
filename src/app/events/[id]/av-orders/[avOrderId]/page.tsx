@@ -4,7 +4,8 @@ import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
-import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { prisma } from "@/lib/prisma";
 import { getEvent } from "@/app/events/event";
 import {
@@ -422,7 +423,7 @@ export default async function AVOrderPage({
               {avOrder.name}
             </h1>
             <EntityStatusBadge status={entityStatus} substatus={avOrder.substatus ?? null} />
-            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+            <WorkflowStatusBadge summary={workflowBadgeSummary(workflowInstances)} />
           </div>
           <LastUpdated
             updatedAt={avOrder.updatedAt}

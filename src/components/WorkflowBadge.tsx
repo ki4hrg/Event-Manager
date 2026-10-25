@@ -1,4 +1,4 @@
-import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
+import type { WorkflowBadgeSummary } from "@/lib/workflowProgress";
 
 export function WorkflowBadge({ summary }: { summary: WorkflowBadgeSummary | undefined }) {
   if (!summary || summary.count === 0) return null;

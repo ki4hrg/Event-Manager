@@ -46,7 +46,8 @@ import { EquipmentTable } from "@/components/EquipmentTable";
 import { FunctionMultiLinkControl } from "../../../functions/FunctionMultiLinkControl";
 import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
-import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getEventRooms } from "@/lib/eventVenues";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
@@ -313,7 +314,7 @@ export default async function SetupOrderPage({
               {displayName}
             </h1>
             <EntityStatusBadge status={entityStatus} substatus={setupOrder.substatus ?? null} />
-            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+            <WorkflowStatusBadge summary={workflowBadgeSummary(workflowInstances)} />
           </div>
           <LastUpdated
             updatedAt={setupOrder.updatedAt}

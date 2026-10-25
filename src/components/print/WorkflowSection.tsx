@@ -1,4 +1,5 @@
 import type { getWorkflowInstances } from "@/app/events/workflows/actions";
+import { instanceProgress } from "@/lib/workflowProgress";
 import { Section } from "./PrintDetails";
 
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
@@ -8,17 +9,17 @@ export function WorkflowSection({ workflowInstances }: { workflowInstances: Work
   return (
     <Section title="Workflow">
       {workflowInstances.map((instance) => {
-        const completedStepIds = new Set(instance.stepCompletions.map((c) => c.stepId));
+        const progress = instanceProgress(instance);
         const completedItemIds = new Set(instance.itemCompletions.map((c) => c.itemId));
         return (
           <div key={instance.id} className="mb-4">
             <p className="text-sm font-medium text-gray-700 print:text-black mb-1">
               {instance.template.name}
             </p>
-            {instance.template.steps.map((step) => (
+            {instance.template.steps.map((step, i) => (
               <div key={step.id} className="ml-3 mb-1">
                 <p className="text-sm text-gray-600 print:text-gray-700">
-                  {completedStepIds.has(step.id) ? "☑" : "☐"} {step.label}
+                  {progress.steps[i].status === "done" ? "☑" : "☐"} {step.label}
                 </p>
                 {step.items.map((item) => (
                   <p key={item.id} className="text-xs text-gray-500 print:text-gray-600 ml-4">

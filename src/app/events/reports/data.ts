@@ -1698,7 +1698,7 @@ export async function getFunctionDetailData(
           where: { entityType: "function", entityId: { in: functionIds } },
           include: {
             template: {
-              include: { steps: { orderBy: { sortOrder: "asc" } } },
+              include: { steps: { orderBy: { sortOrder: "asc" }, include: { items: { select: { id: true } } } } },
             },
             stepCompletions: { include: { step: true } },
             itemCompletions: { include: { item: true } },

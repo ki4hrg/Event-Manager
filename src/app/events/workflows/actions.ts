@@ -5,6 +5,7 @@ import { requirePermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { EntityStatus } from "@prisma/client";
+import { instanceProgress, stepProgress, completionSets, type WorkflowBadgeSummary } from "@/lib/workflowProgress";
 import { ENTITY_TYPE_RESOURCE } from "./entity-types";
 import { WORKFLOW_ENTITY_DELEGATES } from "./entity-delegates";
 import {
@@ -193,8 +194,6 @@ export async function toggleStepCompletion(
   revalidateEntity(entityType, entityId, eventId);
 }
 
-export type WorkflowBadgeSummary = { count: number; done: number; total: number };
-
 export async function getWorkflowBadgeSummaries(
   entityType: WorkflowEntityType,
   entityIds: string[],
@@ -231,20 +230,9 @@ export async function getWorkflowBadgeSummaries(
     if (!result[eid]) result[eid] = { count: 0, done: 0, total: 0 };
     result[eid].count += 1;
 
-    const completedStepIds = new Set(instance.stepCompletions.map((c) => c.stepId));
-    const completedItemIds = new Set(instance.itemCompletions.map((c) => c.itemId));
-
-    for (const step of instance.template.steps) {
-      if (step.items.length === 0) {
-        result[eid].total += 1;
-        if (completedStepIds.has(step.id)) result[eid].done += 1;
-      } else {
-        for (const item of step.items) {
-          result[eid].total += 1;
-          if (completedItemIds.has(item.id)) result[eid].done += 1;
-        }
-      }
-    }
+    const { ticksDone, ticksTotal } = instanceProgress(instance);
+    result[eid].done += ticksDone;
+    result[eid].total += ticksTotal;
   }
 
   return result;
@@ -326,12 +314,12 @@ export async function toggleItemCompletion(
 
     await prisma.workflowChecklistCompletion.create({ data: { instanceId, itemId } });
 
-    const allItemIds = item.step.items.map((i) => i.id);
-    const completedItems = await prisma.workflowChecklistCompletion.findMany({
-      where: { instanceId, itemId: { in: allItemIds } },
+    const completed = await prisma.workflowChecklistCompletion.findMany({
+      where: { instanceId, itemId: { in: item.step.items.map((i) => i.id) } },
+      select: { itemId: true },
     });
 
-    if (completedItems.length === allItemIds.length) {
+    if (stepProgress(item.step, completionSets({ stepCompletions: [], itemCompletions: completed })).status === "done") {
       await recomputeEntityStatusCore(entityType, entityId, eventId);
     }
   }

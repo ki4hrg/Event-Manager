@@ -6,7 +6,8 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
-import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { hasPermission } from "@/lib/permissions";
 import { formatFileSize } from "@/lib/uploads";
 import { FORM_STATE_LABEL, FORM_TYPE_LABEL } from "@/lib/forms/meta";
@@ -104,7 +105,7 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
           {submission.state === "SUBMITTED" ? (
             <>
               <EntityStatusBadge status={submission.status ?? null} substatus={submission.substatus ?? null} />
-              <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+              <WorkflowStatusBadge summary={workflowBadgeSummary(workflowInstances)} />
             </>
           ) : (
             <span className="text-sm text-gray-600 dark:text-gray-400">{FORM_STATE_LABEL[submission.state]}</span>

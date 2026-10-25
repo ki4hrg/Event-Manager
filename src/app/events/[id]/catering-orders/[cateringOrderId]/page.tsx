@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
-import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getEvent } from "@/app/events/event";
 import {
@@ -398,7 +399,7 @@ export default async function CateringOrderPage({
               {cateringOrder.name}
             </h1>
             <EntityStatusBadge status={entityStatus} substatus={cateringOrder.substatus ?? null} />
-            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+            <WorkflowStatusBadge summary={workflowBadgeSummary(workflowInstances)} />
           </div>
           <LastUpdated
             updatedAt={cateringOrder.updatedAt}

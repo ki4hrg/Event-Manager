@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
-import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getEvent } from "@/app/events/event";
@@ -362,7 +363,7 @@ export default async function PresentationPage({
               {presentation.title}
             </h1>
             <EntityStatusBadge status={presentation.status ?? null} substatus={presentation.substatus ?? null} />
-            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+            <WorkflowStatusBadge summary={workflowBadgeSummary(workflowInstances)} />
           </div>
           <LastUpdated
             updatedAt={presentation.updatedAt}
