@@ -150,7 +150,8 @@ only. `WorkflowChecklistItem.computedKey` is dropped.
 | `LINKED_TO_FUNCTION` | orders | Linked to at least one function. |
 | `SCHEDULED` | functions; orders through their functions | Has a room and a time (`mainScheduleStart`); for an order, every linked function does. |
 | `ITEMS_ENTERED` | orders | Has line items / equipment / menu (per type); quantities filled. |
-| `HEADCOUNT_SET` | catering, functions | Guarantee / expected attendance set. |
+| `EXPECTED_COUNT_SET`, `CONFIRMED_COUNT_SET`, `GUARANTEE_SET`, `ACTUAL_COUNT_SET` | catering | That Guest Counts field is filled in (one check per count). |
+| `ATTENDANCE_SET`, `SET_FOR_SET`, `ACTUAL_ATTENDANCE_SET` | functions | That ESG card field is filled in. |
 | `RFP_ISSUED` | orders | A line copied from this order sits on an RFP whose status is Issued or Closed. |
 | `QUOTES_IN` | orders | Those RFP lines have at least one quote. |
 | `AWARDED` | orders | Every RFP line from this order is awarded (`RfpLineItem.awardedQuoteId`). |
@@ -167,8 +168,8 @@ items or menu sections, setup tables / details / equipment, print items and
 supply items. Equipment, print and supply lines also need a quantity above
 zero. `QUOTES_IN` holds once any of the order's RFP lines has a quote line.
 A function is `SCHEDULED` with a schedule entry and a room, an off-site
-location, or as a breakout block. `HEADCOUNT_SET` reads a catering order's
-guarantee count and a function's expected attendance. Media deliverables
+location, or as a breakout block. Each count check names the one field it reads,
+so a step says which number it waits on (no "any count" check). Media deliverables
 also get `VENDOR_ASSIGNED` (their provider) and `LINKED_TO_FUNCTION`.
 Unticking a required item drops its step's confirm and cascades later steps;
 an optional item moves nothing. Changing a step's mode or check

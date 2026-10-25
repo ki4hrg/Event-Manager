@@ -47,11 +47,16 @@ export async function loadWorkflowChecks(entityType: WorkflowEntityType | string
   const where = { id: { in: ids } };
   switch (entityType) {
     case "function": {
-      const rows = await prisma.function.findMany({ where, select: { id: true, expectedAttendance: true, ...functionPlace.select } });
+      const rows = await prisma.function.findMany({
+        where,
+        select: { id: true, expectedAttendance: true, setForCount: true, actualAttendance: true, ...functionPlace.select },
+      });
       for (const f of rows) {
         const keys: WorkflowCheckKey[] = [];
         if (functionScheduled(f)) keys.push("SCHEDULED");
-        if (f.expectedAttendance != null) keys.push("HEADCOUNT_SET");
+        if (f.expectedAttendance != null) keys.push("ATTENDANCE_SET");
+        if (f.setForCount != null) keys.push("SET_FOR_SET");
+        if (f.actualAttendance != null) keys.push("ACTUAL_ATTENDANCE_SET");
         out.set(f.id, keys);
       }
       break;
@@ -84,7 +89,10 @@ export async function loadWorkflowChecks(entityType: WorkflowEntityType | string
         where,
         select: {
           id: true,
+          expectedCount: true,
+          confirmedCount: true,
           guaranteeCount: true,
+          actualCount: true,
           function: functionPlace,
           rfpLineItems: rfpLines,
           _count: { select: { vendors: true, lineItems: true, menuSections: true } },
@@ -96,7 +104,10 @@ export async function loadWorkflowChecks(entityType: WorkflowEntityType | string
           functions: o.function ? [o.function] : [],
           items: o._count.lineItems + o._count.menuSections > 0,
         });
-        if (o.guaranteeCount != null) keys.push("HEADCOUNT_SET");
+        if (o.expectedCount != null) keys.push("EXPECTED_COUNT_SET");
+        if (o.confirmedCount != null) keys.push("CONFIRMED_COUNT_SET");
+        if (o.guaranteeCount != null) keys.push("GUARANTEE_SET");
+        if (o.actualCount != null) keys.push("ACTUAL_COUNT_SET");
         out.set(o.id, [...keys, ...rfpChecks(o.rfpLineItems)]);
       }
       break;
