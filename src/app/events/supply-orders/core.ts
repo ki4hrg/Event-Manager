@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
-import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
+import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
 
 async function assertSupplyOrderInEvent(supplyOrderId: string, eventId: string) {
   const found = await prisma.supplyOrder.findUnique({
@@ -17,8 +17,11 @@ async function assertSupplyOrderInEvent(supplyOrderId: string, eventId: string) 
   if (!found) throw new PermissionError("NOT_FOUND");
 }
 
+// Runs after every write under the order, so it also keeps a status that
+// follows an automatic workflow check current (refreshWorkflowStatus).
 async function bumpSupplyOrder(supplyOrderId: string, eventId: string, userId: string) {
   await prisma.supplyOrder.updateMany({ where: { id: supplyOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("supply_order", [supplyOrderId], eventId);
 }
 
 // ---------------------------------------------------------------------------
@@ -110,7 +113,7 @@ export async function updateSupplyOrderCore(
   if (providerVendorId) providerContactId = null;
   if (providerContactId) providerVendorId = null;
 
-  return prisma.supplyOrder.update({
+  const order = await prisma.supplyOrder.update({
     where: { id, eventId },
     data: {
       name: args.name,
@@ -122,6 +125,8 @@ export async function updateSupplyOrderCore(
       updatedById: userId,
     },
   });
+  await refreshWorkflowStatus("supply_order", [id], eventId);
+  return order;
 }
 
 export async function deleteSupplyOrderCore(id: string, eventId: string, userId: string) {
@@ -243,6 +248,8 @@ export async function bulkUpdateSupplyOrdersCore(
       });
     }
   }
+  // Only a vendor or link change can move a checked step; a status-only edit stands.
+  if (functionId) await refreshWorkflowStatus("supply_order", ids, eventId);
 }
 
 // ---------------------------------------------------------------------------
@@ -494,6 +501,7 @@ export async function addInventoryToSupplyOrderCore(
       data: { updatedById: userId },
     }),
   ]);
+  await refreshWorkflowStatus("supply_order", [supplyOrderId], order.eventId);
 
   return { orderName: order.name, added: items.length, skipped };
 }

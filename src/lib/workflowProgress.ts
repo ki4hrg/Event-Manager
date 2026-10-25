@@ -1,28 +1,52 @@
-// The one rule for how far a workflow instance has got. A step without
-// checklist items is done when ticked; a step with items is done when every
-// item is ticked. Steps run in order, so an instance's current step is the
-// first one not done. Every reader (list counts, the detail badge, the panel,
-// the status recompute, form approval) goes through here, so a change to the
-// rule lands everywhere at once. Pure; safe on the server and the client.
+// The one rule for how far a workflow instance has got. Every reader (list
+// counts, the detail badge and strip, the panel, the status recompute, form
+// approval, the overview) goes through here, so a change to the rule lands
+// everywhere at once. Pure; safe on the server and the client.
+//
+// A step's required checklist items come first: optional items never hold a
+// step back, and a step with only optional items behaves as if it had none.
+// Once the required items are ticked, the step's completion mode decides:
+//   MANUAL  done when its required items are ticked, or (with none) when ticked
+//   AUTO    done exactly while its check holds; never stored, so it re-opens
+//   PROMPT  "prompt" (looks done, confirm) while its check holds; done once confirmed
+// AUTO and PROMPT without a known check behave as MANUAL. Steps run in order,
+// so an instance's current step is the first one not done.
 
-export type ProgressStepInput = { id: string; items: { id: string }[] };
+import type { WorkflowCompletionMode } from "@prisma/client";
+import { WORKFLOW_CHECKS, isWorkflowCheckKey, type WorkflowCheckKey } from "@/lib/workflowChecks";
+
+export type ProgressStepInput = {
+  id: string;
+  completionMode: WorkflowCompletionMode;
+  computedKey: string | null;
+  items: { id: string; required: boolean }[];
+};
 
 export type ProgressInstanceInput<S extends ProgressStepInput = ProgressStepInput> = {
   template: { steps: S[] };
   stepCompletions: { stepId: string }[];
   itemCompletions: { itemId: string }[];
+  checks: readonly string[]; // the record's checks that hold (src/lib/workflowCheckData.ts)
 };
 
-// "partial": a step with items, some (not all) of them ticked.
-export type StepStatus = "done" | "partial" | "open";
+// "partial": some (not all) required items ticked. "prompt": a PROMPT step
+// whose conditions hold, waiting for a confirm; it counts as not done.
+export type StepStatus = "done" | "partial" | "open" | "prompt";
 
-export type StepProgress = { status: StepStatus; itemsDone: number; itemsRequired: number };
+export type StepProgress = {
+  status: StepStatus;
+  mode: WorkflowCompletionMode; // as applied (MANUAL when AUTO / PROMPT has no check)
+  check: WorkflowCheckKey | null;
+  checkHolds: boolean;
+  itemsDone: number; // required items ticked
+  itemsRequired: number;
+};
 
 export type InstanceProgress = {
   steps: StepProgress[]; // in the template's step order
   current: number | null; // index of the first step not done; null when all are
   stepsDone: number;
-  // A step without items counts as one tick, a step with items as one per item.
+  // A step without required items counts as one tick, a step with them as one per item.
   ticksDone: number;
   ticksTotal: number;
 };
@@ -44,18 +68,39 @@ export function completionSets(instance: Pick<ProgressInstanceInput, "stepComple
   };
 }
 
-export function stepProgress(step: ProgressStepInput, done: CompletionSets): StepProgress {
-  if (step.items.length === 0) {
-    return { status: done.steps.has(step.id) ? "done" : "open", itemsDone: 0, itemsRequired: 0 };
+export function stepProgress(step: ProgressStepInput, done: CompletionSets, checks: readonly string[]): StepProgress {
+  const required = step.items.filter((i) => i.required);
+  const itemsDone = required.filter((i) => done.items.has(i.id)).length;
+  const itemsRequired = required.length;
+  const itemsMet = itemsDone === itemsRequired;
+  const check = isWorkflowCheckKey(step.computedKey) ? step.computedKey : null;
+  const checkHolds = check !== null && checks.includes(check);
+  const mode: WorkflowCompletionMode = check ? step.completionMode : "MANUAL";
+  const ticked = done.steps.has(step.id);
+  const notYet: StepStatus = itemsDone > 0 ? "partial" : "open";
+
+  let status: StepStatus;
+  switch (mode) {
+    case "AUTO":
+      status = itemsMet && checkHolds ? "done" : notYet;
+      break;
+    case "PROMPT":
+      status = ticked ? "done" : itemsMet && checkHolds ? "prompt" : notYet;
+      break;
+    case "MANUAL":
+      status = itemsRequired > 0 ? (itemsMet ? "done" : notYet) : ticked ? "done" : "open";
+      break;
+    default: {
+      const _exhaustive: never = mode;
+      throw new Error(`Unhandled completion mode: ${_exhaustive}`);
+    }
   }
-  const itemsDone = step.items.filter((i) => done.items.has(i.id)).length;
-  const itemsRequired = step.items.length;
-  return { status: itemsDone === itemsRequired ? "done" : itemsDone > 0 ? "partial" : "open", itemsDone, itemsRequired };
+  return { status, mode, check, checkHolds, itemsDone, itemsRequired };
 }
 
 export function instanceProgress(instance: ProgressInstanceInput): InstanceProgress {
   const done = completionSets(instance);
-  const steps = instance.template.steps.map((s) => stepProgress(s, done));
+  const steps = instance.template.steps.map((s) => stepProgress(s, done, instance.checks));
   const current = steps.findIndex((s) => s.status !== "done");
   let ticksDone = 0;
   let ticksTotal = 0;
@@ -105,8 +150,17 @@ export type ProgressStep = {
   href: string | null;
 };
 
+// The strip's one-line state for a step not yet done.
+function openState(sp: StepProgress): string {
+  if (sp.status === "prompt") return "Looks done · confirm";
+  if (sp.itemsRequired > 0 && sp.itemsDone < sp.itemsRequired) return `${sp.itemsDone} of ${sp.itemsRequired}`;
+  if (sp.check && !sp.checkHolds) return WORKFLOW_CHECKS[sp.check].pending;
+  return "To do";
+}
+
 // A template instance as strip steps. The current step is "active", or
-// "partial" when some of its items are ticked; steps after it are "todo".
+// "partial" when some of its items are ticked; steps after it are "todo". A
+// prompt step waiting on a confirm shows as active.
 export function templateProgress(
   instance: ProgressInstanceInput<ProgressStepInput & { label: string }>,
 ): { steps: ProgressStep[]; current: string | null } {
@@ -115,8 +169,7 @@ export function templateProgress(
     const sp = p.steps[i];
     const status: ProgressStatus =
       sp.status === "done" ? "done" : sp.status === "partial" ? "partial" : i === p.current ? "active" : "todo";
-    const state = sp.itemsRequired > 0 ? `${sp.itemsDone} of ${sp.itemsRequired}` : sp.status === "done" ? "Done" : "To do";
-    return { key: s.id, label: s.label, state, status, href: null };
+    return { key: s.id, label: s.label, state: sp.status === "done" ? "Done" : openState(sp), status, href: null };
   });
   return { steps, current: p.current === null ? null : instance.template.steps[p.current].id };
 }

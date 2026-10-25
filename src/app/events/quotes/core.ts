@@ -9,6 +9,7 @@
 import type { PermissionAction } from "@/lib/permissions";
 import type { PermissionResource, Prisma, RfpKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { refreshWorkflowStatusForRfp } from "@/app/events/workflows/core";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { dateFromKey } from "@/lib/hotels";
 import { rangeTouched } from "@/lib/dateRange";
@@ -134,7 +135,7 @@ async function validate(eventId: string, rfpId: string | null, args: QuoteWriteA
 export async function createVendorQuoteCore(eventId: string, rfpId: string | null, args: QuoteWriteArgs, userId: string) {
   const rfp = await authorizeRfp(rfpId, eventId, userId);
   const { data, lines } = await validate(eventId, rfp?.id ?? null, args, null);
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const quote = await tx.vendorQuote.create({
       data: { ...data, eventId, rfpId: rfp?.id ?? null, updatedById: userId, lines: { create: lines.map(({ id: _id, at: _at, ...l }) => l) } },
     });
@@ -143,6 +144,8 @@ export async function createVendorQuoteCore(eventId: string, rfpId: string | nul
     }
     return quote;
   });
+  if (rfp) await refreshWorkflowStatusForRfp(rfp.id, eventId);
+  return result;
 }
 
 // Returns the quote and each of args.lines' saved id (null for a line dropped
@@ -153,7 +156,7 @@ export async function updateVendorQuoteCore(id: string, eventId: string, args: Q
   const { data, lines } = await validate(eventId, current.rfpId, args, current);
   const existing = new Set((await prisma.vendorQuoteLine.findMany({ where: { quoteId: id }, select: { id: true } })).map((l) => l.id));
   const kept = lines.flatMap((l) => (l.id && existing.has(l.id) ? [l.id] : []));
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.vendorQuoteLine.deleteMany({ where: { quoteId: id, id: { notIn: kept } } });
     const lineIds: (string | null)[] = args.lines.map(() => null);
     for (const { id: lineId, at, ...line } of lines) {
@@ -165,6 +168,8 @@ export async function updateVendorQuoteCore(id: string, eventId: string, args: Q
     const quote = await tx.vendorQuote.update({ where: { id, eventId }, data: { ...data, updatedById: userId } });
     return { quote, lineIds };
   });
+  if (current.rfpId) await refreshWorkflowStatusForRfp(current.rfpId, eventId);
+  return result;
 }
 
 // The lines it won open up (SetNull); a closed RFP reopens.
@@ -175,6 +180,7 @@ export async function deleteVendorQuoteCore(id: string, eventId: string, userId:
     await tx.vendorQuote.delete({ where: { id, eventId } });
     if (rfpId && held) await settleAwards(tx, rfpId, eventId, userId, []);
   });
+  if (rfpId) await refreshWorkflowStatusForRfp(rfpId, eventId);
 }
 
 // Awards. A quote is ACCEPTED when its vendor won work; on an RFP with line
@@ -250,7 +256,7 @@ export async function awardVendorQuoteCore(id: string, eventId: string, userId: 
   }
   const losers = holders(won, id);
   const vendorId = quote.vendorId;
-  return prisma.$transaction(async (tx: Tx) => {
+  const result = await prisma.$transaction(async (tx: Tx) => {
     await tx.vendorQuote.update({ where: { id, eventId }, data: { status: "ACCEPTED", updatedById: userId } });
     if (rfpId && won.length) await tx.rfpLineItem.updateMany({ where: { id: { in: won.map((l) => l.id) }, rfpId }, data: { awardedQuoteId: id } });
     if (rfpId && declineOthers) {
@@ -261,6 +267,8 @@ export async function awardVendorQuoteCore(id: string, eventId: string, userId: 
     if (rfpId && won.length) await settleAwards(tx, rfpId, eventId, userId, losers);
     return { orders, lines: won.length };
   });
+  if (rfpId) await refreshWorkflowStatusForRfp(rfpId, eventId);
+  return result;
 }
 
 // Takes the award off RFP lines (this RFP's); the vendors stay on their
@@ -275,11 +283,13 @@ export async function clearRfpLineAwardsCore(rfpId: string, eventId: string, lin
   if (lines.length !== wanted.length) throw new PermissionError("NOT_FOUND", "RFP line item not found");
   const held = lines.filter((l) => l.awardedQuoteId);
   if (!held.length) return { cleared: 0 };
-  return prisma.$transaction(async (tx: Tx) => {
+  const result = await prisma.$transaction(async (tx: Tx) => {
     await tx.rfpLineItem.updateMany({ where: { id: { in: held.map((l) => l.id) }, rfpId }, data: { awardedQuoteId: null } });
     await settleAwards(tx, rfpId, eventId, userId, holders(held, null));
     return { cleared: held.length };
   });
+  if (rfpId) await refreshWorkflowStatusForRfp(rfpId, eventId);
+  return result;
 }
 
 // Sets a quote to Received or Declined by hand. Leaving Accepted withdraws the
@@ -314,7 +324,7 @@ export async function setVendorQuoteStatusCore(
     };
     remove = { avOrderId: without("avOrderId"), cateringOrderId: without("cateringOrderId"), printOrderId: without("printOrderId") };
   }
-  return prisma.$transaction(async (tx: Tx) => {
+  const result = await prisma.$transaction(async (tx: Tx) => {
     await tx.vendorQuote.update({ where: { id, eventId }, data: { status, updatedById: userId } });
     let orders = 0;
     if (removeFromOrders) {
@@ -336,6 +346,8 @@ export async function setVendorQuoteStatusCore(
     }
     return { status, orders };
   });
+  if (rfpId) await refreshWorkflowStatusForRfp(rfpId, eventId);
+  return result;
 }
 
 // "No award": the RFP's open quotes are declined and the RFP closed. Refused

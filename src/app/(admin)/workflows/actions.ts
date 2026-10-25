@@ -7,7 +7,23 @@ import { requireActiveTenantId } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
-import type { EntityStatus } from "@prisma/client";
+import type { EntityStatus, WorkflowCompletionMode } from "@prisma/client";
+import { isWorkflowCheckKey } from "@/lib/workflowChecks";
+import { applyStatusMoves, stepChangeImpact } from "@/app/events/workflows/core";
+
+const COMPLETION_MODES: readonly WorkflowCompletionMode[] = ["MANUAL", "AUTO", "PROMPT"];
+
+// The step's completion fields, when the form posts them (the label and status
+// forms don't). Automatic and confirm modes need a known check; manual drops it.
+function parseCompletion(formData: FormData) {
+  if (!formData.has("completionMode")) return {};
+  const mode = formData.get("completionMode") as WorkflowCompletionMode;
+  if (!COMPLETION_MODES.includes(mode)) throw new Error("Unknown completion mode");
+  if (mode === "MANUAL") return { completionMode: mode, computedKey: null };
+  const key = formData.get("computedKey") as string | null;
+  if (!isWorkflowCheckKey(key)) throw new Error("Pick what completes the step");
+  return { completionMode: mode, computedKey: key };
+}
 
 // --- Templates ---
 
@@ -167,12 +183,36 @@ export async function updateWorkflowStep(id: string, templateId: string, formDat
   const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
   const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
 
+  const completion = parseCompletion(formData);
+  // "Update them too" from the editor's prompt: move the records whose status
+  // follows this workflow, worked out against the step as it was.
+  const moves =
+    completion.completionMode && formData.get("updateRecords") === "true"
+      ? await stepChangeImpact(templateId, id, { completionMode: completion.completionMode, computedKey: completion.computedKey }, session.tenantId)
+      : [];
   await prisma.workflowStep.update({
     where: { id, templateId },
-    data: { label, pendingStatusValue, pendingSubstatusValue },
+    data: { label, pendingStatusValue, pendingSubstatusValue, ...completion },
   });
+  await applyStatusMoves(moves);
   await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
+}
+
+// How many records' status would move if the step completed as the form
+// says, for the editor's prompt before it saves.
+export async function previewStepCompletionChange(id: string, templateId: string, formData: FormData) {
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  await assertTemplateInTenant(templateId, session.tenantId);
+  const completion = parseCompletion(formData);
+  if (!completion.completionMode) return { records: 0 };
+  const moves = await stepChangeImpact(
+    templateId,
+    id,
+    { completionMode: completion.completionMode, computedKey: completion.computedKey },
+    session.tenantId,
+  );
+  return { records: moves.length };
 }
 
 export async function deleteWorkflowStep(id: string, templateId: string) {
@@ -226,8 +266,9 @@ export async function updateChecklistItem(id: string, templateId: string, formDa
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   await assertTemplateInTenant(templateId, session.tenantId);
   const label = formData.get("label") as string;
+  const required = formData.has("required") ? { required: formData.get("required") === "true" } : {};
 
-  await prisma.workflowChecklistItem.update({ where: { id, step: { templateId } }, data: { label } });
+  await prisma.workflowChecklistItem.update({ where: { id, step: { templateId } }, data: { label, ...required } });
   await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
 }

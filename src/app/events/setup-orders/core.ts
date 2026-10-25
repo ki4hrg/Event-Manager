@@ -8,7 +8,7 @@ import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
 import { catalogIdForName, resolveEquipmentName } from "@/lib/equipment-utils";
 import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
-import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
+import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
 
 async function assertSetupOrderInEvent(setupOrderId: string, eventId: string) {
   const found = await prisma.setupOrder.findUnique({
@@ -18,8 +18,11 @@ async function assertSetupOrderInEvent(setupOrderId: string, eventId: string) {
   if (!found) throw new PermissionError("NOT_FOUND");
 }
 
+// Runs after every write under the order, so it also keeps a status that
+// follows an automatic workflow check current (refreshWorkflowStatus).
 async function bumpSetupOrder(setupOrderId: string, eventId: string, userId: string) {
   await prisma.setupOrder.updateMany({ where: { id: setupOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("setup_order", [setupOrderId], eventId);
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +226,8 @@ export async function bulkUpdateSetupOrdersCore(
       data: { updatedById: userId },
     });
   }
+  // Only a vendor or link change can move a checked step; a status-only edit stands.
+  if (vendorId) await refreshWorkflowStatus("setup_order", ids, eventId);
 }
 
 // ---------------------------------------------------------------------------

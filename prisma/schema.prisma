@@ -1289,13 +1289,25 @@ model WorkflowTemplate {
   @@index([updatedById])
 }
 
+enum WorkflowCompletionMode {
+  MANUAL
+  AUTO
+  PROMPT
+}
+
 model WorkflowStep {
   id                    String                   @id @default(cuid())
   templateId            String
   template              WorkflowTemplate         @relation(fields: [templateId], references: [id], onDelete: Cascade)
   label                 String
   sortOrder             Int                      @default(0)
-  computedKey           String? // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
+  // How the step completes once its required items are ticked: a tick
+  // (MANUAL), its check (AUTO, never stored), or a confirm once the check
+  // holds (PROMPT). See src/lib/workflowProgress.ts.
+  completionMode        WorkflowCompletionMode   @default(MANUAL)
+  // The automatic check (AUTO / PROMPT): a key of WORKFLOW_CHECKS in
+  // src/lib/workflowChecks.ts. An unknown key reads as no check.
+  computedKey           String?
   pendingStatusValue    EntityStatus? // status applied while this step is the current (first incomplete) step
   pendingSubstatusValue String? // @option substatus
   items                 WorkflowChecklistItem[]
@@ -1312,7 +1324,8 @@ model WorkflowChecklistItem {
   step        WorkflowStep                  @relation(fields: [stepId], references: [id], onDelete: Cascade)
   label       String
   sortOrder   Int                           @default(0)
-  computedKey String? // reserved for future auto-derived checks
+  // Optional items show in the panel but never hold their step back.
+  required    Boolean                       @default(true)
   completions WorkflowChecklistCompletion[]
   createdAt   DateTime                      @default(now())
   updatedAt   DateTime                      @updatedAt

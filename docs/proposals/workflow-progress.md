@@ -1,7 +1,8 @@
 # Workflow progress: strips, dots, automatic steps, deadlines and owners
 
-Status: phase 1 implemented (strips, dots, overview counts on today's
-workflows); phases 2–3 proposed. From an interview with the owner; no open
+Status: phases 1 (strips, dots, overview counts) and 2 (completion modes,
+checks, optional items) implemented; phase 3 proposed (handoff:
+[workflow-progress-phase3-handoff.md](./workflow-progress-phase3-handoff.md)). From an interview with the owner; no open
 questions. It folds in
 [#43 deadlines](./43-deadlines-expected-completion.md) and
 [#44 responsibility per step](./44-responsibility-per-step.md): one design,
@@ -150,7 +151,8 @@ only. `WorkflowChecklistItem.computedKey` is dropped.
 | `LINKED_TO_FUNCTION` | orders | Linked to at least one function. |
 | `SCHEDULED` | functions; orders through their functions | Has a room and a time (`mainScheduleStart`); for an order, every linked function does. |
 | `ITEMS_ENTERED` | orders | Has line items / equipment / menu (per type); quantities filled. |
-| `HEADCOUNT_SET` | catering, functions | Guarantee / expected attendance set. |
+| `EXPECTED_COUNT_SET`, `CONFIRMED_COUNT_SET`, `GUARANTEE_SET`, `ACTUAL_COUNT_SET` | catering | That Guest Counts field is filled in (one check per count). |
+| `ATTENDANCE_SET`, `SET_FOR_SET`, `ACTUAL_ATTENDANCE_SET` | functions | That ESG card field is filled in. |
 | `RFP_ISSUED` | orders | A line copied from this order sits on an RFP whose status is Issued or Closed. |
 | `QUOTES_IN` | orders | Those RFP lines have at least one quote. |
 | `AWARDED` | orders | Every RFP line from this order is awarded (`RfpLineItem.awardedQuoteId`). |
@@ -159,6 +161,23 @@ The RFP checks read through `RfpLineItem.{avOrderId, cateringOrderId,
 printOrderId}`, which is how a vendor RFP already remembers its source
 orders. So an AV template can run "RFP issued → Quotes in → Awarded → Advance
 sent", and a catering template can use only "Awarded".
+
+**As built (phase 2).** The editor offers the checks that apply to every
+record type the template is the default for (all of them when it's the
+default for none). `ITEMS_ENTERED` counts AV order equipment, catering line
+items or menu sections, setup tables / details / equipment, print items and
+supply items. Equipment, print and supply lines also need a quantity above
+zero. `QUOTES_IN` holds once any of the order's RFP lines has a quote line.
+A function is `SCHEDULED` with a schedule entry and a room, an off-site
+location, or as a breakout block. Each count check names the one field it reads,
+so a step says which number it waits on (no "any count" check). Media deliverables
+also get `VENDOR_ASSIGNED` (their provider) and `LINKED_TO_FUNCTION`.
+Unticking a required item drops its step's confirm and cascades later steps;
+an optional item moves nothing. Changing a step's mode or check
+in the editor first counts the records whose status follows the workflow and
+would move (`stepChangeImpact`, simulated in memory; hand-set and cancelled
+statuses don't count). With any, it asks: update them too, leave them (their
+next write or tick catches up), or cancel.
 
 **Storage.** An `AUTO` step's state is never stored: it is computed on read,
 so dots, strips and counts can't drift. The one stored thing that can go

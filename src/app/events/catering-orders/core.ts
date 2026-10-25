@@ -9,7 +9,7 @@ import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { rangeTouched } from "@/lib/dateRange";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
-import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
+import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
 
 async function assertCateringOrderInEvent(cateringOrderId: string, eventId: string) {
   const found = await prisma.cateringOrder.findUnique({
@@ -19,8 +19,11 @@ async function assertCateringOrderInEvent(cateringOrderId: string, eventId: stri
   if (!found) throw new PermissionError("NOT_FOUND");
 }
 
+// Runs after every write under the order, so it also keeps a status that
+// follows an automatic workflow check current (refreshWorkflowStatus).
 async function bumpCateringOrder(cateringOrderId: string, eventId: string, userId: string) {
   await prisma.cateringOrder.updateMany({ where: { id: cateringOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("catering_order", [cateringOrderId], eventId);
 }
 
 async function eventTimezone(eventId: string): Promise<string> {
@@ -144,7 +147,11 @@ export async function updateCateringOrderCore(
   for (const [k, v] of Object.entries(args)) {
     if (v !== undefined) data[k] = v;
   }
-  if (dietaryCounts === undefined) return prisma.cateringOrder.update({ where: { id, eventId }, data });
+  if (dietaryCounts === undefined) {
+    const order = await prisma.cateringOrder.update({ where: { id, eventId }, data });
+    await refreshWorkflowStatus("catering_order", [id], eventId);
+    return order;
+  }
   // One row per label; a zero or negative count means none.
   const counts = new Map<string, number>();
   for (const c of dietaryCounts) {
@@ -152,7 +159,7 @@ export async function updateCateringOrderCore(
     if (!label || !Number.isInteger(c.count) || c.count <= 0) continue;
     counts.set(label, (counts.get(label) ?? 0) + c.count);
   }
-  return prisma.$transaction(async (tx) => {
+  const order = await prisma.$transaction(async (tx) => {
     const order = await tx.cateringOrder.update({ where: { id, eventId }, data });
     await tx.cateringOrderDietaryCount.deleteMany({ where: { cateringOrderId: id } });
     await tx.cateringOrderDietaryCount.createMany({
@@ -160,6 +167,8 @@ export async function updateCateringOrderCore(
     });
     return order;
   });
+  await refreshWorkflowStatus("catering_order", [id], eventId);
+  return order;
 }
 
 export async function deleteCateringOrderCore(id: string, eventId: string, userId: string) {
@@ -218,6 +227,8 @@ export async function bulkUpdateCateringOrdersCore(
       data: { updatedById: userId },
     });
   }
+  // Only a vendor or link change can move a checked step; a status-only edit stands.
+  if (vendorId) await refreshWorkflowStatus("catering_order", ids, eventId);
 }
 
 // ---------------------------------------------------------------------------
@@ -232,10 +243,12 @@ export async function linkCateringOrderToFunctionCore(
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await assertCateringOrderInEvent(cateringOrderId, eventId);
   await assertEventRefs(eventId, { functionIds: [functionId] });
-  return prisma.cateringOrder.update({
+  const order = await prisma.cateringOrder.update({
     where: { id: cateringOrderId, eventId },
     data: { functionId, updatedById: userId },
   });
+  await refreshWorkflowStatus("catering_order", [cateringOrderId], eventId);
+  return order;
 }
 
 // Returns the previously-linked functionId so the UI wrapper can revalidate
@@ -254,6 +267,7 @@ export async function unlinkCateringOrderFromFunctionCore(
     where: { id: cateringOrderId, eventId },
     data: { functionId: null, updatedById: userId },
   });
+  await refreshWorkflowStatus("catering_order", [cateringOrderId], eventId);
   return { previousFunctionId: cateringOrder?.functionId ?? null };
 }
 
@@ -263,10 +277,12 @@ export async function unlinkCateringOrdersFromFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
+  const unlinked = await prisma.cateringOrder.findMany({ where: { functionId, eventId }, select: { id: true } });
   const r = await prisma.cateringOrder.updateMany({
     where: { functionId, eventId },
     data: { functionId: null, updatedById: userId },
   });
+  await refreshWorkflowStatus("catering_order", unlinked.map((o) => o.id), eventId);
   return { count: r.count };
 }
 

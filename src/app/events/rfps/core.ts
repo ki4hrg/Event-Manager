@@ -28,6 +28,7 @@ import type { OfferHotel } from "@/lib/inboundParse";
 import { createNewHotelCore } from "@/app/events/hotels/core";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { settleAwards } from "@/app/events/quotes/core";
+import { refreshWorkflowStatusForRfp } from "@/app/events/workflows/core";
 
 export type RfpWriteArgs = {
   title: string;
@@ -222,15 +223,30 @@ export async function updateRfpCore(id: string, eventId: string, args: RfpWriteA
   const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
   const current = await prisma.rfp.findFirst({ where: { id, eventId }, select: { amenities: true } });
   const data = await validate(eventId, kind, args, current?.amenities ?? []);
-  return prisma.$transaction(async (tx) => {
+  const rfp = await prisma.$transaction(async (tx) => {
     await tx.rfpAlternateDate.deleteMany({ where: { rfpId: id } });
     return tx.rfp.update({ where: { id, eventId }, data: { ...data, updatedById: userId } });
   });
+  await refreshWorkflowStatusForRfp(id, eventId);
+  return rfp;
 }
 
 export async function deleteRfpCore(id: string, eventId: string, userId: string) {
   await authorizeRfp(id, eventId, "DELETE", userId);
+  const sources = await rfpSourceOrders(id);
   await prisma.rfp.delete({ where: { id, eventId } });
+  await refreshWorkflowStatusForRfp(id, eventId, sources);
+}
+
+// The orders an RFP's lines came from, read before a write that drops lines
+// (their workflow checks read the lines).
+async function rfpSourceOrders(rfpId: string) {
+  const lines = await prisma.rfpLineItem.findMany({ where: { rfpId }, select: { avOrderId: true, cateringOrderId: true, printOrderId: true } });
+  return {
+    avOrderIds: lines.map((l) => l.avOrderId),
+    cateringOrderIds: lines.map((l) => l.cateringOrderId),
+    printOrderIds: lines.map((l) => l.printOrderId),
+  };
 }
 
 // `held`: contract types the RFP's blocks already hold, which may stay.
@@ -461,6 +477,7 @@ export async function saveRfpLineItemsCore(id: string, eventId: string, rows: Rf
     });
   const existing = new Set((await prisma.rfpLineItem.findMany({ where: { rfpId: id }, select: { id: true } })).map((r) => r.id));
   const kept = data.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
+  const sources = await rfpSourceOrders(id);
   const saved = await prisma.$transaction(async (tx) => {
     // Quotes that won a line being removed may be left with none.
     const losers = (
@@ -487,6 +504,7 @@ export async function saveRfpLineItemsCore(id: string, eventId: string, rows: Rf
     }
     return out;
   });
+  await refreshWorkflowStatusForRfp(id, eventId, sources);
   return alignIds(rows, (r) => !!r.description.trim(), saved);
 }
 
@@ -721,6 +739,7 @@ export async function issueRfpCore(id: string, eventId: string, file: { fileName
     // each was first sent, and one that declined stays unsent.
     prisma.rfpRecipient.updateMany({ where: { rfpId: id, sentOn: null, declinedToBid: false }, data: { sentOn: today } }),
   ]);
+  await refreshWorkflowStatusForRfp(id, eventId);
 }
 
 export type RfpRecipientArgs = { sentOn: string | null; declinedToBid: boolean; notes: string | null };

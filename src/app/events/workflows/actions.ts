@@ -5,7 +5,8 @@ import { requirePermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { EntityStatus } from "@prisma/client";
-import { instanceProgress, stepProgress, completionSets, templateProgress, type WorkflowRowSummary } from "@/lib/workflowProgress";
+import { instanceProgress, templateProgress, type WorkflowRowSummary } from "@/lib/workflowProgress";
+import { loadWorkflowChecks, withWorkflowChecks } from "@/lib/workflowCheckData";
 import { ENTITY_TYPE_RESOURCE } from "./entity-types";
 import { WORKFLOW_ENTITY_DELEGATES } from "./entity-delegates";
 import {
@@ -79,7 +80,7 @@ function revalidateEntity(entityType: WorkflowEntityType, entityId: string, even
 export async function getWorkflowInstances(entityType: WorkflowEntityType, entityId: string, eventId: string) {
   await gateWorkflowAction(entityType, eventId, "VIEW");
   await assertEntityInEvent(entityType, entityId, eventId);
-  return prisma.workflowInstance.findMany({
+  const instances = await prisma.workflowInstance.findMany({
     where: { entityType, entityId },
     include: {
       template: {
@@ -97,6 +98,7 @@ export async function getWorkflowInstances(entityType: WorkflowEntityType, entit
     },
     orderBy: { createdAt: "asc" },
   });
+  return withWorkflowChecks(instances);
 }
 
 export async function assignWorkflow(
@@ -152,45 +154,29 @@ export async function toggleStepCompletion(
   });
 
   if (existing) {
-    // Unchecking: cascade delete this step + all subsequent steps in the template
-    const instance = await prisma.workflowInstance.findUniqueOrThrow({
-      where: { id: instanceId },
-      include: {
-        template: {
-          include: {
-            steps: {
-              orderBy: { sortOrder: "asc" },
-              include: { items: true },
-            },
-          },
-        },
-      },
+    // Unchecking: drop this step's tick and cascade every later step (ticks
+    // and items). Its own items stay; they're ticked separately.
+    const steps = await prisma.workflowStep.findMany({
+      where: { template: { instances: { some: { id: instanceId } } } },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, items: { select: { id: true } } },
     });
-
-    const stepIndex = instance.template.steps.findIndex((s) => s.id === stepId);
-    const affectedSteps = instance.template.steps.slice(stepIndex);
-    const affectedStepIds = affectedSteps.map((s) => s.id);
-    const affectedItemIds = affectedSteps.flatMap((s) => s.items.map((i) => i.id));
-
-    const anyHaveStatus = affectedSteps.some((s) => s.pendingStatusValue !== null);
-
+    const stepIndex = steps.findIndex((s) => s.id === stepId);
+    const laterSteps = steps.slice(stepIndex + 1);
     await prisma.workflowStepCompletion.deleteMany({
-      where: { instanceId, stepId: { in: affectedStepIds } },
+      where: { instanceId, stepId: { in: [stepId, ...laterSteps.map((s) => s.id)] } },
     });
-    if (affectedItemIds.length > 0) {
+    const laterItemIds = laterSteps.flatMap((s) => s.items.map((i) => i.id));
+    if (laterItemIds.length > 0) {
       await prisma.workflowChecklistCompletion.deleteMany({
-        where: { instanceId, itemId: { in: affectedItemIds } },
+        where: { instanceId, itemId: { in: laterItemIds } },
       });
-    }
-
-    if (anyHaveStatus) {
-      await recomputeEntityStatusCore(entityType, entityId, eventId);
     }
   } else {
     await prisma.workflowStepCompletion.create({ data: { instanceId, stepId } });
-    await recomputeEntityStatusCore(entityType, entityId, eventId);
   }
 
+  await recomputeEntityStatusCore(entityType, entityId, eventId);
   revalidateEntity(entityType, entityId, eventId);
 }
 
@@ -224,9 +210,11 @@ export async function getWorkflowBadgeSummaries(
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 
+  const checks = await loadWorkflowChecks(entityType, ownedIds);
   const result: Record<string, WorkflowRowSummary> = {};
 
-  for (const instance of instances) {
+  for (const raw of instances) {
+    const instance = { ...raw, checks: checks.get(raw.entityId) ?? [] };
     const eid = instance.entityId;
     if (!result[eid]) result[eid] = { count: 0, done: 0, total: 0, workflows: [] };
     result[eid].count += 1;
@@ -256,76 +244,40 @@ export async function toggleItemCompletion(
   });
 
   if (existing) {
-    // Unchecking an item: step becomes incomplete → cascade subsequent steps
-    const item = await prisma.workflowChecklistItem.findUniqueOrThrow({
-      where: { id: itemId },
-      include: { step: true },
-    });
-
-    const instance = await prisma.workflowInstance.findUniqueOrThrow({
-      where: { id: instanceId },
-      include: {
-        template: {
-          include: {
-            steps: {
-              orderBy: { sortOrder: "asc" },
-              include: { items: true },
-            },
-          },
-        },
-      },
-    });
-
-    const stepIndex = instance.template.steps.findIndex((s) => s.id === item.stepId);
-    // Cascade subsequent steps only (not the current step's other items)
-    const subsequentSteps = instance.template.steps.slice(stepIndex + 1);
-    const subsequentStepIds = subsequentSteps.map((s) => s.id);
-    const subsequentItemIds = subsequentSteps.flatMap((s) => s.items.map((i) => i.id));
-
-    const anyHaveStatus = [item.step, ...subsequentSteps].some(
-      (s) => s.pendingStatusValue !== null
-    );
-
     await prisma.workflowChecklistCompletion.delete({
       where: { instanceId_itemId: { instanceId, itemId } },
     });
-    if (subsequentStepIds.length > 0) {
-      await prisma.workflowStepCompletion.deleteMany({
-        where: { instanceId, stepId: { in: subsequentStepIds } },
-      });
-    }
-    if (subsequentItemIds.length > 0) {
-      await prisma.workflowChecklistCompletion.deleteMany({
-        where: { instanceId, itemId: { in: subsequentItemIds } },
-      });
-    }
 
-    if (anyHaveStatus) {
-      await recomputeEntityStatusCore(entityType, entityId, eventId);
-    }
-  } else {
-    // Checking an item: if all items of parent step are now done, apply step's statusValue
+    // Unticking a required item re-opens its step: drop the step's own
+    // confirm (a PROMPT step) and cascade every later step. An optional item
+    // never held the step, so nothing else moves.
     const item = await prisma.workflowChecklistItem.findUniqueOrThrow({
       where: { id: itemId },
-      include: {
-        step: {
-          include: { items: true },
-        },
-      },
+      select: { required: true, stepId: true },
     });
-
-    await prisma.workflowChecklistCompletion.create({ data: { instanceId, itemId } });
-
-    const completed = await prisma.workflowChecklistCompletion.findMany({
-      where: { instanceId, itemId: { in: item.step.items.map((i) => i.id) } },
-      select: { itemId: true },
-    });
-
-    if (stepProgress(item.step, completionSets({ stepCompletions: [], itemCompletions: completed })).status === "done") {
-      await recomputeEntityStatusCore(entityType, entityId, eventId);
+    if (item.required) {
+      const steps = await prisma.workflowStep.findMany({
+        where: { template: { instances: { some: { id: instanceId } } } },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, items: { select: { id: true } } },
+      });
+      const stepIndex = steps.findIndex((s) => s.id === item.stepId);
+      const subsequentSteps = steps.slice(stepIndex + 1);
+      await prisma.workflowStepCompletion.deleteMany({
+        where: { instanceId, stepId: { in: [item.stepId, ...subsequentSteps.map((s) => s.id)] } },
+      });
+      const subsequentItemIds = subsequentSteps.flatMap((s) => s.items.map((i) => i.id));
+      if (subsequentItemIds.length > 0) {
+        await prisma.workflowChecklistCompletion.deleteMany({
+          where: { instanceId, itemId: { in: subsequentItemIds } },
+        });
+      }
     }
+  } else {
+    await prisma.workflowChecklistCompletion.create({ data: { instanceId, itemId } });
   }
 
+  await recomputeEntityStatusCore(entityType, entityId, eventId);
   revalidateEntity(entityType, entityId, eventId);
 }
 
