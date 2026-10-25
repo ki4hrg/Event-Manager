@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { WorkflowStrips } from "@/components/WorkflowStrips";
 import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
@@ -419,6 +420,8 @@ export default async function PresentationPage({
           />
         </div>
       </div>
+
+      <WorkflowStrips instances={workflowInstances} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-8">

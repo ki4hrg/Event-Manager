@@ -7,6 +7,7 @@ import { Toast } from "@/components/Toast";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { WorkflowStrips } from "@/components/WorkflowStrips";
 import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { hasPermission } from "@/lib/permissions";
 import { formatFileSize } from "@/lib/uploads";
@@ -112,6 +113,8 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
           )}
         </div>
       </div>
+
+      <WorkflowStrips instances={workflowInstances} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 min-w-0 space-y-6">

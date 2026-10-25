@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { WorkflowStrips } from "@/components/WorkflowStrips";
 import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
@@ -295,6 +296,8 @@ export default async function PrintOrderPage({
           />
         </div>
       </div>
+
+      <WorkflowStrips instances={workflowInstances} />
 
       <PrintOrderTabs basePath={`/events/${eventId}/print-orders/${printOrderId}`} activeTab={activeTab} />
 

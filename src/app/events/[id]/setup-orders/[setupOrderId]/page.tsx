@@ -47,6 +47,7 @@ import { FunctionMultiLinkControl } from "../../../functions/FunctionMultiLinkCo
 import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { WorkflowStrips } from "@/components/WorkflowStrips";
 import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getEventRooms } from "@/lib/eventVenues";
@@ -348,6 +349,8 @@ export default async function SetupOrderPage({
           />
         </div>
       </div>
+
+      <WorkflowStrips instances={workflowInstances} />
 
       <SetupOrderTabs basePath={`/events/${eventId}/setup-orders/${setupOrderId}`} activeTab={activeTab} />
 

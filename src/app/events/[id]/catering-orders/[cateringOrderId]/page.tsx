@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { WorkflowStrips } from "@/components/WorkflowStrips";
 import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getEvent } from "@/app/events/event";
@@ -425,6 +426,8 @@ export default async function CateringOrderPage({
           />
         </div>
       </div>
+
+      <WorkflowStrips instances={workflowInstances} />
 
       <CateringOrderTabs basePath={basePath} activeTab={activeTab} />
 

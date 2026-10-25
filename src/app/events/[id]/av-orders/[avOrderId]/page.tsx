@@ -5,6 +5,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge } from "@/components/WorkflowStatusBadge";
+import { WorkflowStrips } from "@/components/WorkflowStrips";
 import { workflowBadgeSummary } from "@/lib/workflowProgress";
 import { prisma } from "@/lib/prisma";
 import { getEvent } from "@/app/events/event";
@@ -449,6 +450,8 @@ export default async function AVOrderPage({
           />
         </div>
       </div>
+
+      <WorkflowStrips instances={workflowInstances} />
 
       <AVOrderTabs basePath={`/events/${eventId}/av-orders/${avOrderId}`} activeTab={activeTab} />
 
