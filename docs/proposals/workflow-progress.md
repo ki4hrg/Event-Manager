@@ -1,0 +1,245 @@
+# Workflow progress: strips, dots, automatic steps, deadlines and owners
+
+Status: proposed, from an interview with the owner. It folds in
+[#43 deadlines](./43-deadlines-expected-completion.md) and
+[#44 responsibility per step](./44-responsibility-per-step.md): one design,
+built in three phases. Where this document and those two disagree, this one
+wins. Their open questions are answered under § Decisions.
+
+## Problem
+
+Workflow templates (`WorkflowTemplate` → steps → checklist items, assigned
+per record through `WorkflowInstance`) already cover functions, orders,
+presentations, media deliverables and form submissions. They are hard to read
+at a glance, for three reasons:
+
+- **List rows say "3/7".** `WorkflowStatusBadge` gives a count, not which
+  step a record is on.
+- **The detail page has no sense of sequence.** `WorkflowPanel` is a
+  checklist. It doesn't mark "this is where it stands".
+- **Every step is ticked by hand,** even when the data already says it's
+  done (a vendor is assigned, the items are in). `WorkflowStep.computedKey`
+  was reserved for automatic checks and is still unused.
+
+The hotel workflow (ki4hrg/Event-Manager#240, #241) showed a better
+pattern. A strip on the detail page and dots on the list rows give each
+step's state and the step in progress, and every state is derived from data.
+
+## Scope
+
+- **In:** orders (catering, AV, setup, print, supply) and functions, through
+  their workflow templates. Other template entity types (presentations, media
+  deliverables, form submissions) get the same UI for free, but no checks are
+  designed for them here.
+- **Hotels stay built-in.** The hotel chain spans several records (RFP,
+  proposal, block). It shares the strip and dots components, not templates.
+- **The vendor RFP chain is not a fixed flow.** An AV vendor's process differs
+  from a catering one, so the RFP stages become automatic checks that any
+  order template can include, in any position (§ 2).
+- **Templates are short:** 3–6 steps is typical, so dots need no grouping. A
+  template with more than 8 steps falls back to the count in list rows.
+
+## 1. The strip and the dots, shared
+
+Move the presentational parts out of `src/app/events/hotels/HotelWorkflow.tsx`
+into `src/components/`:
+
+- `ProgressStrip`: steps with label, state line, status, optional link, and
+  the current page marked.
+- `ProgressDots`: five-ish dots plus the step in progress, for a list row.
+
+Both take a plain `ProgressStep[]`:
+
+```ts
+type ProgressStep = {
+  key: string;
+  label: string;
+  state: string; // one line: "2 of 4 items", "Awarded", "Due Mar 3 · Kim"
+  status: "done" | "partial" | "active" | "todo" | "skipped" | "stopped";
+  href: string | null;
+};
+```
+
+- **New status `partial`:** a step with checklist items, some done. It shows
+  as a half-filled dot, and the strip state reads "2 of 4".
+- **Hotels** map their `WorkflowStep` (`src/lib/hotelWorkflow.ts`) onto it
+  unchanged.
+- **Templates:** a pure `templateProgress(instance, checks)` in
+  `src/lib/workflowProgress.ts` turns an instance into steps.
+  - The current step is the first one not done, which matches how
+    `pendingStatusValue` already picks the entity status.
+  - Several templates on one record render one strip per template, labelled
+    with the template's name.
+
+Placement:
+
+- **List rows:** `ProgressDots` replaces `WorkflowStatusBadge` wherever the
+  badge is rendered (`getWorkflowBadgeSummaries` grows to return steps, not
+  counts).
+- **Detail page:** `ProgressStrip` sits above `WorkflowPanel`. The panel stays
+  the place to tick items, add notes, set owners and due dates.
+- **Event overview:** see § 4.
+
+## 2. Automatic, prompted and manual steps
+
+Each template step (and checklist item) gets a **completion mode**:
+
+| Mode | Behaviour |
+|---|---|
+| `MANUAL` | Today's tick box. |
+| `AUTO` | Done exactly while its check is true. No tick box. It **re-opens** if the data stops satisfying the check (vendor removed, quantities cleared), and the entity status is recomputed. |
+| `PROMPT` | Stays open, with a nudge on the detail page: "Looks done — confirm". Confirming writes a normal completion. Dots and counts treat it as open until then. |
+
+`computedKey` becomes the check's key, from a closed registry in
+`src/lib/workflowChecks.ts`. Each check is a pure function over a small
+per-entity snapshot, loaded once per page. A check that doesn't apply to the
+entity type isn't offered in the template editor.
+
+| Key | Applies to | True when |
+|---|---|---|
+| `VENDOR_ASSIGNED` | orders | The order has a vendor (the `*OrderVendor` junction or `CateringOrder`'s vendor). |
+| `LINKED_TO_FUNCTION` | orders | Linked to at least one function. |
+| `SCHEDULED` | functions; orders through their functions | Has a room and a time (`mainScheduleStart`); for an order, every linked function does. |
+| `ITEMS_ENTERED` | orders | Has line items / equipment / menu (per type); quantities filled. |
+| `HEADCOUNT_SET` | catering, functions | Guarantee / expected attendance set. |
+| `RFP_ISSUED` | orders | A line copied from this order sits on an RFP whose status is Issued or Closed. |
+| `QUOTES_IN` | orders | Those RFP lines have at least one quote. |
+| `AWARDED` | orders | Every RFP line from this order is awarded (`RfpLineItem.awardedQuoteId`). |
+
+The RFP checks read through `RfpLineItem.{avOrderId, cateringOrderId,
+printOrderId}`, which is how a vendor RFP already remembers its source
+orders. So an AV template can run "RFP issued → Quotes in → Awarded → Advance
+sent", and a catering template can use only "Awarded".
+
+**Storage.** An `AUTO` step's state is never stored: it is computed on read,
+so it can't drift. The entity-status recompute
+(`recomputeEntityStatusCore`) must then run after any write that can flip a
+check. That means vendor, link, item and RFP-award writes, not only workflow
+ticks. They call it the way they already call `syncFunctionNumbers`.
+
+## 3. Deadlines and owners (#43, #44)
+
+Both proposals keep their models, with the changes and decisions below. They
+share the per-instance `WorkflowStepState` / `WorkflowChecklistState` rows
+and land in one migration.
+
+**Due dates (#43).** Anchors:
+
+- `EVENT_START` / `EVENT_END`.
+- `FUNCTION_START`: the earliest linked function's `mainScheduleStart`, as
+  #43 describes.
+- `NEEDED_BY`: a new `neededBy DateTime? @db.Date` on the five order models,
+  edited on the order form. This answers #43's open question 1.
+- `PREVIOUS_STEP`: N days after the previous step's completion (or, for an
+  `AUTO` step, the day its check became true, which needs a
+  `satisfiedAt` stamp on the state row). With no previous completion there's
+  no due date yet.
+
+Due tiers (overdue / due soon ≤ 3 days / upcoming) colour the strip's state
+line and add a marker to the dots.
+
+**Owners (#44).**
+
+- **Several owners per step.** A `WorkflowStepOwner` junction (and
+  `WorkflowChecklistOwner`) replaces #44's single FK trio. Each row is one of:
+  a team member (`userId`, from the event's staff), a vendor, a contact, or
+  only a party type (`responsible_party_type` option: Sponsor, Event Team…).
+- **Template defaults.** Templates carry default owners, by type and optional
+  concrete party, copied to the instance at assignment.
+- **Checklist items inherit** their step's owners until overridden.
+- **"My steps"** is a per-user view of open steps owned by the signed-in team
+  member, across the event (§ 4).
+- `completedById` is added to both completion models.
+
+## 4. Rollups
+
+**Event overview.** For each record type, a compact row:
+
+- the count at each step of its default template, each count linking to the
+  list filtered to that step (`?step=<stepId>`, validated against the
+  template's steps);
+- overdue and due-soon counts;
+- open steps with no owner;
+- the signed-in member's own open steps.
+
+These extend `getEventOverviewStats()`'s `attention` rows behind the existing
+`hasPermission` checks.
+
+**My steps.** `/events/[id]/my-steps`, an Archetype A list grouped by due
+week (Overdue / This week / Next week / Later / No date), linking to each
+record. #43's `/deadlines` page becomes the same page without the owner
+filter.
+
+## 5. Shareable task list per owner
+
+A report that sends one owner a running list of their open steps, for
+example a vendor's tasks across the event. It is a normal shareable report,
+so it gets all five share surfaces
+([docs/checklists/share-report-integration.md](../checklists/share-report-integration.md)).
+
+- **Route:** `/events/[id]/reports/task-list`, filtered to one owner:
+  `?owner=vendor:<id>`, `contact:<id>`, `user:<id>` or `type:<label>`.
+  Parsed and validated in the report's `params.ts`.
+- **Body:** open steps and items grouped by record (order or function), with
+  due date and tier, the step's other owners, and done items optionally
+  shown (`?done=1`). Mobile cards plus a desktop/print table, `ReportNav` by
+  record.
+- **Reader:** `getTaskListData(eventId, owner)` in
+  `src/app/events/reports/data.ts`. It is a plain module with no auth guard,
+  per the share carve-out. It takes the tenant from the event, and proves
+  the owner id belongs to that event's tenant (vendor/contact) or staff
+  (user). A foreign id reads as an empty list, never another tenant's
+  data.
+- **Share link:** `ShareLink.reportType` gains `TASK_LIST`. The owner is
+  stored in the link's filter params like other reports' filters, so a
+  vendor's link always shows that vendor and nobody else. The share view
+  renders read-only. Nothing can be ticked from a share link (that would be
+  the `/f/[token]` form pattern, a possible later step).
+- **"Running":** the share view is computed on every load, so the vendor
+  always sees the current list.
+- **MCP:** `get_task_list_report` beside the other report tools.
+
+## Decisions (from the interview)
+
+| Question | Decision |
+|---|---|
+| Which records first | Orders, functions, and the vendor RFP chain (through order templates) |
+| Template length | 3–6 steps; dots fall back to a count past 8 |
+| How a step completes | Per step: automatic, prompt ("looks done — confirm"), or manual |
+| Automatic step when data changes | Re-opens |
+| Prompt step before confirming | Counts as open; the detail page nudges |
+| Checklist items in dots | Partial dot; the strip shows "2 of 4" |
+| Vendor RFP chain | Template checks (`RFP_ISSUED`, `QUOTES_IN`, `AWARDED`), not a fixed flow |
+| Hotels | Stay built-in; share the components |
+| #43 anchors | Event start/end, function start, order needed-by (new field), previous step |
+| #44 owners | Several per step; team members get "My steps" |
+| #44 party type | Admin-editable `responsible_party_type` option list (#44 Q1, as recommended) |
+| #44 checklist owners | Inherit the step's until overridden (#44 Q4, as recommended) |
+| Overview rollup | Count at each step, overdue / due soon, unowned, my open steps |
+| Sharing | A task-list report scoped to one owner (vendor, contact, team member or type) |
+
+## Phases
+
+1. **Strip and dots on today's workflows.** Shared `ProgressStrip` /
+   `ProgressDots` (hotels moved onto them), `templateProgress`, dots in list
+   rows, strip on detail pages, the overview's count-at-each-step. No schema
+   change.
+2. **Checks.** Completion mode on steps and items, the check registry
+   including the RFP checks, prompt nudges, re-open and status recompute,
+   and the template editor's mode and check pickers. Migration: `completionMode`
+   on `WorkflowStep` / `WorkflowChecklistItem`.
+3. **Deadlines, owners, My steps, task list.** #43 + #44 schema in one
+   migration (state rows, owner junctions, due rules, `neededBy`,
+   `completedById`), the panel's due and owner controls, overview overdue /
+   unowned / mine, `/my-steps`, and the shareable task-list report.
+
+## Open questions
+
+1. **Prompt checks on items:** should checklist items get completion modes
+   too, or only steps? This draft says both, but items might be manual-only
+   in practice.
+2. **Several templates on one record:** one strip per template (drafted), or
+   only the default template's in the dots?
+3. **Task list sharing for team members:** is a share link needed for staff,
+   who can sign in and use My steps, or only for vendors, contacts and party
+   types?

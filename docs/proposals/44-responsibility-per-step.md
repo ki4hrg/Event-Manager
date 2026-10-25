@@ -1,5 +1,7 @@
 # #44 — Track responsibility per step/checklist item (sponsor, event team, vendor, etc.)
 
+> Folded into [workflow-progress.md](./workflow-progress.md) (phase 3), which settles this proposal's open questions and wins where they differ.
+
 > Shares a schema change with **#43 (deadlines)**. Read both; land one migration.
 
 ## Problem
