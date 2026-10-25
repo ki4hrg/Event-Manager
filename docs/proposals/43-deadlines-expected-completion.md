@@ -1,5 +1,7 @@
 # #43 — Deadlines / expected completion (absolute and relative to start)
 
+> Folded into [workflow-progress.md](./workflow-progress.md) (phase 3), which settles this proposal's open questions and wins where they differ.
+
 > Shares a schema change with **#44 (responsibility per step)**. Read both; land one migration.
 
 ## Problem
