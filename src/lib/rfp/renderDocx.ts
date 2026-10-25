@@ -6,7 +6,7 @@ import { Document, HeadingLevel, Packer, PageOrientation, Paragraph, TextRun, ty
 import { FONT, chrome, fieldsTable, gridTable, numbering, richParagraphs, spacer, styles, textParagraphs } from "@/lib/esg/renderDocx";
 import { formatNight } from "@/lib/hotels";
 import { concessionOfferRows, targetRateLine, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpSpaceDay } from "@/lib/rfp/document";
-import { comparisonRows, type RfpComparison } from "@/lib/rfp/compare";
+import { combinedSummary, comparisonRows, type RfpComparison } from "@/lib/rfp/compare";
 import type { QuoteComparison } from "@/lib/rfp/compareQuotes";
 
 const heading = (text: string) =>
@@ -271,16 +271,18 @@ export async function renderRfpCompareDocx(data: RfpComparison): Promise<Buffer>
       continue;
     }
     const rows = comparisonRows(g, data.concessions, data.amenities, data);
+    const mark = (c: { text: string; short: boolean }) => (c.short ? `▼ ${c.text}` : c.text);
+    if (g.combined) children.push(note(`Combined: ${combinedSummary(g.combined)}`));
     children.push(
       gridTable({
-        columns: ["", ...(g.requested ? ["Requested"] : []), ...g.offers.map((o) => o.hotel)],
-        numeric: [false, ...(g.requested ? [true] : []), ...g.offers.map(() => true)],
-        rows: rows.map((r) => [r.label, ...(g.requested ? [r.requested] : []), ...r.cells.map((c) => (c.short ? `▼ ${c.text}` : c.text))]),
+        columns: ["", ...(g.requested ? ["Requested"] : []), ...(g.combined ? ["Combined"] : []), ...g.offers.map((o) => o.hotel)],
+        numeric: [false, ...(g.requested ? [true] : []), ...(g.combined ? [true] : []), ...g.offers.map(() => true)],
+        rows: rows.map((r) => [r.label, ...(g.requested ? [r.requested] : []), ...(r.combined ? [mark(r.combined)] : []), ...r.cells.map(mark)]),
       }),
       spacer(),
     );
   }
-  if (data.groups.some((g) => g.offers.length)) children.push(note("▼ falls short of the request."));
+  if (data.groups.some((g) => g.offers.length)) children.push(note(data.groups.some((g) => g.combined) ? "▼ falls short of the request, or holds contracted rooms past it." : "▼ falls short of the request."));
   const head = chrome("Proposal comparison", data.eventName, data.title, "");
   return Packer.toBuffer(
     new Document({

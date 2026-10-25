@@ -112,6 +112,7 @@ export default async function NewRfpPage({
             alternateDates: [],
             // A block filled from the pattern report brings its peak along.
             peakRooms: blocks.length ? Math.max(...blocks[0].nights.map((n) => n.rooms)) : null,
+            multiProperty: false,
             historyMatching: false,
             reservationMethod: null,
             commissionNotes: null,

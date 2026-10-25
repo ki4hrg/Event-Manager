@@ -2897,6 +2897,10 @@ model Rfp {
   dateNotes            String?
   alternateDates       RfpAlternateDate[]
   peakRooms            Int?
+  // Awarded to several properties (a citywide or a mix of price points): the
+  // comparison sums offers against each block instead of measuring each one
+  // against the whole request, and the document says partial blocks are welcome.
+  multiProperty        Boolean            @default(false)
   // Event history shows only blocks of this RFP's contract / guest types.
   historyMatching      Boolean            @default(false)
   reservationMethod    String? // @option reservation_method

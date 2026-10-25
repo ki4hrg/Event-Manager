@@ -180,6 +180,7 @@ export default async function RfpPage({
                   dateNotes: rfp.dateNotes,
                   alternateDates: rfp.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
                   peakRooms: rfp.peakRooms,
+                  multiProperty: rfp.multiProperty,
                   historyMatching: rfp.historyMatching,
                   reservationMethod: rfp.reservationMethod,
                   commissionNotes: rfp.commissionNotes,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRfpComparison, getRfpDocument } from "@/app/events/rfps/actions";
 import { getQuoteComparison } from "@/app/events/quotes/actions";
 import { prisma } from "@/lib/prisma";
+import { COMBINE_PARAM, parseCombine } from "@/lib/rfp/compare";
 
 // .docx downloads of an RFP document (?doc=rfp, the default) and its
 // proposal or quote comparison (?doc=compare) — a binary stream, so a route
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     buffer = await render.renderQuoteCompareDocx(data);
     name = render.rfpFileName(data.eventName, `${data.title} - Quote comparison`);
   } else {
-    const data = await getRfpComparison(rfpId, eventId);
+    const data = await getRfpComparison(rfpId, eventId, parseCombine(sp.get(COMBINE_PARAM) ?? undefined));
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
     buffer = await render.renderRfpCompareDocx(data);
     name = render.rfpFileName(data.eventName, `${data.title} - Proposal comparison`);

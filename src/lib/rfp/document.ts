@@ -137,6 +137,7 @@ export type RfpDocumentInput = {
     dateNotes: string | null;
     alternateDates: { startDate: Date; endDate: Date }[];
     peakRooms: number | null;
+    multiProperty: boolean;
     reservationMethod: string | null;
     commissionNotes: string | null;
     fbMinimum: Dec;
@@ -422,7 +423,12 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
     ],
     blocks: on.has("blocks") ? blocks : null,
     lineItems: on.has("lineItems") ? lineGroups(rfp.lineItems) : null,
-    roomTerms: on.has("blocks") ? [...fact("Reservations", rfp.reservationMethod), ...fact("Rebates, assessments or commissions", rfp.commissionNotes)] : [],
+    roomTerms: on.has("blocks")
+      ? [
+          ...fact("Properties", rfp.multiProperty ? "Several properties will be contracted; partial blocks are welcome" : null),
+          ...fact("Reservations", rfp.reservationMethod), ...fact("Rebates, assessments or commissions", rfp.commissionNotes),
+        ]
+      : [],
     meetingSpace: on.has("meetingSpace") ? spaceDays(meeting) : null,
     fb: on.has("fb")
       ? {

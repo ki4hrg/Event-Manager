@@ -132,6 +132,10 @@ const rfpProps = {
     items: { type: "object", properties: { startDate: { type: "string" }, endDate: { type: "string" } }, required: ["startDate", "endDate"] },
   },
   peakRooms: { type: ["integer", "null"], description: "Rooms on the peak night; the default rooms per night in a new block grid." },
+  multiProperty: {
+    type: "boolean",
+    description: "HOTEL: awarded to several properties (a citywide, or a mix of price points) — the comparison sums offers per block and the document invites partial blocks. Default false: one property, though a second award is still allowed.",
+  },
   historyMatching: { type: "boolean", description: "Event history shows only past blocks of this RFP's contract / guest types (default: all blocks)." },
   reservationMethod: { type: ["string", "null"], description: "reservation_method option label." },
   commissionNotes: { type: ["string", "null"], description: "Rebates, assessments or commissions on room rates." },
@@ -180,6 +184,7 @@ function mergeRfp(current: RfpWriteArgs, args: Record<string, unknown>): RfpWrit
     dateNotes: pick(partialString(args, "dateNotes"), current.dateNotes),
     alternateDates: pick(alternateList(args), current.alternateDates),
     peakRooms: pick(partialInt(args, "peakRooms"), current.peakRooms),
+    multiProperty: pick(partialBoolean(args, "multiProperty") ?? undefined, current.multiProperty),
     historyMatching: pick(partialBoolean(args, "historyMatching") ?? undefined, current.historyMatching),
     reservationMethod: pick(partialString(args, "reservationMethod"), current.reservationMethod),
     commissionNotes: pick(partialString(args, "commissionNotes"), current.commissionNotes),
@@ -369,6 +374,7 @@ export const rfpTools: McpToolDefinition[] = [
         dateNotes: null,
         alternateDates: [],
         peakRooms: null,
+        multiProperty: false,
         historyMatching: false,
         reservationMethod: null,
         commissionNotes: null,
@@ -416,6 +422,7 @@ export const rfpTools: McpToolDefinition[] = [
         dateNotes: r.dateNotes,
         alternateDates: r.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
         peakRooms: r.peakRooms,
+        multiProperty: r.multiProperty,
         historyMatching: r.historyMatching,
         reservationMethod: r.reservationMethod,
         commissionNotes: r.commissionNotes,
@@ -822,10 +829,18 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "get_rfp_comparison",
     description:
-      "Compare the responses to an RFP. Hotel RFP: per requested block, each hotel's room nights and peak vs requested, nightly shortfall, weighted average rate vs target, room revenue, attrition, guaranteed revenue, validity, charges, amenities and concession answers (met / partial / not met). Vendor RFP: each quote's price per line item (missing: not quoted or fewer than asked; awarded: the quote won the line), each line's lineItemId and awardedQuoteId (null = open), lines won per quote, how many lines are awarded, extras, subtotal, fees, total, deposit, validity, and the lowest total.",
+      "Compare the responses to an RFP. Hotel RFP: per requested block, each hotel's room nights and peak vs requested, nightly shortfall (not flagged per hotel on a multiProperty RFP), weighted average rate vs target, room revenue, attrition, guaranteed revenue, validity, charges, amenities and concession answers (met / partial / not met), and — when the accepted proposals plus `combine` hold one hotel or more on a multiProperty RFP, two or more otherwise — the combined set: rooms per night, gap and excess per night (overContracted: excess held with attrition), blended average rate, rate range, room revenue, brands and areas. Vendor RFP: each quote's price per line item (missing: not quoted or fewer than asked; awarded: the quote won the line), each line's lineItemId and awardedQuoteId (null = open), lines won per quote, how many lines are awarded, extras, subtotal, fees, total, deposit, validity, and the lowest total.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string" }, eventId: { type: "string" } },
+      properties: {
+        id: { type: "string" },
+        eventId: { type: "string" },
+        combine: {
+          type: "array",
+          items: { type: "string" },
+          description: "Hotel RFP: proposal ids to try in each block's combined set beside the accepted ones (declined ones are ignored).",
+        },
+      },
       required: ["id", "eventId"],
       additionalProperties: false,
     },
@@ -833,7 +848,9 @@ export const rfpTools: McpToolDefinition[] = [
       const id = requireString(args, "id");
       const eventId = requireString(args, "eventId");
       const { kind } = await rfpFor(id, eventId, userId, "VIEW");
-      return kind === "HOTEL" ? getRfpComparisonCore(id, eventId, userId) : getQuoteComparisonCore(id, eventId, userId);
+      return kind === "HOTEL"
+        ? getRfpComparisonCore(id, eventId, userId, stringList(args, "combine") ?? [])
+        : getQuoteComparisonCore(id, eventId, userId);
     },
   },
   {

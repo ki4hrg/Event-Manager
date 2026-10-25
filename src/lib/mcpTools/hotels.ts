@@ -401,7 +401,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "update_hotel_proposal",
     description:
-      "Update a hotel proposal; omitted fields are unchanged, but `nights`, `charges` (guest), `meetingCharges`, `spaces` and `meals` replace the whole list when given. Raise `revision` (with `revisionSummary`) when the hotel sends a revised offer. `rfpBlockId` links it to the RFP block it answers (null unlinks); moving to another RFP drops its answers to the old RFP's concessions and space requests. An issued hotel RFP closes once every block it requested has a proposal in an ACCEPTED-stage status.",
+      "Update a hotel proposal; omitted fields are unchanged, but `nights`, `charges` (guest), `meetingCharges`, `spaces` and `meals` replace the whole list when given. Raise `revision` (with `revisionSummary`) when the hotel sends a revised offer. `rfpBlockId` links it to the RFP block it answers (null unlinks); moving to another RFP drops its answers to the old RFP's concessions and space requests. An issued hotel RFP closes once every block it requested has a proposal in an ACCEPTED-stage status (a multiProperty RFP: once its accepted proposals together cover each block on every night); more may still be accepted after.",
     inputSchema: {
       type: "object",
       properties: {

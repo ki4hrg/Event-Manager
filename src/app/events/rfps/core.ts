@@ -11,7 +11,7 @@ import { mkdirSync, writeFileSync } from "fs";
 import type { Prisma, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermissionForUser, PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
-import { addDays, blockTypeLabel, dateFromKey, dateKey } from "@/lib/hotels";
+import { addDays, blockTypeLabel, contractKindOf, dateFromKey, dateKey, stageOf, toContractTypeOption } from "@/lib/hotels";
 import { buildRfpDocument } from "@/lib/rfp/document";
 import { effectiveScope, scopeLabels } from "@/lib/areas";
 import { resolveRfpFileType, rfpFileTypeLabel } from "@/lib/fileTypes";
@@ -44,6 +44,7 @@ export type RfpWriteArgs = {
   dateNotes: string | null;
   alternateDates: { startDate: string; endDate: string }[]; // replaces the list
   peakRooms: number | null;
+  multiProperty: boolean; // awarded to several properties
   historyMatching: boolean; // history shows only blocks of this RFP's contract / guest types
   reservationMethod: string | null;
   commissionNotes: string | null;
@@ -173,6 +174,7 @@ async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs, keep
     datesFlexible: args.datesFlexible,
     dateNotes: args.dateNotes?.trim() || null,
     peakRooms: args.peakRooms,
+    multiProperty: kind === "HOTEL" && args.multiProperty,
     historyMatching: args.historyMatching,
     reservationMethod: args.reservationMethod,
     commissionNotes: args.commissionNotes?.trim() || null,
@@ -768,14 +770,17 @@ export async function removeRfpRecipientCore(recipientId: string, id: string, ev
 }
 
 // Every proposal answering the RFP against what each block asked for
-// (src/lib/rfp/compare.ts). Shared by the compare page and MCP.
-export async function getRfpComparisonCore(id: string, eventId: string, userId: string) {
+// (src/lib/rfp/compare.ts). Shared by the compare page and MCP. combine:
+// proposal ids to try in the combined set beside the accepted ones.
+export async function getRfpComparisonCore(id: string, eventId: string, userId: string, combine: string[] = []) {
   await authorizeRfp(id, eventId, "VIEW", userId);
-  const [rfp, event, proposals] = await Promise.all([
+  const tenantId = await requireEventTenantId(eventId);
+  const [rfp, event, proposals, options] = await Promise.all([
     prisma.rfp.findFirstOrThrow({
       where: { id, eventId },
       select: {
         title: true,
+        multiProperty: true,
         amenities: true,
         fbMinimum: true,
         spaceRequests: { orderBy: { sortOrder: "asc" } },
@@ -789,6 +794,7 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
       select: {
         id: true,
         status: true,
+        contractType: true,
         revision: true,
         rfpBlockId: true,
         allowedAttrition: true,
@@ -803,23 +809,42 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
         spaces: { orderBy: { sortOrder: "asc" } },
         meals: { select: { mealType: true, price: true }, orderBy: { sortOrder: "asc" } },
         amenities: { select: { label: true, status: true } },
-        venue: { select: { name: true, amenities: true } },
+        venue: { select: { name: true, amenities: true, brand: true, area: true } },
         _count: { select: { blocks: true } },
         nights: { select: { night: true, rooms: true, rate: true } },
         charges: { select: { chargeType: true, amount: true, scope: true, kind: true }, orderBy: { sortOrder: "asc" } },
         concessions: { select: { concessionId: true, label: true, offered: true, met: true }, orderBy: { sortOrder: "asc" } },
       },
     }),
+    prisma.customOption.findMany({
+      where: { tenantId, category: { in: ["proposal_status", "hotel_contract_type"] } },
+      select: { category: true, label: true, group: true },
+    }),
   ]);
-  return buildComparison({
-    title: rfp.title,
-    eventName: event.name,
-    amenities: rfp.amenities,
-    blocks: rfp.hotelBlocks,
-    concessions: rfp.concessions,
-    meetingSpace: meetingRequests(rfp.spaceRequests),
-    mealTypes: rfpMealTypes(rfp.spaceRequests),
-    fbMinimum: rfp.fbMinimum,
-    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, profile: p.venue.amenities, hasBlock: p._count.blocks > 0 })),
-  });
+  const statuses = options.filter((o) => o.category === "proposal_status");
+  const contractTypes = options.filter((o) => o.category === "hotel_contract_type").map(toContractTypeOption);
+  return buildComparison(
+    {
+      title: rfp.title,
+      eventName: event.name,
+      multiProperty: rfp.multiProperty,
+      amenities: rfp.amenities,
+      blocks: rfp.hotelBlocks,
+      concessions: rfp.concessions,
+      meetingSpace: meetingRequests(rfp.spaceRequests),
+      mealTypes: rfpMealTypes(rfp.spaceRequests),
+      fbMinimum: rfp.fbMinimum,
+      proposals: proposals.map((p) => ({
+        ...p,
+        hotel: p.venue.name,
+        brand: p.venue.brand,
+        area: p.venue.area,
+        profile: p.venue.amenities,
+        hasBlock: p._count.blocks > 0,
+        stage: stageOf(p.status, statuses),
+        contractKind: contractKindOf(p.contractType, contractTypes),
+      })),
+    },
+    combine,
+  );
 }

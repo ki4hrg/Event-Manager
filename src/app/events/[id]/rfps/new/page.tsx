@@ -66,6 +66,7 @@ export default async function NewVendorRfpPage({ params, searchParams }: { param
             dateNotes: null,
             alternateDates: [],
             peakRooms: null,
+            multiProperty: false,
             historyMatching: false,
             reservationMethod: null,
             commissionNotes: null,
