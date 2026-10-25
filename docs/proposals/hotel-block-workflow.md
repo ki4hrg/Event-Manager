@@ -1,6 +1,6 @@
 # Hotel block workflow
 
-Status: proposed. Follows the several-property RFP work (ki4hrg/Event-Manager#239).
+Status: implemented, revised from this draft. The final review is a guest-list reconciliation; attrition, comps and the hotel's invoice wait for billing (ki4hrg/Event-Manager#53). The workflow is tracked per block. Contract terms (`attritionBasis`, `compRatio`) are on the block. Where this draft and docs/hotels.md differ, docs/hotels.md wins.
 
 ## Problem
 

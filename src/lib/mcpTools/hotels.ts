@@ -14,12 +14,16 @@ import {
   createHotelBlockCore,
   createPickupGuestCore,
   deleteHotelBlockCore,
+  getBlockReviewCore,
+  importFinalGuestListCore,
   importPickupGuestsCore,
+  saveBlockReviewCore,
   savePickupCountsCore,
   toBlockValues,
   updateHotelBlockCore,
   updatePickupGuestCore,
   type BlockWriteArgs,
+  type FinalGuestArgs,
   type PickupCountArgs,
   type PickupGuestArgs,
 } from "@/app/events/hotels/blockCore";
@@ -281,6 +285,12 @@ const blockProps = {
   distanceMiles: { type: ["number", "null"] },
   driveMinutes: { type: ["integer", "null"] },
   compRooms: { type: ["integer", "null"] },
+  attritionBasis: {
+    type: ["string", "null"],
+    enum: ["ROOM_NIGHTS", "PER_NIGHT", "REVENUE", "PROFIT", null],
+    description: "What the contract measures attrition on: total room nights, each night on its own, room revenue, or the hotel's lost profit. null = not stated.",
+  },
+  compRatio: { type: ["integer", "null"], description: "Contract term: one comp room earned per this many room nights picked up." },
   staffRooms: { type: ["integer", "null"] },
   notes: { type: ["string", "null"] },
   nights: {
@@ -531,6 +541,82 @@ export const hotelTools: McpToolDefinition[] = [
       const id = requireString(args, "id");
       await deleteHotelBlockCore(id, await blockEvent(id), userId);
       return { ok: true };
+    },
+  },
+  {
+    name: "get_hotel_block_review",
+    description:
+      "A block's final review: our pickup guest list reconciled against the hotel's final (actualized) guest list. Each row pairs our booking with the hotel's stay (matched by confirmation number, then name with overlapping dates) and flags NO_SHOW, NOT_ON_LIST, STAYED_AFTER_CANCEL, LATE_ARRIVAL, EARLY_ARRIVAL, EARLY_DEPARTURE, STAYED_LONGER, ROOM_TYPE; plus counts per flag, room nights booked vs stayed, and the sign-off (reviewedOn, reviewNotes). reconciliation is null until a final list is loaded.",
+    inputSchema: { type: "object", properties: { blockId: { type: "string" } }, required: ["blockId"], additionalProperties: false },
+    handler: async (args, { userId }) => {
+      const blockId = requireString(args, "blockId");
+      const review = await getBlockReviewCore(blockId, await blockEvent(blockId), userId);
+      if (!review) throw new Error("Block not found");
+      return review;
+    },
+  },
+  {
+    name: "load_hotel_final_guest_list",
+    description:
+      "Load the hotel's final (post-event, actualized) guest list into a block's final review, replacing any earlier one. Rows with cancelled true (cancelled, no-show) aren't stays and are dropped. Our pickup guest list and the pickup numbers are unchanged — read the comparison with get_hotel_block_review.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        blockId: { type: "string" },
+        fileName: { type: ["string", "null"] },
+        guests: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              guestName: { type: ["string", "null"] },
+              confirmationNumber: { type: ["string", "null"] },
+              checkIn: { type: "string", description: "Actual arrival, YYYY-MM-DD." },
+              checkOut: { type: "string", description: "Actual departure, YYYY-MM-DD." },
+              roomType: { type: ["string", "null"], description: "hotel_room_type option label." },
+              cancelled: { type: "boolean" },
+            },
+            required: ["checkIn", "checkOut"],
+          },
+        },
+      },
+      required: ["blockId", "guests"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const blockId = requireString(args, "blockId");
+      if (!Array.isArray(args.guests)) throw new Error("guests must be a list");
+      const guests = (args.guests as Record<string, unknown>[]).map((g): FinalGuestArgs => {
+        for (const k of ["checkIn", "checkOut"]) if (typeof g[k] !== "string" || !DATE.test(g[k] as string)) throw new Error(`${k} must be YYYY-MM-DD`);
+        return {
+          guestName: (g.guestName as string) || null,
+          confirmationNumber: (g.confirmationNumber as string) || null,
+          checkIn: g.checkIn as string,
+          checkOut: g.checkOut as string,
+          roomType: (g.roomType as string) || null,
+          cancelled: g.cancelled === true,
+        };
+      });
+      return importFinalGuestListCore(blockId, await blockEvent(blockId), { fileName: (args.fileName as string) || null, guests }, userId);
+    },
+  },
+  {
+    name: "set_hotel_block_review",
+    description: "Sign off a block's final review (reviewedOn YYYY-MM-DD; null reopens it) and set its notes. Omitted fields are unchanged.",
+    inputSchema: {
+      type: "object",
+      properties: { blockId: { type: "string" }, reviewedOn: { type: ["string", "null"] }, reviewNotes: { type: ["string", "null"] } },
+      required: ["blockId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const blockId = requireString(args, "blockId");
+      const eventId = await blockEvent(blockId);
+      await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+      const current = await prisma.hotelBlock.findUniqueOrThrow({ where: { id: blockId }, select: { reviewedOn: true, reviewNotes: true } });
+      const reviewedOn = "reviewedOn" in args ? ((args.reviewedOn as string | null) ?? null) : current.reviewedOn ? current.reviewedOn.toISOString().slice(0, 10) : null;
+      const reviewNotes = "reviewNotes" in args ? ((args.reviewNotes as string | null) ?? null) : current.reviewNotes;
+      return saveBlockReviewCore(blockId, eventId, { reviewedOn, reviewNotes }, userId);
     },
   },
   {

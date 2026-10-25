@@ -6,7 +6,7 @@
 // checks in for that night — so nights run from check-in up to, but not
 // including, check-out.
 
-import type { AmenityStatus, ConcessionMet, HotelChargeScope } from "@prisma/client";
+import type { AmenityStatus, ConcessionMet, HotelAttritionBasis, HotelChargeScope } from "@prisma/client";
 
 // proposal_status options carry one of these as their group.
 export type ProposalStage = "REQUESTED" | "PENDING" | "ACCEPTED" | "DECLINED";
@@ -74,6 +74,15 @@ export function appliedAttrition(allowedAttrition: number | null, kind: Contract
     }
   }
 }
+
+// What a contract measures attrition on (HotelBlock.attritionBasis).
+export const ATTRITION_BASIS_LABELS: Record<HotelAttritionBasis, string> = {
+  ROOM_NIGHTS: "Total room nights",
+  PER_NIGHT: "Each night",
+  REVENUE: "Room revenue",
+  PROFIT: "Lost profit",
+};
+export const isAttritionBasis = (v: unknown): v is HotelAttritionBasis => typeof v === "string" && Object.hasOwn(ATTRITION_BASIS_LABELS, v);
 
 // "Contract · Attendees"; either half may be missing.
 export function blockTypeLabel(contractType: string | null, guestType: string | null): string | null {

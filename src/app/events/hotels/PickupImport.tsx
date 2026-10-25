@@ -52,18 +52,22 @@ export type GuestImportSource = {
   dateOrder: DateOrder | null;
 };
 
+// final: the hotel's post-event list for the final review, which replaces the
+// last one (no method to pick) and drops rows whose status isn't a stay.
 export function GuestImport({
   roomTypes,
   hasGuests,
   importGuests,
   done,
   source,
+  final = false,
 }: {
   roomTypes: string[];
   hasGuests: boolean;
   importGuests: (method: ImportMethod, fileName: string | null, guests: GuestArgs[]) => Promise<void | UserError>;
   done: (message: string) => void;
   source?: GuestImportSource;
+  final?: boolean;
 }) {
   const [fileName, setFileName] = useState<string | null>(source?.fileName ?? null);
   const [headers, setHeaders] = useState<string[]>(source?.headers ?? []);
@@ -121,7 +125,10 @@ export function GuestImport({
           setError(result.error);
           return;
         }
-        done(`Imported ${usable.length} guest${usable.length === 1 ? "" : "s"}`);
+        if (final) {
+          const stays = usable.filter((g) => !g.cancelled).length;
+          done(`Loaded ${stays} stay${stays === 1 ? "" : "s"}`);
+        } else done(`Imported ${usable.length} guest${usable.length === 1 ? "" : "s"}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Import failed");
       }
@@ -129,7 +136,7 @@ export function GuestImport({
 
   return (
     <div className={cardClass}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Guest list</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white">{final ? "Hotel's final guest list" : "Guest list"}</h2>
       {source ? (
         <p className="text-sm text-gray-700 dark:text-gray-300 break-words">{source.fileName}</p>
       ) : (
@@ -201,7 +208,7 @@ export function GuestImport({
 
           {rawStatuses.length > 0 && (
             <div>
-              <h3 className={headingClass}>Cancelled statuses</h3>
+              <h3 className={headingClass}>{final ? "Statuses that aren't stays" : "Cancelled statuses"}</h3>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
                 {rawStatuses.map((raw) => (
                   <label key={raw} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
@@ -218,7 +225,7 @@ export function GuestImport({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-700 dark:text-gray-300">
+          <div className={`flex flex-wrap items-center gap-4 text-sm text-gray-700 dark:text-gray-300 ${final ? "hidden" : ""}`}>
             {(
               [
                 ["MERGE", "Merge by confirmation #"],
@@ -242,18 +249,26 @@ export function GuestImport({
           </div>
 
           <p className="text-sm text-gray-700 dark:text-gray-300">
-            {usable.length} guest{usable.length === 1 ? "" : "s"} · {usable.filter((g) => g.cancelled).length} cancelled ·{" "}
-            {usable.filter((g) => g.bookedOn).length} with booked date
+            {final ? (
+              <>
+                {usable.filter((g) => !g.cancelled).length} stays · {usable.filter((g) => g.cancelled).length} not stays
+              </>
+            ) : (
+              <>
+                {usable.length} guest{usable.length === 1 ? "" : "s"} · {usable.filter((g) => g.cancelled).length} cancelled ·{" "}
+                {usable.filter((g) => g.bookedOn).length} with booked date
+              </>
+            )}
             {badDates > 0 && <span className="text-red-600 dark:text-red-400"> · {badDates} skipped (dates)</span>}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               disabled={pending || usable.length === 0}
-              onClick={() => (method === "REPLACE" && hasGuests && !confirmReplace ? setConfirmReplace(true) : submit())}
+              onClick={() => (!final && method === "REPLACE" && hasGuests && !confirmReplace ? setConfirmReplace(true) : submit())}
               className={`${method === "REPLACE" && confirmReplace ? btnDanger : btnPrimary} disabled:opacity-50`}
             >
-              {pending ? "Importing..." : method === "REPLACE" && confirmReplace ? "Replace every guest?" : "Import"}
+              {pending ? "Importing..." : final ? "Load final list" : method === "REPLACE" && confirmReplace ? "Replace every guest?" : "Import"}
             </button>
             {confirmReplace && method === "REPLACE" && !pending && (
               <button type="button" onClick={() => setConfirmReplace(false)} className="text-sm text-gray-500 dark:text-gray-400 hover:underline">

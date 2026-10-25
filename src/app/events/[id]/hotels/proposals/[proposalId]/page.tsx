@@ -16,8 +16,10 @@ import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { hasPermission } from "@/lib/permissions";
 import { addVenueAmenity } from "@/app/venues/actions";
 import { AddBlockForm } from "../../../../hotels/AddBlockForm";
+import { HotelWorkflow } from "../../../../hotels/HotelWorkflow";
 import {
   createHotelBlock,
+  getHotelWorkflow,
   deleteHotelProposal,
   getHotelProposal,
   getProposalFormChoices,
@@ -34,13 +36,14 @@ export const metadata: Metadata = { title: "Proposal" };
 
 export default async function ProposalPage({ params }: { params: Promise<{ id: string; proposalId: string }> }) {
   const { id: eventId, proposalId } = await params;
-  const [event, proposal, choices, fileTypeOptions, canEditHotel, canViewHotel] = await Promise.all([
+  const [event, proposal, choices, fileTypeOptions, canEditHotel, canViewHotel, workflow] = await Promise.all([
     getEvent(eventId),
     getHotelProposal(proposalId, eventId),
     getProposalFormChoices(eventId),
     getOptions("file_type"),
     hasPermission("VENUES", "WRITE"),
     hasPermission("VENUES", "VIEW"),
+    getHotelWorkflow(eventId, { proposalId }),
   ]);
   if (!event || !proposal) notFound();
   const rfpChoices = await getProposalRfpChoices(eventId, { rfpId: proposal.rfpId, answers: proposal.concessions });
@@ -115,6 +118,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         }
       />
 
+      {workflow && <HotelWorkflow steps={workflow} current="PROPOSAL" />}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0">
           {/* Autosaves: not keyed on updatedAt, or each save would remount it. */}

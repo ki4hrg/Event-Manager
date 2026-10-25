@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ConcessionMet, HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
+import type { ConcessionMet, HotelAttritionBasis, HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+import { hasPermission, requirePermission } from "@/lib/permissions";
 import { withUserErrors } from "@/lib/userErrors";
-import { blockTypeLabel, dateKey, daysOutCheckpoints, toChargeTypeOption, toContractTypeOption } from "@/lib/hotels";
+import { blockTypeLabel, dateKey, daysOutCheckpoints, isAttritionBasis, stageOf, toChargeTypeOption, toContractTypeOption } from "@/lib/hotels";
+import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
+import { workflowSteps, type WorkflowBlock } from "@/lib/hotelWorkflow";
+import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import type { RfpChoice } from "./ProposalForm";
 import {
@@ -18,15 +21,20 @@ import {
 } from "./core";
 import { readJson, readNewHotel, readProposal } from "./proposalArgs";
 import {
+  clearFinalGuestListCore,
   clearPickupCore,
   createHotelBlockCore,
   createPickupGuestCore,
   deleteHotelBlockCore,
+  getBlockReviewCore,
+  importFinalGuestListCore,
   importPickupGuestsCore,
+  saveBlockReviewCore,
   savePickupCountsCore,
   updateHotelBlockCore,
   updatePickupGuestCore,
   type BlockNightArgs,
+  type FinalGuestArgs,
   type PickupCountArgs,
   type PickupGuestArgs,
 } from "./blockCore";
@@ -231,6 +239,9 @@ export async function getHotelBlocks(eventId: string) {
       checkIn: true,
       checkOut: true,
       cutoffDate: true,
+      contractedOn: true,
+      reviewedOn: true,
+      finalListLoadedAt: true,
       allowedAttrition: true,
       contractType: true,
       guestType: true,
@@ -239,6 +250,57 @@ export async function getHotelBlocks(eventId: string) {
     },
     orderBy: [{ isHq: "desc" }, { proposal: { venue: { name: "asc" } } }],
   });
+}
+
+// The workflow strip for a proposal (all its blocks) or one block
+// (src/lib/hotelWorkflow.ts). Null when the proposal or block isn't the event's.
+export async function getHotelWorkflow(eventId: string, target: { proposalId: string } | { blockId: string }) {
+  const session = await requirePermission("HOTELS", "VIEW", eventId);
+  const blockSelect = {
+    id: true,
+    contractedOn: true,
+    cutoffDate: true,
+    checkOut: true,
+    reviewedOn: true,
+    finalListLoadedAt: true,
+    ...pickupSelect,
+  } satisfies Prisma.HotelBlockSelect;
+  const proposalId =
+    "proposalId" in target
+      ? target.proposalId
+      : (await prisma.hotelBlock.findFirst({ where: { id: target.blockId, proposal: { eventId } }, select: { proposalId: true } }))?.proposalId;
+  if (!proposalId) return null;
+  const [proposal, event, statuses, canWrite] = await Promise.all([
+    prisma.hotelProposal.findFirst({
+      where: { id: proposalId, eventId },
+      select: {
+        id: true,
+        status: true,
+        revision: true,
+        rfp: { select: { id: true, status: true } },
+        blocks: { where: "blockId" in target ? { id: target.blockId } : undefined, select: blockSelect, orderBy: { createdAt: "asc" } },
+      },
+    }),
+    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { endDate: true, timezone: true } }),
+    prisma.customOption.findMany({ where: { tenantId: session.tenantId, category: "proposal_status" }, select: { label: true, group: true } }),
+    hasPermission("HOTELS", "WRITE", eventId),
+  ]);
+  if (!proposal) return null;
+  const blocks: WorkflowBlock[] = proposal.blocks.map((b) => {
+    const t = pickupTotals(blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts }));
+    return { ...b, pickedUp: t.pickedUp, blocked: t.blocked };
+  });
+  return workflowSteps(
+    {
+      eventId,
+      rfp: proposal.rfp,
+      proposal: { id: proposal.id, status: proposal.status, stage: stageOf(proposal.status, statuses), revision: proposal.revision },
+      blocks,
+      today: getDateKeyInTimezone(new Date(), event.timezone),
+      eventEnd: dateKey(event.endDate),
+    },
+    canWrite,
+  );
 }
 
 const GUEST_LIMIT = 500;
@@ -324,6 +386,8 @@ export async function updateHotelBlock(blockId: string, eventId: string, formDat
       distanceMiles: num("distanceMiles"),
       driveMinutes: int("driveMinutes"),
       compRooms: int("compRooms"),
+      attritionBasis: isAttritionBasis(formData.get("attritionBasis")) ? (formData.get("attritionBasis") as HotelAttritionBasis) : null,
+      compRatio: int("compRatio"),
       staffRooms: int("staffRooms"),
       notes: str("notes"),
       nights: readJson<BlockNightArgs>(formData, "nights"),
@@ -420,4 +484,37 @@ export async function clearPickup(blockId: string, eventId: string) {
   const session = await requirePermission("HOTELS", "DELETE", eventId);
   await clearPickupCore(blockId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+}
+
+export async function getBlockReview(blockId: string, eventId: string) {
+  const session = await requirePermission("HOTELS", "VIEW", eventId);
+  return getBlockReviewCore(blockId, eventId, session.user.id);
+}
+
+export async function importFinalGuestList(blockId: string, eventId: string, fileName: string | null, guests: FinalGuestArgs[]) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  return withUserErrors(async () => {
+    await importFinalGuestListCore(blockId, eventId, { fileName, guests }, session.user.id);
+    revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}/review`);
+  });
+}
+
+export async function clearFinalGuestList(blockId: string, eventId: string) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  await clearFinalGuestListCore(blockId, eventId, session.user.id);
+  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}/review`);
+}
+
+export async function saveBlockReview(blockId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  const reopen = formData.get("reopen") === "true";
+  await saveBlockReviewCore(
+    blockId,
+    eventId,
+    { reviewedOn: reopen ? null : (formData.get("reviewedOn") as string) || null, reviewNotes: (formData.get("reviewNotes") as string) || null },
+    session.user.id,
+  );
+  revalidatePath(`/events/${eventId}/hotels`);
+  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}/review`);
+  redirect(`/events/${eventId}/hotels/blocks/${blockId}/review?success=${encodeURIComponent(reopen ? "Review reopened" : "Review saved")}`);
 }

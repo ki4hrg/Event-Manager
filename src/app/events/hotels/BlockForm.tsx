@@ -3,9 +3,9 @@
 import { DateInput } from "@/components/ui/DateInput";
 import { rangeEndFor, rangeEndMin } from "@/lib/dateRange";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { HotelChargeScope } from "@prisma/client";
+import type { HotelAttritionBasis, HotelChargeScope } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
-import { appliedAttrition, CHARGE_SCOPES, chargeTypePatch, formatNight, nightKeys, roomTypeLabel, RUN_OF_HOUSE, type ChargeTypeOption, type ContractKind } from "@/lib/hotels";
+import { appliedAttrition, ATTRITION_BASIS_LABELS, CHARGE_SCOPES, chargeTypePatch, formatNight, nightKeys, roomTypeLabel, RUN_OF_HOUSE, type ChargeTypeOption, type ContractKind } from "@/lib/hotels";
 import { OptionSelect } from "@/components/ui/OptionSelect";
 import { useAutosave } from "@/lib/useAutosave";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
@@ -29,6 +29,8 @@ export type BlockValues = {
   distanceMiles: string | null;
   driveMinutes: number | null;
   compRooms: number | null;
+  attritionBasis: HotelAttritionBasis | null;
+  compRatio: number | null;
   staffRooms: number | null;
   notes: string | null;
   nights: {
@@ -331,6 +333,16 @@ export function BlockForm({
             <Field label="Allowed attrition %" htmlFor="b-allowedAttrition">
               <input id="b-allowedAttrition" type="number" min={0} max={100} step="0.01" name="allowedAttrition" defaultValue={values.allowedAttrition ?? ""} className={inputClass} />
             </Field>
+            <Field label="Attrition based on" htmlFor="b-attritionBasis">
+              <select id="b-attritionBasis" name="attritionBasis" defaultValue={values.attritionBasis ?? ""} className={inputClass}>
+                <option value="">Not stated</option>
+                {(Object.keys(ATTRITION_BASIS_LABELS) as HotelAttritionBasis[]).map((b) => (
+                  <option key={b} value={b}>
+                    {ATTRITION_BASIS_LABELS[b]}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label="Guaranteed revenue" htmlFor="b-guaranteedRevenue">
               <input id="b-guaranteedRevenue" type="number" min={0} step="0.01" name="guaranteedRevenue" defaultValue={values.guaranteedRevenue ?? ""} className={inputClass} />
             </Field>
@@ -342,6 +354,9 @@ export function BlockForm({
             </Field>
             <Field label="Comp rooms" htmlFor="b-compRooms">
               <input id="b-compRooms" type="number" min={0} name="compRooms" defaultValue={values.compRooms ?? ""} className={inputClass} />
+            </Field>
+            <Field label="1 comp per … room nights" htmlFor="b-compRatio">
+              <input id="b-compRatio" type="number" min={1} name="compRatio" defaultValue={values.compRatio ?? ""} className={inputClass} />
             </Field>
             <Field label="Staff rooms" htmlFor="b-staffRooms">
               <input id="b-staffRooms" type="number" min={0} name="staffRooms" defaultValue={values.staffRooms ?? ""} className={inputClass} />

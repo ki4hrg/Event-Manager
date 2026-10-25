@@ -12,7 +12,8 @@ import { blockPickup, daysOutPickup, pickupTotals } from "@/lib/hotelPickup";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { hasPermission } from "@/lib/permissions";
 import { getEvent } from "@/app/events/event";
-import { clearPickup, deleteHotelBlock, getBlockFormChoices, getHotelBlock, updateHotelBlock } from "../../../../hotels/actions";
+import { clearPickup, deleteHotelBlock, getBlockFormChoices, getHotelBlock, getHotelWorkflow, updateHotelBlock } from "../../../../hotels/actions";
+import { HotelWorkflow } from "../../../../hotels/HotelWorkflow";
 import { toBlockValues } from "../../../../hotels/blockCore";
 import { BlockForm } from "../../../../hotels/BlockForm";
 import { PickupPanel } from "../../../../hotels/PickupPanel";
@@ -32,11 +33,12 @@ export default async function BlockPage({
   const { id: eventId, blockId } = await params;
   // ?guests=all lifts the cap on the guest list shown (the pickup math always uses every guest).
   const allGuests = (await searchParams).guests === "all";
-  const [event, block, choices, canViewHotel] = await Promise.all([
+  const [event, block, choices, canViewHotel, workflow] = await Promise.all([
     getEvent(eventId),
     getHotelBlock(blockId, eventId),
     getBlockFormChoices(eventId),
     hasPermission("VENUES", "VIEW"),
+    getHotelWorkflow(eventId, { blockId }),
   ]);
   if (!event || !block) notFound();
 
@@ -104,6 +106,7 @@ export default async function BlockPage({
         }
       />
 
+      {workflow && <HotelWorkflow steps={workflow} current="BLOCK" />}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 min-w-0 space-y-6">
           {/* Autosaves: not keyed on updatedAt, or each save would remount it. */}
