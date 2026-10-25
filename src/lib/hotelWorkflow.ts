@@ -1,7 +1,7 @@
 // A hotel block's workflow: RFP → Proposal → Block → Guest list → Final
 // review. Only the RFP is shared between hotels; from the proposal on, the
 // chain is one hotel's, and from the block on, one block's. A proposal page
-// sums its blocks. Pure; the strip (HotelWorkflow) and the Blocks list read it.
+// sums its blocks. Pure; the shared ProgressStrip / ProgressDots and the Blocks list read it.
 
 import type { RfpStatus } from "@prisma/client";
 import { dateKey, formatDateKey, type ProposalStage } from "@/lib/hotels";

@@ -10,7 +10,7 @@ import { RECONCILE_FLAG_LABELS, RECONCILE_FLAGS, type ReconcileFlag, type Reconc
 import { reportTd, reportTh } from "@/lib/reportStyles";
 import { getEvent } from "@/app/events/event";
 import { clearFinalGuestList, getBlockFormChoices, getBlockReview, getHotelWorkflow, importFinalGuestList, saveBlockReview } from "../../../../../hotels/actions";
-import { HotelWorkflow } from "../../../../../hotels/HotelWorkflow";
+import { ProgressStrip } from "@/components/ProgressStrip";
 import { FinalListPanel, ReviewSignOff } from "../../../../../hotels/FinalReview";
 import type { FinalGuestArgs } from "../../../../../hotels/blockCore";
 
@@ -105,7 +105,11 @@ export default async function BlockReviewPage({
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">Final review · {venue.name}</h1>
         {blockTypeLabel(review.contractType, review.guestType) && <p className={`text-sm mt-1 ${muted}`}>{blockTypeLabel(review.contractType, review.guestType)}</p>}
       </div>
-      {workflow && <HotelWorkflow steps={workflow} current="REVIEW" />}
+      {workflow && (
+        <div className="mb-6">
+          <ProgressStrip steps={workflow} current="REVIEW" label="Hotel workflow" />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 min-w-0 space-y-6">

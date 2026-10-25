@@ -11,7 +11,7 @@ import { appliedAttrition, blockTypeLabel, contractKindOf, dateKey, formatDateKe
 import { getEvent } from "@/app/events/event";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import { blockStage, workflowSteps } from "@/lib/hotelWorkflow";
-import { HotelWorkflowMini } from "../../hotels/HotelWorkflow";
+import { ProgressDots } from "@/components/ProgressStrip";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
 import { scopeLabels } from "@/lib/areas";
@@ -139,7 +139,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                   </p>
                 </div>
                 <span className="flex flex-wrap items-center gap-3">
-                  <HotelWorkflowMini steps={proposalSteps(p)} />
+                  <ProgressDots steps={proposalSteps(p)} doneLabel="Reviewed" />
                   {p.blocks.length > 1 && <span className="text-xs text-gray-500 dark:text-gray-400">{p.blocks.length} blocks</span>}
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor(p.status)}`}>{p.status}</span>
                 </span>

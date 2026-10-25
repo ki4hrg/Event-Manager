@@ -87,3 +87,31 @@ export function workflowBadgeSummary(instances: ProgressInstanceInput[]): Workfl
   }
   return { count: instances.length, done, total };
 }
+
+// One step as the shared strip and dots draw it (src/components/ProgressStrip.tsx).
+// Hotels build these from their own chain (src/lib/hotelWorkflow.ts); templates
+// through templateProgress.
+export type ProgressStatus = "done" | "partial" | "active" | "todo" | "skipped" | "stopped";
+export type ProgressStep = {
+  key: string;
+  label: string;
+  state: string; // one line under the label
+  status: ProgressStatus;
+  href: string | null;
+};
+
+// A template instance as strip steps. The current step is "active", or
+// "partial" when some of its items are ticked; steps after it are "todo".
+export function templateProgress(
+  instance: ProgressInstanceInput<ProgressStepInput & { label: string }>,
+): { steps: ProgressStep[]; current: string | null } {
+  const p = instanceProgress(instance);
+  const steps = instance.template.steps.map((s, i): ProgressStep => {
+    const sp = p.steps[i];
+    const status: ProgressStatus =
+      sp.status === "done" ? "done" : sp.status === "partial" ? "partial" : i === p.current ? "active" : "todo";
+    const state = sp.itemsRequired > 0 ? `${sp.itemsDone} of ${sp.itemsRequired}` : sp.status === "done" ? "Done" : "To do";
+    return { key: s.id, label: s.label, state, status, href: null };
+  });
+  return { steps, current: p.current === null ? null : instance.template.steps[p.current].id };
+}
