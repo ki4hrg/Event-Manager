@@ -7,7 +7,7 @@ import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
 import { assertPackingSubstatus, packingItemsWrite, packingSubstatusFor } from "@/lib/packingSubstatus";
-import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
+import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
 
 async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
   const found = await prisma.printOrder.findUnique({
@@ -17,8 +17,11 @@ async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
   if (!found) throw new PermissionError("NOT_FOUND");
 }
 
+// Runs after every write under the order, so it also keeps a status that
+// follows an automatic workflow check current (refreshWorkflowStatus).
 async function bumpPrintOrder(printOrderId: string, eventId: string, userId: string) {
   await prisma.printOrder.updateMany({ where: { id: printOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("print_order", [printOrderId], eventId);
 }
 
 // ---------------------------------------------------------------------------
@@ -240,6 +243,8 @@ export async function bulkUpdatePrintOrdersCore(
       });
     }
   }
+  // Only a vendor or link change can move a checked step; a status-only edit stands.
+  if (vendorId || functionId) await refreshWorkflowStatus("print_order", ids, eventId);
 }
 
 // ---------------------------------------------------------------------------

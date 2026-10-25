@@ -9,7 +9,7 @@ import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
-import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
+import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
 
 async function assertAVOrderInEvent(avOrderId: string, eventId: string) {
   const found = await prisma.aVOrder.findUnique({
@@ -19,8 +19,11 @@ async function assertAVOrderInEvent(avOrderId: string, eventId: string) {
   if (!found) throw new PermissionError("NOT_FOUND");
 }
 
+// Runs after every write under the order, so it also keeps a status that
+// follows an automatic workflow check current (refreshWorkflowStatus).
 async function bumpAVOrder(avOrderId: string, eventId: string, userId: string) {
   await prisma.aVOrder.updateMany({ where: { id: avOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("av_order", [avOrderId], eventId);
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +161,8 @@ export async function bulkUpdateAVOrdersCore(
       data: { updatedById: userId },
     });
   }
+  // Only a vendor or link change can move a checked step; a status-only edit stands.
+  if (vendorId) await refreshWorkflowStatus("av_order", ids, eventId);
 }
 
 // ---------------------------------------------------------------------------

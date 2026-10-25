@@ -234,3 +234,52 @@ export async function refreshWorkflowStatus(entityType: WorkflowEntityType, ids:
     }
   }
 }
+
+// The orders linked to any of the functions, by type. Read before a write
+// that drops the links (a function delete), refresh with refreshWorkflowStatusForOrders after.
+export async function functionLinkedOrders(functionIds: string[], eventId: string) {
+  const linked = { some: { functionId: { in: functionIds } } };
+  const ids = (rows: { id: string }[]) => rows.map((r) => r.id);
+  if (functionIds.length === 0) return { av_order: [], setup_order: [], print_order: [], supply_order: [], catering_order: [] };
+  const [av, setup, print, supply, catering] = await Promise.all([
+    prisma.aVOrder.findMany({ where: { eventId, functionLinks: linked }, select: { id: true } }),
+    prisma.setupOrder.findMany({ where: { eventId, functionLinks: linked }, select: { id: true } }),
+    prisma.printOrder.findMany({ where: { eventId, functions: linked }, select: { id: true } }),
+    prisma.supplyOrder.findMany({ where: { eventId, functions: linked }, select: { id: true } }),
+    prisma.cateringOrder.findMany({ where: { eventId, functionId: { in: functionIds } }, select: { id: true } }),
+  ]);
+  return { av_order: ids(av), setup_order: ids(setup), print_order: ids(print), supply_order: ids(supply), catering_order: ids(catering) };
+}
+
+export async function refreshWorkflowStatusForOrders(orders: Partial<Record<WorkflowEntityType, string[]>>, eventId: string) {
+  for (const [type, ids] of Object.entries(orders) as [WorkflowEntityType, string[]][]) {
+    await refreshWorkflowStatus(type, ids, eventId);
+  }
+}
+
+// A function's schedule, room or headcount feeds its own checks and its linked
+// orders' SCHEDULED: refresh both.
+export async function refreshWorkflowStatusForFunctions(functionIds: string[], eventId: string) {
+  if (functionIds.length === 0) return;
+  await refreshWorkflowStatus("function", functionIds, eventId);
+  await refreshWorkflowStatusForOrders(await functionLinkedOrders(functionIds, eventId), eventId);
+}
+
+// RFP issue / close, its lines, quotes and awards feed RFP_ISSUED, QUOTES_IN
+// and AWARDED on the orders its lines were copied from. Pass the order ids a
+// write just moved lines off, too (`also`), since they no longer show up here.
+export async function refreshWorkflowStatusForRfp(
+  rfpId: string,
+  eventId: string,
+  also: { avOrderIds?: (string | null)[]; cateringOrderIds?: (string | null)[]; printOrderIds?: (string | null)[] } = {},
+) {
+  const lines = await prisma.rfpLineItem.findMany({
+    where: { rfpId, rfp: { eventId } },
+    select: { avOrderId: true, cateringOrderId: true, printOrderId: true },
+  });
+  const ids = (picked: (string | null)[], extra: (string | null)[] = []) =>
+    Array.from(new Set([...picked, ...extra].filter((x): x is string => !!x)));
+  await refreshWorkflowStatus("av_order", ids(lines.map((l) => l.avOrderId), also.avOrderIds), eventId);
+  await refreshWorkflowStatus("catering_order", ids(lines.map((l) => l.cateringOrderId), also.cateringOrderIds), eventId);
+  await refreshWorkflowStatus("print_order", ids(lines.map((l) => l.printOrderId), also.printOrderIds), eventId);
+}

@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { syncFunctionNumbers } from "@/lib/functionNumbering";
+import { refreshWorkflowStatusForFunctions } from "@/app/events/workflows/core";
 
 export async function getScheduleItems(eventId: string) {
   await requirePermission("FUNCTIONS", "VIEW", eventId);
@@ -28,15 +29,21 @@ export async function getScheduleTypes() {
 
 export async function deleteScheduleItem(id: string, eventId: string) {
   await requirePermission("FUNCTIONS", "DELETE", eventId);
-  await prisma.functionSchedule.delete({ where: { id, function: { eventId } } });
+  const { functionId } = await prisma.functionSchedule.delete({ where: { id, function: { eventId } } });
   await syncFunctionNumbers(eventId);
+  await refreshWorkflowStatusForFunctions([functionId], eventId);
   revalidatePath(`/events/${eventId}/schedule-items`);
 }
 
 export async function deleteScheduleItems(ids: string[], eventId: string) {
   await requirePermission("FUNCTIONS", "DELETE", eventId);
+  const affected = await prisma.functionSchedule.findMany({
+    where: { id: { in: ids }, function: { eventId } },
+    select: { functionId: true },
+  });
   await prisma.functionSchedule.deleteMany({ where: { id: { in: ids }, function: { eventId } } });
   await syncFunctionNumbers(eventId);
+  await refreshWorkflowStatusForFunctions(Array.from(new Set(affected.map((s) => s.functionId))), eventId);
   revalidatePath(`/events/${eventId}/schedule-items`);
 }
 

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect, notFound } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
+import { refreshWorkflowStatus } from "@/app/events/workflows/core";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { getResponsibleParties, type ResponsiblePartyPool } from "@/lib/responsibleParties";
 import { createMediaDeliverableCore } from "./core";
@@ -19,8 +20,11 @@ async function assertMediaDeliverableInEvent(mediaDeliverableId: string, eventId
   if (!found) notFound();
 }
 
+// Runs after every write under the deliverable, so it also keeps a status
+// that follows an automatic workflow check current (refreshWorkflowStatus).
 async function bumpMediaDeliverable(mediaDeliverableId: string, eventId: string, userId: string) {
   await prisma.mediaDeliverable.updateMany({ where: { id: mediaDeliverableId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("media_deliverable", [mediaDeliverableId], eventId);
 }
 
 function parseDeliverableData(formData: FormData) {
@@ -132,6 +136,7 @@ export async function updateMediaDeliverable(id: string, eventId: string, formDa
     where: { id, eventId },
     data: { name, ...data, updatedById: session.user.id },
   });
+  await refreshWorkflowStatus("media_deliverable", [id], eventId);
   revalidatePath(`/events/${eventId}/media-deliverables`);
   revalidatePath(`/events/${eventId}/media-deliverables/${id}`);
   redirect(`/events/${eventId}/media-deliverables/${id}?success=Media Deliverable updated`);
@@ -454,5 +459,9 @@ export async function bulkUpdateMediaDeliverables(
     }
   }
 
+  // Only a provider or function link can move a checked step; a status-only edit stands.
+  if (providerVendorId !== undefined || providerContactId !== undefined || functionId) {
+    await refreshWorkflowStatus("media_deliverable", ids, eventId);
+  }
   revalidatePath(`/events/${eventId}/media-deliverables`);
 }

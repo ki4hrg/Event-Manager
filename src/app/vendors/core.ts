@@ -6,6 +6,7 @@
 
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { refreshWorkflowStatus } from "@/app/events/workflows/core";
 import { requirePermissionForUser, requireEventTenantId, PermissionError } from "@/lib/permissions";
 import { assertEventRefs } from "@/lib/eventRefs";
 
@@ -290,6 +291,7 @@ export async function addVendorToAVOrderCore(
     data: { avOrderId, vendorId, notes },
   });
   await prisma.aVOrder.updateMany({ where: { id: avOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("av_order", [avOrderId], eventId);
   return row;
 }
 
@@ -318,6 +320,7 @@ export async function removeVendorFromAVOrderCore(
   await requirePermissionForUser(userId, PermissionResource.AV_ORDERS, "WRITE", eventId);
   await prisma.aVOrderVendor.delete({ where: { id, avOrder: { eventId } } });
   await prisma.aVOrder.updateMany({ where: { id: avOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("av_order", [avOrderId], eventId);
 }
 
 // --- Catering Order ---
@@ -336,6 +339,7 @@ export async function addVendorToCateringOrderCore(
     data: { cateringOrderId, vendorId, notes },
   });
   await prisma.cateringOrder.updateMany({ where: { id: cateringOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("catering_order", [cateringOrderId], eventId);
   return row;
 }
 
@@ -364,6 +368,7 @@ export async function removeVendorFromCateringOrderCore(
   await requirePermissionForUser(userId, PermissionResource.CATERING_ORDERS, "WRITE", eventId);
   await prisma.cateringOrderVendor.delete({ where: { id, cateringOrder: { eventId } } });
   await prisma.cateringOrder.updateMany({ where: { id: cateringOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("catering_order", [cateringOrderId], eventId);
 }
 
 // --- Setup Order ---
@@ -382,6 +387,7 @@ export async function addVendorToSetupOrderCore(
     data: { setupOrderId, vendorId, notes },
   });
   await prisma.setupOrder.updateMany({ where: { id: setupOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("setup_order", [setupOrderId], eventId);
   return row;
 }
 
@@ -410,6 +416,7 @@ export async function removeVendorFromSetupOrderCore(
   await requirePermissionForUser(userId, PermissionResource.SETUP_ORDERS, "WRITE", eventId);
   await prisma.setupOrderVendor.delete({ where: { id, setupOrder: { eventId } } });
   await prisma.setupOrder.updateMany({ where: { id: setupOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("setup_order", [setupOrderId], eventId);
 }
 
 // --- Print Order ---
@@ -428,6 +435,7 @@ export async function addVendorToPrintOrderCore(
     data: { printOrderId, vendorId, notes },
   });
   await prisma.printOrder.updateMany({ where: { id: printOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("print_order", [printOrderId], eventId);
   return row;
 }
 
@@ -456,4 +464,5 @@ export async function removeVendorFromPrintOrderCore(
   await requirePermissionForUser(userId, PermissionResource.PRINT_ORDERS, "WRITE", eventId);
   await prisma.printOrderVendor.delete({ where: { id, printOrder: { eventId } } });
   await prisma.printOrder.updateMany({ where: { id: printOrderId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatus("print_order", [printOrderId], eventId);
 }

@@ -4,6 +4,7 @@
 
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { functionLinkedOrders, refreshWorkflowStatusForFunctions, refreshWorkflowStatusForOrders } from "@/app/events/workflows/core";
 import {
   requirePermissionForUser,
   PermissionError, requireEventTenantId } from "@/lib/permissions";
@@ -207,21 +208,26 @@ export async function updateFunctionCore(
     });
   }
   await syncFunctionNumbers(eventId);
+  await refreshWorkflowStatusForFunctions([id], eventId);
   return fn;
 }
 
 export async function deleteFunctionCore(id: string, eventId: string, userId: string) {
   await requirePermissionForUser(userId, "FUNCTIONS", "DELETE", eventId);
   await retireFunctionNumbers(eventId, [id]);
+  const linked = await functionLinkedOrders([id], eventId);
   await prisma.function.delete({ where: { id, eventId } });
   await syncFunctionNumbers(eventId);
+  await refreshWorkflowStatusForOrders(linked, eventId);
 }
 
 export async function deleteFunctionsCore(ids: string[], eventId: string, userId: string) {
   await requirePermissionForUser(userId, "FUNCTIONS", "DELETE", eventId);
   await retireFunctionNumbers(eventId, ids);
+  const linked = await functionLinkedOrders(ids, eventId);
   const r = await prisma.function.deleteMany({ where: { id: { in: ids }, eventId } });
   await syncFunctionNumbers(eventId);
+  await refreshWorkflowStatusForOrders(linked, eventId);
   return { count: r.count };
 }
 
@@ -244,6 +250,8 @@ export async function bulkUpdateFunctionsCore(
   });
   // Cancelling drops a number while planning (kept once the ESG is issued).
   if (updates.status !== undefined) await syncFunctionNumbers(eventId);
+  // A breakout block needs no room of its own, so a type change can move SCHEDULED.
+  if (updates.type !== undefined) await refreshWorkflowStatusForFunctions(ids, eventId);
   return { count: r.count };
 }
 
@@ -354,6 +362,7 @@ export async function createScheduleCore(
   });
   await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   await syncFunctionNumbers(eventId);
+  await refreshWorkflowStatusForFunctions([functionId], eventId);
   return { value: { id: created.id } };
 }
 
@@ -411,6 +420,7 @@ export async function deleteScheduleCore(
   await prisma.functionSchedule.delete({ where: { id: scheduleId, function: { eventId } } });
   await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   await syncFunctionNumbers(eventId);
+  await refreshWorkflowStatusForFunctions([functionId], eventId);
 }
 
 // ---------------------------------------------------------------------------
@@ -526,6 +536,7 @@ export async function updateFunctionRoomCore(
     prisma.functionRoom.create({ data: { functionId, roomId: newRoomId } }),
   ]);
   await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
+  await refreshWorkflowStatusForFunctions([functionId], eventId);
   return { success: true };
 }
 
@@ -567,6 +578,7 @@ export async function scheduleUnscheduledFunctionCore(
   });
   await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   await syncFunctionNumbers(eventId);
+  await refreshWorkflowStatusForFunctions([functionId], eventId);
   return { success: true };
 }
 
@@ -631,5 +643,6 @@ export async function updateFunctionEsgCore(
     data: { ...esgData(args), ...numberData, updatedById: userId },
   });
   if (args.functionNumber !== undefined) await syncFunctionNumbers(eventId);
+  await refreshWorkflowStatusForFunctions([id], eventId);
   return fn;
 }
