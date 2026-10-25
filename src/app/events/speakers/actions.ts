@@ -19,12 +19,12 @@ export async function getSpeakerHotelBlocks(eventId: string) {
   await requirePermission("PRESENTATIONS", "VIEW", eventId);
   const blocks = await prisma.hotelBlock.findMany({
     where: { proposal: { eventId } },
-    select: { id: true, proposal: { select: { contractType: true, guestType: true, venue: { select: { name: true } } } } },
+    select: { id: true, contractType: true, guestType: true, proposal: { select: { venue: { select: { name: true } } } } },
     orderBy: [{ isHq: "desc" }, { proposal: { venue: { name: "asc" } } }],
   });
   return blocks.map((b) => ({
     id: b.id,
-    label: [b.proposal.venue.name, blockTypeLabel(b.proposal.contractType, b.proposal.guestType)].filter(Boolean).join(" · "),
+    label: [b.proposal.venue.name, blockTypeLabel(b.contractType, b.guestType)].filter(Boolean).join(" · "),
   }));
 }
 
