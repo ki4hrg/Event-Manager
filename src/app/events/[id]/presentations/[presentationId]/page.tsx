@@ -35,7 +35,7 @@ import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { DELIVERABLES_SECTIONS, SPEAKER_PROFILE_SECTIONS } from "@/lib/forms/meta";
 import { toDateTimeLocal } from "@/lib/esg/format";
-import { getSpeakerProfiles, removeSpeakerHeadshot, updateSpeakerContactFields, updateSpeakerProfile } from "../../../speakers/actions";
+import { getSpeakerHotelBlocks, getSpeakerProfiles, removeSpeakerHeadshot, updateSpeakerContactFields, updateSpeakerProfile } from "../../../speakers/actions";
 import { SpeakerProfilesPanel } from "../../../speakers/SpeakerProfilesPanel";
 import { FormLinkEntry } from "../../../forms/FormLinkEntry";
 import {
@@ -292,7 +292,10 @@ export default async function PresentationPage({
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
 
-  const speakerProfiles = await getSpeakerProfiles(eventId, presentation.speakers.map((sp) => sp.contactId));
+  const [speakerProfiles, speakerHotelBlocks] = await Promise.all([
+    getSpeakerProfiles(eventId, presentation.speakers.map((sp) => sp.contactId)),
+    getSpeakerHotelBlocks(eventId),
+  ]);
   const saveSpeakerContactAction = async (contactId: string, formData: FormData) => {
     "use server";
     await updateSpeakerContactFields(eventId, presentationId, contactId, formData);
@@ -487,6 +490,7 @@ export default async function PresentationPage({
                       arrivalAt: toDateTimeLocal(prof.arrivalAt, event.timezone),
                       departureAt: toDateTimeLocal(prof.departureAt, event.timezone),
                       travelNotes: prof.travelNotes,
+                      hotelBlockId: prof.hotelBlockId,
                       hotel: prof.hotel,
                       dietary: prof.dietary,
                       dietaryNeeds: prof.dietaryNeeds,
@@ -499,6 +503,7 @@ export default async function PresentationPage({
               };
             })}
             dietaryNeeds={dietaryOptions.map((o) => o.label)}
+            hotelBlocks={speakerHotelBlocks}
             saveContact={saveSpeakerContactAction}
             saveProfile={saveSpeakerProfileAction}
             removeHeadshot={removeSpeakerHeadshotAction}

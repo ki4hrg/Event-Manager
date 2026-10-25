@@ -15,7 +15,7 @@ import { stageOf } from "@/lib/hotels";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { hasPermission } from "@/lib/permissions";
 import { addVenueAmenity } from "@/app/venues/actions";
-import { CreateBlockButton } from "../../../../hotels/CreateBlockButton";
+import { AddBlockForm } from "../../../../hotels/AddBlockForm";
 import {
   createHotelBlock,
   deleteHotelProposal,
@@ -56,15 +56,19 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
     "use server";
     await deleteHotelProposal(proposalId, eventId);
   };
-  const createBlockAction = async () => {
+  const createBlockAction = async (formData: FormData) => {
     "use server";
-    await createHotelBlock(proposalId, eventId);
+    await createHotelBlock(proposalId, eventId, formData);
   };
   const addAmenityAction = async (label: string) => {
     "use server";
     await addVenueAmenity(proposal.venueId, label);
   };
   const accepted = stageOf(proposal.status, choices.statuses) === "ACCEPTED";
+  // A new block is for the proposal's guest type until one has it, then the
+  // first guest type no block has.
+  const taken = new Set(proposal.blocks.map((b) => b.guestType));
+  const nextGuestType = !taken.has(proposal.guestType) ? proposal.guestType : (choices.guestTypes.find((g) => !taken.has(g)) ?? proposal.guestType);
 
   return (
     <>
@@ -100,13 +104,12 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
                 View RFP
               </Link>
             )}
-            {proposal.block ? (
-              <Link href={`/events/${eventId}/hotels/blocks/${proposal.block.id}`} className={btnSecondary}>
-                View block
+            {proposal.blocks.map((b, i) => (
+              <Link key={b.id} href={`/events/${eventId}/hotels/blocks/${b.id}`} className={btnSecondary}>
+                {proposal.blocks.length === 1 ? "View block" : `Block · ${b.guestType ?? i + 1}`}
               </Link>
-            ) : (
-              accepted && <CreateBlockButton action={createBlockAction} />
-            )}
+            ))}
+            {accepted && <AddBlockForm action={createBlockAction} guestTypes={choices.guestTypes} defaultGuestType={nextGuestType} />}
             <DeleteButton action={deleteAction} resource="HOTELS" label="Delete Proposal" />
           </>
         }

@@ -167,54 +167,127 @@ export async function updateVendorQuoteCore(id: string, eventId: string, args: Q
   });
 }
 
+// The lines it won open up (SetNull); a closed RFP reopens.
 export async function deleteVendorQuoteCore(id: string, eventId: string, userId: string) {
-  await authorizeQuote(id, eventId, "DELETE", userId);
-  await prisma.vendorQuote.delete({ where: { id, eventId } });
+  const { rfpId } = await authorizeQuote(id, eventId, "DELETE", userId);
+  const held = rfpId ? await prisma.rfpLineItem.count({ where: { rfpId, awardedQuoteId: id } }) : 0;
+  await prisma.$transaction(async (tx: Tx) => {
+    await tx.vendorQuote.delete({ where: { id, eventId } });
+    if (rfpId && held) await settleAwards(tx, rfpId, eventId, userId, []);
+  });
 }
 
-// Accepting a quote: it's ACCEPTED and the vendor is put on the event and on
-// every order its RFP's line items came from. Work can be split, so other
-// quotes may be accepted too; with declineOthers, the RFP's still-open quotes
-// are DECLINED and the RFP CLOSED. VENDORS WRITE is needed to put a vendor on
-// an event.
-// The orders an RFP's line items were copied from: where an award puts its vendor.
-async function rfpSourceOrders(rfpId: string | null) {
-  const sources = rfpId
-    ? await prisma.rfpLineItem.findMany({ where: { rfpId }, select: { avOrderId: true, cateringOrderId: true, printOrderId: true } })
-    : [];
-  return (key: "avOrderId" | "cateringOrderId" | "printOrderId") => Array.from(new Set(sources.flatMap((s) => (s[key] ? [s[key] as string] : []))));
+// Awards. A quote is ACCEPTED when its vendor won work; on an RFP with line
+// items, each line records the accepted quote that won it (awardedQuoteId),
+// so work splits across vendors and an award puts its vendor only on the
+// orders its lines were copied from. Awarding takes VENDORS WRITE (it puts
+// the vendor on the event). After awards change, settleAwards keeps the rest
+// in step: a quote left holding no line goes back to RECEIVED, and the RFP
+// closes once every line is awarded (a closed one with an open line reopens).
+
+type Tx = Prisma.TransactionClient;
+type SourceLine = { avOrderId: string | null; cateringOrderId: string | null; printOrderId: string | null };
+const sourceSelect = { avOrderId: true, cateringOrderId: true, printOrderId: true } as const;
+type OrderKey = keyof SourceLine;
+const orderIds = (lines: SourceLine[], key: OrderKey) => Array.from(new Set(lines.flatMap((l) => (l[key] ? [l[key] as string] : []))));
+
+// Puts the vendor on the event and on the orders the lines came from (those
+// still on this event: a source may have been deleted since).
+async function addVendorToOrders(tx: Tx, eventId: string, vendorId: string, lines: SourceLine[]) {
+  await tx.eventVendor.upsert({ where: { eventId_vendorId: { eventId, vendorId } }, create: { eventId, vendorId }, update: {} });
+  const [av, catering, print] = await Promise.all([
+    tx.aVOrder.findMany({ where: { id: { in: orderIds(lines, "avOrderId") }, eventId }, select: { id: true } }),
+    tx.cateringOrder.findMany({ where: { id: { in: orderIds(lines, "cateringOrderId") }, eventId }, select: { id: true } }),
+    tx.printOrder.findMany({ where: { id: { in: orderIds(lines, "printOrderId") }, eventId }, select: { id: true } }),
+  ]);
+  await tx.aVOrderVendor.createMany({ data: av.map((o) => ({ avOrderId: o.id, vendorId })), skipDuplicates: true });
+  await tx.cateringOrderVendor.createMany({ data: catering.map((o) => ({ cateringOrderId: o.id, vendorId })), skipDuplicates: true });
+  await tx.printOrderVendor.createMany({ data: print.map((o) => ({ printOrderId: o.id, vendorId })), skipDuplicates: true });
+  return av.length + catering.length + print.length;
 }
 
-export async function awardVendorQuoteCore(id: string, eventId: string, userId: string, declineOthers: boolean) {
+// `losers`: quotes that just lost lines. Call only when awards changed.
+export async function settleAwards(tx: Tx, rfpId: string, eventId: string, userId: string, losers: string[]) {
+  if (losers.length) {
+    await tx.vendorQuote.updateMany({
+      where: { id: { in: losers }, rfpId, eventId, status: "ACCEPTED", awardedLines: { none: {} } },
+      data: { status: "RECEIVED", updatedById: userId },
+    });
+  }
+  const [total, open] = await Promise.all([tx.rfpLineItem.count({ where: { rfpId } }), tx.rfpLineItem.count({ where: { rfpId, awardedQuoteId: null } })]);
+  if (!total) return;
+  if (open === 0) await tx.rfp.updateMany({ where: { id: rfpId, eventId, status: { not: "CLOSED" } }, data: { status: "CLOSED", updatedById: userId } });
+  else await tx.rfp.updateMany({ where: { id: rfpId, eventId, status: "CLOSED" }, data: { status: "ISSUED", updatedById: userId } });
+}
+
+// The quotes other than `quoteId` holding any of the lines.
+const holders = (lines: { awardedQuoteId: string | null }[], quoteId: string | null) =>
+  Array.from(new Set(lines.flatMap((l) => (l.awardedQuoteId && l.awardedQuoteId !== quoteId ? [l.awardedQuoteId] : []))));
+
+// Accepting a quote. Whole (lineItemIds null): it wins every RFP line not yet
+// awarded; refused when there's none left. With declineOthers, the RFP's
+// other RECEIVED quotes are DECLINED and the RFP CLOSED; quotes accepted
+// earlier keep their lines. By line (lineItemIds, this RFP's): it wins those
+// lines, taking them from any quote that held them.
+export async function awardVendorQuoteCore(id: string, eventId: string, userId: string, declineOthers: boolean, lineItemIds: string[] | null = null) {
   const quote = await authorizeQuote(id, eventId, "WRITE", userId);
   const tenantId = await requireEventTenantId(eventId);
   await requirePermissionForUser(userId, "VENDORS", "WRITE", { tenantId });
-  const ids = await rfpSourceOrders(quote.rfpId);
+  const rfpId = quote.rfpId;
+  if (lineItemIds && !rfpId) throw new Error("A standalone quote has no RFP lines to award");
+  if (lineItemIds && declineOthers) throw new Error("declineOthers awards the whole quote; omit lineItemIds");
+  const lines = rfpId ? await prisma.rfpLineItem.findMany({ where: { rfpId }, select: { id: true, awardedQuoteId: true, ...sourceSelect } }) : [];
+  let won: typeof lines;
+  if (lineItemIds) {
+    const wanted = new Set(lineItemIds);
+    if (!wanted.size) throw new Error("Pick at least one line");
+    const own = new Set(lines.map((l) => l.id));
+    for (const lineId of Array.from(wanted)) if (!own.has(lineId)) throw new PermissionError("NOT_FOUND", "RFP line item not found");
+    won = lines.filter((l) => wanted.has(l.id) && l.awardedQuoteId !== id);
+  } else {
+    won = lines.filter((l) => !l.awardedQuoteId);
+    if (lines.length && !won.length && quote.status !== "ACCEPTED") throw new UserFacingError("Every line is already awarded; award lines from the comparison");
+  }
+  const losers = holders(won, id);
   const vendorId = quote.vendorId;
-  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  return prisma.$transaction(async (tx: Tx) => {
     await tx.vendorQuote.update({ where: { id, eventId }, data: { status: "ACCEPTED", updatedById: userId } });
-    if (quote.rfpId && declineOthers) {
-      await tx.vendorQuote.updateMany({ where: { rfpId: quote.rfpId, eventId, id: { not: id }, status: "RECEIVED" }, data: { status: "DECLINED" } });
-      await tx.rfp.update({ where: { id: quote.rfpId, eventId }, data: { status: "CLOSED", updatedById: userId } });
+    if (rfpId && won.length) await tx.rfpLineItem.updateMany({ where: { id: { in: won.map((l) => l.id) }, rfpId }, data: { awardedQuoteId: id } });
+    if (rfpId && declineOthers) {
+      await tx.vendorQuote.updateMany({ where: { rfpId, eventId, id: { not: id }, status: "RECEIVED" }, data: { status: "DECLINED", updatedById: userId } });
+      await tx.rfp.update({ where: { id: rfpId, eventId }, data: { status: "CLOSED", updatedById: userId } });
     }
-    await tx.eventVendor.upsert({ where: { eventId_vendorId: { eventId, vendorId } }, create: { eventId, vendorId }, update: {} });
-    // Orders still on this event (a source may have been deleted since).
-    const [av, catering, print] = await Promise.all([
-      tx.aVOrder.findMany({ where: { id: { in: ids("avOrderId") }, eventId }, select: { id: true } }),
-      tx.cateringOrder.findMany({ where: { id: { in: ids("cateringOrderId") }, eventId }, select: { id: true } }),
-      tx.printOrder.findMany({ where: { id: { in: ids("printOrderId") }, eventId }, select: { id: true } }),
-    ]);
-    await tx.aVOrderVendor.createMany({ data: av.map((o) => ({ avOrderId: o.id, vendorId })), skipDuplicates: true });
-    await tx.cateringOrderVendor.createMany({ data: catering.map((o) => ({ cateringOrderId: o.id, vendorId })), skipDuplicates: true });
-    await tx.printOrderVendor.createMany({ data: print.map((o) => ({ printOrderId: o.id, vendorId })), skipDuplicates: true });
-    return { orders: av.length + catering.length + print.length };
+    const orders = await addVendorToOrders(tx, eventId, vendorId, won);
+    if (rfpId && won.length) await settleAwards(tx, rfpId, eventId, userId, losers);
+    return { orders, lines: won.length };
+  });
+}
+
+// Takes the award off RFP lines (this RFP's); the vendors stay on their
+// orders. A quote left holding no line goes back to RECEIVED.
+export async function clearRfpLineAwardsCore(rfpId: string, eventId: string, lineItemIds: string[], userId: string) {
+  const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
+  if (!rfp) throw new PermissionError("NOT_FOUND", "RFP not found");
+  if (rfp.kind === "HOTEL") throw new Error("Hotels answer with proposals, not quotes");
+  await requirePermissionForUser(userId, resourceForKind(rfp.kind), "WRITE", eventId);
+  const wanted = Array.from(new Set(lineItemIds));
+  const lines = await prisma.rfpLineItem.findMany({ where: { rfpId, id: { in: wanted } }, select: { id: true, awardedQuoteId: true } });
+  if (lines.length !== wanted.length) throw new PermissionError("NOT_FOUND", "RFP line item not found");
+  const held = lines.filter((l) => l.awardedQuoteId);
+  if (!held.length) return { cleared: 0 };
+  return prisma.$transaction(async (tx: Tx) => {
+    await tx.rfpLineItem.updateMany({ where: { id: { in: held.map((l) => l.id) }, rfpId }, data: { awardedQuoteId: null } });
+    await settleAwards(tx, rfpId, eventId, userId, holders(held, null));
+    return { cleared: held.length };
   });
 }
 
 // Sets a quote to Received or Declined by hand. Leaving Accepted withdraws the
-// award: with removeFromOrders (VENDORS WRITE) the vendor comes off the
-// orders an award puts it on (the RFP's line item sources); it stays on the
-// event. An RFP left with no accepted quote reopens if it was closed.
+// award and opens its lines. With removeFromOrders (VENDORS WRITE) the vendor
+// comes off the orders of the lines it won (every RFP source order for an
+// award that held no line, as awards did before line awards), except ones it
+// still holds lines on through another accepted quote; it stays on the event.
+// A closed RFP reopens when it has an open line or no accepted quote.
 export async function setVendorQuoteStatusCore(
   id: string,
   eventId: string,
@@ -226,21 +299,40 @@ export async function setVendorQuoteStatusCore(
   const withdraw = quote.status === "ACCEPTED";
   if (removeFromOrders && !withdraw) throw new Error("Only an accepted quote's vendor was added to orders");
   if (removeFromOrders) await requirePermissionForUser(userId, "VENDORS", "WRITE", { tenantId: await requireEventTenantId(eventId) });
-  const ids = await rfpSourceOrders(removeFromOrders ? quote.rfpId : null);
+  const rfpId = quote.rfpId;
   const vendorId = quote.vendorId;
-  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  const held = withdraw && rfpId ? await prisma.rfpLineItem.findMany({ where: { rfpId, awardedQuoteId: id }, select: sourceSelect }) : [];
+  let remove: Record<OrderKey, string[]> = { avOrderId: [], cateringOrderId: [], printOrderId: [] };
+  if (removeFromOrders && rfpId) {
+    const [from, kept] = await Promise.all([
+      held.length ? held : prisma.rfpLineItem.findMany({ where: { rfpId }, select: sourceSelect }),
+      prisma.rfpLineItem.findMany({ where: { rfpId, awardedQuoteId: { not: id }, awardedQuote: { vendorId, status: "ACCEPTED" } }, select: sourceSelect }),
+    ]);
+    const without = (key: OrderKey) => {
+      const keep = new Set(orderIds(kept, key));
+      return orderIds(from, key).filter((o) => !keep.has(o));
+    };
+    remove = { avOrderId: without("avOrderId"), cateringOrderId: without("cateringOrderId"), printOrderId: without("printOrderId") };
+  }
+  return prisma.$transaction(async (tx: Tx) => {
     await tx.vendorQuote.update({ where: { id, eventId }, data: { status, updatedById: userId } });
     let orders = 0;
     if (removeFromOrders) {
       const removed = await Promise.all([
-        tx.aVOrderVendor.deleteMany({ where: { vendorId, avOrderId: { in: ids("avOrderId") }, avOrder: { eventId } } }),
-        tx.cateringOrderVendor.deleteMany({ where: { vendorId, cateringOrderId: { in: ids("cateringOrderId") }, cateringOrder: { eventId } } }),
-        tx.printOrderVendor.deleteMany({ where: { vendorId, printOrderId: { in: ids("printOrderId") }, printOrder: { eventId } } }),
+        tx.aVOrderVendor.deleteMany({ where: { vendorId, avOrderId: { in: remove.avOrderId }, avOrder: { eventId } } }),
+        tx.cateringOrderVendor.deleteMany({ where: { vendorId, cateringOrderId: { in: remove.cateringOrderId }, cateringOrder: { eventId } } }),
+        tx.printOrderVendor.deleteMany({ where: { vendorId, printOrderId: { in: remove.printOrderId }, printOrder: { eventId } } }),
       ]);
       orders = removed.reduce((n, r) => n + r.count, 0);
     }
-    if (withdraw && quote.rfpId && (await tx.vendorQuote.count({ where: { rfpId: quote.rfpId, eventId, status: "ACCEPTED" } })) === 0) {
-      await tx.rfp.updateMany({ where: { id: quote.rfpId, eventId, status: "CLOSED" }, data: { status: "ISSUED", updatedById: userId } });
+    if (withdraw && rfpId) {
+      if (held.length) {
+        await tx.rfpLineItem.updateMany({ where: { rfpId, awardedQuoteId: id }, data: { awardedQuoteId: null } });
+        await settleAwards(tx, rfpId, eventId, userId, []);
+      }
+      if ((await tx.vendorQuote.count({ where: { rfpId, eventId, status: "ACCEPTED" } })) === 0) {
+        await tx.rfp.updateMany({ where: { id: rfpId, eventId, status: "CLOSED" }, data: { status: "ISSUED", updatedById: userId } });
+      }
     }
     return { status, orders };
   });
@@ -275,7 +367,7 @@ export async function getQuoteComparisonCore(rfpId: string, eventId: string, use
       where: { id: rfpId, eventId },
       select: {
         title: true,
-        lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true, group: true, description: true, quantity: true, unit: true } },
+        lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true, group: true, description: true, quantity: true, unit: true, awardedQuoteId: true } },
         quotes: {
           select: {
             id: true,

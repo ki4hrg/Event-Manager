@@ -8,7 +8,7 @@ import { useAutosave } from "@/lib/useAutosave";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import type { ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
+import type { ConcessionMet, HotelChargeScope } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import type { OfferHotel } from "@/lib/inboundParse";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
@@ -17,7 +17,7 @@ import {
   CHARGE_SCOPES,
   chargeTypePatch,
   type ChargeTypeOption,
-  CONTRACT_TYPES,
+  type ContractTypeOption,
   coveredByProfile,
   formatDateKey,
   labelKey,
@@ -48,7 +48,7 @@ export type ProposalValues = {
   leadSourceDirect: boolean;
   leadSourceVendorId: string | null;
   leadSourceContactId: string | null;
-  contractType: HotelContractType | null;
+  contractType: string | null;
   guestType: string | null;
   submittedOn: string | null;
   checkIn: string | null;
@@ -85,6 +85,7 @@ export type ProposalChoices = {
   concessionOptions: { label: string; group: string | null }[];
   statuses: { label: string; group: string | null; color: string | null }[];
   roomTypes: string[];
+  contractTypes: ContractTypeOption[];
   guestTypes: string[];
   amenities: string[];
   mealTypes: string[];
@@ -448,7 +449,7 @@ function metByProfile(answers: ConcessionAnswer[], profile: string[], auto: stri
 // A new proposal answering a requested RFP block starts as a copy of it.
 export type ProposalTemplate = {
   rfpBlockId: string;
-  contractType: HotelContractType | null;
+  contractType: string | null;
   guestType: string | null;
   status: string | null;
   nights: StoredNight[];
@@ -460,7 +461,7 @@ export type RfpChoice = {
   id: string;
   rfpId: string;
   label: string;
-  contractType: HotelContractType | null;
+  contractType: string | null;
   guestType: string | null;
   concessions: ConcessionAnswer[];
   spaceRequests: SpaceRequestDoc[];
@@ -757,14 +758,7 @@ export function ProposalForm({
               </select>
             </Field>
             <Field label="Contract type" htmlFor="p-contractType">
-              <select key={rfpBlockId} id="p-contractType" name="contractType" defaultValue={defaultContractType ?? ""} className={inputClass}>
-                <option value="">Not set</option>
-                {CONTRACT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              <OptionSelect key={rfpBlockId} id="p-contractType" name="contractType" defaultValue={defaultContractType} options={choices.contractTypes.map((t) => t.label)} className={inputClass} />
             </Field>
             <Field label="Guest type" htmlFor="p-guestType">
               <OptionSelect key={rfpBlockId} id="p-guestType" name="guestType" defaultValue={defaultGuestType} options={choices.guestTypes} className={inputClass} />

@@ -125,6 +125,14 @@ export function PickupPanel({
                   ]
                     .filter(Boolean)
                     .join(" · ")}
+                  {canWrite && (
+                    <Link
+                      href={`${pickupHref}?guest=${g.id}#guest-${g.id}`}
+                      className="ml-2 inline-block text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Edit
+                    </Link>
+                  )}
                 </span>
               </li>
             ))}

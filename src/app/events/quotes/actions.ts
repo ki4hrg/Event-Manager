@@ -8,6 +8,7 @@ import { resourceForKind } from "@/lib/rfp/kinds";
 import { withUserErrors } from "@/lib/userErrors";
 import {
   awardVendorQuoteCore,
+  clearRfpLineAwardsCore,
   createVendorQuoteCore,
   deleteVendorQuoteCore,
   getQuoteComparisonCore,
@@ -140,16 +141,40 @@ export async function deleteVendorQuote(id: string, eventId: string) {
   redirect(`/events/${eventId}/rfps?success=Quote deleted`);
 }
 
+// Accept the whole quote: it wins the RFP's open lines.
 export async function awardVendorQuote(id: string, eventId: string, declineOthers: boolean) {
   const quote = await quoteRfp(id, eventId);
   const session = await requirePermission(quoteResource(quote.rfp), "WRITE", eventId);
-  const { orders } = await awardVendorQuoteCore(id, eventId, session.user.id, declineOthers);
-  revalidatePath(quotePath(eventId, id));
+  return withUserErrors(async () => {
+    const { orders } = await awardVendorQuoteCore(id, eventId, session.user.id, declineOthers);
+    revalidatePath(quotePath(eventId, id));
+    revalidatePath(`/events/${eventId}/rfps`);
+    revalidatePath(`/events/${eventId}/vendors`);
+    if (quote.rfpId) revalidatePath(rfpPath(eventId, quote.rfpId));
+    const message = orders ? `Quote accepted; vendor added to the event and ${orders} order${orders === 1 ? "" : "s"}` : "Quote accepted; vendor added to the event";
+    redirect(`${quotePath(eventId, id)}?success=${encodeURIComponent(message)}`);
+  });
+}
+
+// From the comparison: award RFP lines to a quote (taking them from any
+// other), or with no quote take the award off them. The client refreshes.
+export async function setRfpLineAward(rfpId: string, eventId: string, lineItemIds: string[], quoteId: string | null) {
+  const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
+  if (!rfp) notFound();
+  const session = await requirePermission(resourceForKind(rfp.kind), "WRITE", eventId);
+  if (quoteId) {
+    // The quote must answer this RFP; the core checks the lines are its RFP's.
+    const quote = await prisma.vendorQuote.findFirst({ where: { id: quoteId, eventId, rfpId }, select: { id: true } });
+    if (!quote) notFound();
+    await awardVendorQuoteCore(quoteId, eventId, session.user.id, false, lineItemIds);
+    revalidatePath(quotePath(eventId, quoteId));
+    revalidatePath(`/events/${eventId}/vendors`);
+  } else {
+    await clearRfpLineAwardsCore(rfpId, eventId, lineItemIds, session.user.id);
+  }
   revalidatePath(`/events/${eventId}/rfps`);
-  revalidatePath(`/events/${eventId}/vendors`);
-  if (quote.rfpId) revalidatePath(rfpPath(eventId, quote.rfpId));
-  const message = orders ? `Quote accepted; vendor added to the event and ${orders} order${orders === 1 ? "" : "s"}` : "Quote accepted; vendor added to the event";
-  redirect(`${quotePath(eventId, id)}?success=${encodeURIComponent(message)}`);
+  revalidatePath(rfpPath(eventId, rfpId));
+  revalidatePath(`${rfpPath(eventId, rfpId)}/compare`);
 }
 
 // Decline / reopen a quote, or withdraw its award (optionally taking the

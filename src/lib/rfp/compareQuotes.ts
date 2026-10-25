@@ -1,6 +1,6 @@
 // Vendor quotes answering an RFP, lined up against its line items: one
-// column per quote, one row per line item, then each quote's extras and the
-// totals. Shared by the compare page, its print route, the .docx and MCP. Pure.
+// column per quote, one row per line item (with the quote that won it), then
+// each quote's extras and the totals. Shared by the compare page, its print route, the .docx and MCP. Pure.
 
 import type { QuoteStatus } from "@prisma/client";
 import { dateKey, formatDateKey, formatMoney } from "@/lib/hotels";
@@ -11,7 +11,7 @@ type Dec = { toString(): string } | null;
 export type QuoteCompareInput = {
   title: string;
   eventName: string;
-  lineItems: { id: string; group: string | null; description: string; quantity: number | null; unit: string | null }[];
+  lineItems: { id: string; group: string | null; description: string; quantity: number | null; unit: string | null; awardedQuoteId: string | null }[];
   quotes: {
     id: string;
     vendor: string;
@@ -27,17 +27,20 @@ export type QuoteCompareInput = {
   }[];
 };
 
-export type QuoteCompareCell = { text: string; missing: boolean };
-export type QuoteCompareRow = { label: string; group: string | null; requested: string; cells: QuoteCompareCell[] };
+// awarded: this quote won the line.
+export type QuoteCompareCell = { text: string; missing: boolean; awarded: boolean };
+// Line item rows carry the RFP line's id and the quote that won it (null: open).
+export type QuoteCompareRow = { label: string; group: string | null; requested: string; lineItemId: string | null; awardedQuoteId: string | null; cells: QuoteCompareCell[] };
 
 export type QuoteComparison = {
   title: string;
   eventName: string;
-  quotes: { id: string; vendor: string; status: string; total: number }[];
+  quotes: { id: string; vendor: string; status: string; total: number; linesWon: number }[];
   lines: QuoteCompareRow[];
   extras: string[][]; // per quote: "Description — $amount"
   footer: QuoteCompareRow[];
   lowest: string | null; // id of the lowest total, when two or more quotes
+  awarded: number; // line items awarded, of lines.length
 };
 
 const money = (n: number | null) => (n == null ? "—" : formatMoney(String(n)));
@@ -50,30 +53,42 @@ export function buildQuoteComparison(input: QuoteCompareInput): QuoteComparison 
     label: li.description,
     group: li.group,
     requested: li.quantity != null ? `${li.quantity}${li.unit ? ` ${li.unit}` : ""}` : (li.unit ?? ""),
+    lineItemId: li.id,
+    awardedQuoteId: li.awardedQuoteId,
     cells: quotes.map((q) => {
+      const awarded = li.awardedQuoteId === q.id;
       const answers = q.lines.filter((l) => l.rfpLineItemId === li.id);
-      if (answers.length === 0) return { text: "not quoted", missing: true };
+      if (answers.length === 0) return { text: "not quoted", missing: true, awarded };
       const amount = answers.reduce<number | null>((sum, l) => {
         const a = lineAmount(l);
         return a == null ? sum : (sum ?? 0) + a;
       }, null);
       const qty = answers.length === 1 && answers[0].quantity != null ? Number(answers[0].quantity.toString()) : null;
       const short = qty != null && li.quantity != null && qty < li.quantity;
-      return { text: [money(amount), qty != null && li.quantity != null && qty !== li.quantity ? `qty ${qty}` : null].filter(Boolean).join(" · "), missing: short };
+      return {
+        text: [money(amount), qty != null && li.quantity != null && qty !== li.quantity ? `qty ${qty}` : null].filter(Boolean).join(" · "),
+        missing: short,
+        awarded,
+      };
     }),
   }));
   const row = (label: string, cell: (i: number) => string, missing?: (i: number) => boolean): QuoteCompareRow => ({
     label,
     group: null,
     requested: "",
-    cells: quotes.map((_, i) => ({ text: cell(i), missing: missing?.(i) ?? false })),
+    lineItemId: null,
+    awardedQuoteId: null,
+    cells: quotes.map((_, i) => ({ text: cell(i), missing: missing?.(i) ?? false, awarded: false })),
   });
   const day = (d: Date | null) => (d ? formatDateKey(dateKey(d)) : "—");
   const lowestTotal = quotes.length > 1 ? Math.min(...totals.map((t) => t.total)) : null;
   return {
     title: input.title,
     eventName: input.eventName,
-    quotes: quotes.map((q, i) => ({ id: q.id, vendor: q.vendor, status: `${QUOTE_STATUS_LABELS[q.status]}${q.revision > 1 ? ` · rev ${q.revision}` : ""}`, total: totals[i].total })),
+    quotes: quotes.map((q, i) => ({ id: q.id, vendor: q.vendor, status: `${QUOTE_STATUS_LABELS[q.status]}${q.revision > 1 ? ` · rev ${q.revision}` : ""}`,
+      total: totals[i].total,
+      linesWon: input.lineItems.filter((li) => li.awardedQuoteId === q.id).length,
+    })),
     lines,
     extras: quotes.map((q) =>
       q.lines.filter((l) => !l.rfpLineItemId || !input.lineItems.some((li) => li.id === l.rfpLineItemId)).map((l) => `${l.description} — ${money(lineAmount(l))}`),
@@ -88,5 +103,6 @@ export function buildQuoteComparison(input: QuoteCompareInput): QuoteComparison 
       row("Valid until", (i) => day(quotes[i].validUntil)),
     ],
     lowest: lowestTotal != null ? (quotes.find((_, i) => totals[i].total === lowestTotal)?.id ?? null) : null,
+    awarded: input.lineItems.filter((li) => li.awardedQuoteId).length,
   };
 }

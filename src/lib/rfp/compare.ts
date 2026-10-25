@@ -2,7 +2,7 @@
 // asked for. One group per requested block, plus one for RFP proposals not
 // tied to a block. Read by the compare page and its .docx. Pure.
 
-import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope, HotelContractType } from "@prisma/client";
+import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope } from "@prisma/client";
 import { CHARGE_SCOPE_LABELS, dateKey, formatDateKey, formatMoney, formatNight, MET_LABELS } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
 import { spaceSummary, type SpaceRequestDoc, type StoredSpace } from "@/lib/rfp/proposalSpace";
@@ -13,7 +13,7 @@ export type CompareInput = {
   title: string;
   eventName: string;
   amenities: string[]; // requested
-  blocks: { id: string; contractType: HotelContractType; guestType: string | null; targetRate: Dec; nights: { night: Date; rooms: number }[] }[];
+  blocks: { id: string; contractType: string; guestType: string | null; targetRate: Dec; nights: { night: Date; rooms: number }[] }[];
   concessions: { id: string; label: string; value: string | null; required: boolean }[];
   meetingSpace: SpaceRequestDoc[];
   mealTypes: string[]; // the F&B the RFP asks hotels to price

@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { prisma } from "@/lib/prisma";
-import { rfpHref, rfpListHref } from "@/lib/rfp/kinds";
+import { resourceForKind, rfpHref, rfpListHref } from "@/lib/rfp/kinds";
 import { getEvent } from "@/app/events/event";
-import { getQuoteComparison } from "../quotes/actions";
+import { getQuoteComparison, setRfpLineAward } from "../quotes/actions";
 import { QuoteCompareView } from "../quotes/QuoteCompareView";
 import { getRfpComparison } from "./actions";
 import { MenuButton } from "./MenuButton";
@@ -27,10 +27,19 @@ export async function RfpComparison({ eventId, rfpId, print = false }: { eventId
   if (!event || !data) notFound();
   const base = rfpHref(eventId, found.kind, rfpId);
   const title = hotel ? "Proposal comparison" : "Quote comparison";
+  // Award RFP lines from the comparison (not on print).
+  const awardAction = async (lineItemIds: string[], quoteId: string | null) => {
+    "use server";
+    await setRfpLineAward(rfpId, eventId, lineItemIds, quoteId);
+  };
   const view = proposals ? (
     <RfpCompareView data={proposals} eventId={print ? null : eventId} />
   ) : quotes ? (
-    <QuoteCompareView data={quotes} eventId={print ? null : eventId} />
+    <QuoteCompareView
+      data={quotes}
+      eventId={print ? null : eventId}
+      award={print ? undefined : { action: awardAction, resource: resourceForKind(found.kind) }}
+    />
   ) : null;
 
   if (print) {

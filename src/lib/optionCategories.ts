@@ -9,13 +9,13 @@
 // Plain server module (it reaches Prisma through the targets). Client
 // components import its types only; pages hand them the resolved props.
 
-import { EntityStatus, PermissionResource, Prisma } from "@prisma/client";
+import { EntityStatus, PackingStatus, PermissionResource, Prisma } from "@prisma/client";
 import { FUNCTION_SPACES, MEAL_BUCKETS, SCHEDULE_ROLES } from "@/lib/esg/apex";
-import { CHARGE_SCOPES, PROPOSAL_STAGES } from "@/lib/hotels";
+import { CHARGE_SCOPES, CONTRACT_KINDS, PROPOSAL_STAGES } from "@/lib/hotels";
 import { CONCESSION_GROUPS } from "@/lib/rfp/sections";
 import { hotelLabelUses, mergeHotelLabel, type HotelLabelCategory } from "@/lib/hotelLabels";
 import { MAIN_SCHEDULE_GROUP } from "@/lib/scheduleTypes";
-import { STATUS_LABEL } from "@/lib/statusConstants";
+import { PACKING_STATUS_LABEL, STATUS_LABEL } from "@/lib/statusConstants";
 
 type Db = Prisma.TransactionClient;
 
@@ -230,12 +230,14 @@ export const OPTION_SECTIONS = {
     title: "Hotels",
     lists: [
       "hotel_room_type",
+      "hotel_contract_type",
       "hotel_guest_type",
       "hotel_amenity",
       "hotel_charge",
       "hotel_brand",
       "reservation_method",
       "proposal_status",
+      "hotel_days_out",
       "per_housing_provider",
     ],
   },
@@ -244,7 +246,7 @@ export const OPTION_SECTIONS = {
     title: "People & vendors",
     lists: ["contact_role", "assignment_role", "staff_title", "venue_contact_type", "vendor_contact_type"],
   },
-  status: { title: "Statuses", lists: ["substatus"] },
+  status: { title: "Statuses", lists: ["substatus", "packing_substatus"] },
   inventory: { title: "Inventory", lists: ["equipment_category", "location_type"] },
 } as const satisfies Record<string, { title: string; lists: readonly string[] }>;
 
@@ -289,6 +291,13 @@ export const SUBSTATUS_GROUPS: readonly GroupChoice[] = Object.values(EntityStat
   value: status,
   label: `${STATUS_LABEL[status]} Substatuses`,
   description: `Finer states within ${STATUS_LABEL[status]}.`,
+}));
+
+// One packing sub-state list per packing status, in the enum's order.
+export const PACKING_SUBSTATUS_GROUPS: readonly GroupChoice[] = Object.values(PackingStatus).map((status) => ({
+  value: status,
+  label: `${PACKING_STATUS_LABEL[status]} Sub-states`,
+  description: `Finer packing states within ${PACKING_STATUS_LABEL[status]}.`,
 }));
 
 // A file type's group: the type a feature files its own documents under
@@ -473,6 +482,17 @@ export const OPTION_CATEGORIES = {
     resource: SETTINGS,
     renameTargets: SUBSTATUS_TARGETS,
   },
+  packing_substatus: {
+    title: "Packing Sub-states",
+    description: "Finer states within each packing status.",
+    groups: { kind: "fixed", label: "Packing status", choices: PACKING_SUBSTATUS_GROUPS, split: true },
+    resource: SETTINGS,
+    renameTargets: [
+      col("printOrder", "packingSubstatus", inEvent),
+      col("printItem", "packingSubstatus", (t) => ({ printOrder: inEvent(t) })),
+      col("supplyOrderItem", "packingSubstatus", (t) => ({ supplyOrder: inEvent(t) })),
+    ],
+  },
   proposal_status: {
     title: "Proposal Statuses",
     description: "Hotel proposal statuses, each tied to a stage.",
@@ -487,11 +507,34 @@ export const OPTION_CATEGORIES = {
     resource: SETTINGS,
     renameTargets: HOTEL_ROOM_TYPE_TARGETS,
   },
+  // group: whether blocks of the type carry attrition (CONTRACT_KINDS).
+  hotel_contract_type: {
+    title: "Contract Types",
+    description: "Contract types for hotel proposals and RFPs.",
+    groups: { kind: "fixed", label: "Attrition", choices: CONTRACT_KINDS },
+    resource: SETTINGS,
+    renameTargets: [
+      col("hotelProposal", "contractType", inEvent),
+      col("hotelBlock", "contractType", (t) => ({ proposal: inEvent(t) })),
+      col("rfpHotelBlock", "contractType", (t) => ({ rfp: inEvent(t) })),
+    ],
+  },
   hotel_guest_type: {
     title: "Guest Types",
     description: "Guest types for hotel proposals and RFPs.",
     resource: SETTINGS,
-    renameTargets: [col("hotelProposal", "guestType", inEvent), col("rfpHotelBlock", "guestType", (t) => ({ rfp: inEvent(t) }))],
+    renameTargets: [
+      col("hotelProposal", "guestType", inEvent),
+      col("hotelBlock", "guestType", (t) => ({ proposal: inEvent(t) })),
+      col("rfpHotelBlock", "guestType", (t) => ({ rfp: inEvent(t) })),
+    ],
+  },
+  // Labels are day counts (daysOutLabelError); nothing stores them.
+  hotel_days_out: {
+    title: "Pickup Checkpoints",
+    description: "Days before a block's first night to compare pickup at.",
+    resource: SETTINGS,
+    renameTargets: [],
   },
   hotel_amenity: {
     title: "Amenities",

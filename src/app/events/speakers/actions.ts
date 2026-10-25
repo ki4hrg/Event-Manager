@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireEventTenantId, requirePermission } from "@/lib/permissions";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
+import { blockTypeLabel } from "@/lib/hotels";
 import { setContactHeadshotCore, updateContactSpeakerFieldsCore, upsertSpeakerProfileCore } from "./core";
 
 // Speaker profiles for the given contacts at this event, keyed by contact.
@@ -11,6 +12,20 @@ export async function getSpeakerProfiles(eventId: string, contactIds: string[]) 
   await requirePermission("PRESENTATIONS", "VIEW", eventId);
   const rows = await prisma.speakerProfile.findMany({ where: { eventId, contactId: { in: contactIds } } });
   return Object.fromEntries(rows.map((r) => [r.contactId, r]));
+}
+
+// The event's hotel blocks as picker options: hotel, then block type.
+export async function getSpeakerHotelBlocks(eventId: string) {
+  await requirePermission("PRESENTATIONS", "VIEW", eventId);
+  const blocks = await prisma.hotelBlock.findMany({
+    where: { proposal: { eventId } },
+    select: { id: true, contractType: true, guestType: true, proposal: { select: { venue: { select: { name: true } } } } },
+    orderBy: [{ isHq: "desc" }, { proposal: { venue: { name: "asc" } } }],
+  });
+  return blocks.map((b) => ({
+    id: b.id,
+    label: [b.proposal.venue.name, blockTypeLabel(b.contractType, b.guestType)].filter(Boolean).join(" · "),
+  }));
 }
 
 const text = (formData: FormData, key: string) => ((formData.get(key) as string) || "").trim() || null;
@@ -54,6 +69,7 @@ export async function updateSpeakerProfile(eventId: string, presentationId: stri
       arrivalAt: when("arrivalAt"),
       departureAt: when("departureAt"),
       travelNotes: text(formData, "travelNotes"),
+      hotelBlockId: text(formData, "hotelBlockId"),
       hotel: text(formData, "hotel"),
       dietary: text(formData, "dietary"),
       dietaryNeeds: formData.getAll("dietaryNeeds") as string[],

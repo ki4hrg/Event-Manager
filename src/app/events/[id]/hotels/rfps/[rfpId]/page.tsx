@@ -206,6 +206,7 @@ export default async function RfpPage({
                   departure={departure}
                   peakRooms={rfp.peakRooms}
                   roomTypes={choices.roomTypes}
+                  contractTypes={choices.contractTypes}
                   guestTypes={choices.guestTypes}
                   series={choices.series}
                   defaultSeriesId={event.seriesId ?? null}

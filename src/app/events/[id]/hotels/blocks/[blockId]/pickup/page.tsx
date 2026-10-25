@@ -4,15 +4,32 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { dateKey } from "@/lib/hotels";
 import { requirePermission } from "@/lib/permissions";
 import { getEvent } from "@/app/events/event";
-import { getBlockFormChoices, getHotelBlock, importPickupGuests, savePickupCounts } from "../../../../../hotels/actions";
+import {
+  createPickupGuest,
+  getBlockFormChoices,
+  getHotelBlock,
+  importPickupGuests,
+  savePickupCounts,
+  setPickupGuestCancelled,
+  updatePickupGuest,
+} from "../../../../../hotels/actions";
 import { PickupImport } from "../../../../../hotels/PickupImport";
+import { PickupGuests } from "../../../../../hotels/PickupGuests";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Pickup" };
 
-export default async function PickupPage({ params }: { params: Promise<{ id: string; blockId: string }> }) {
+export default async function PickupPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string; blockId: string }>;
+  searchParams: Promise<{ guest?: string }>;
+}) {
   const { id: eventId, blockId } = await params;
+  // ?guest=<id> opens that guest for editing (the block page's Edit link).
+  const { guest: openGuestId } = await searchParams;
   await requirePermission("HOTELS", "WRITE", eventId);
   const [event, block, choices] = await Promise.all([getEvent(eventId), getHotelBlock(blockId, eventId), getBlockFormChoices(eventId)]);
   if (!event || !block) notFound();
@@ -30,6 +47,21 @@ export default async function PickupPage({ params }: { params: Promise<{ id: str
     return savePickupCounts(blockId, eventId, counts);
   };
 
+  const createGuestAction = async (formData: FormData) => {
+    "use server";
+    return createPickupGuest(blockId, eventId, formData);
+  };
+  const updateGuestAction = async (guestId: string, formData: FormData) => {
+    "use server";
+    return updatePickupGuest(guestId, blockId, eventId, formData);
+  };
+  const cancelGuestAction = async (guestId: string, cancelled: boolean) => {
+    "use server";
+    return setPickupGuestCancelled(guestId, blockId, eventId, cancelled);
+  };
+
+  const key = (d: Date | null) => (d ? dateKey(d) : null);
+  const typedRoomTypes = block.nights.flatMap((n) => (n.roomType != null ? [n.roomType] : []));
   const venue = block.proposal.venue;
   const blockHref = `/events/${eventId}/hotels/blocks/${blockId}`;
   return (
@@ -47,11 +79,31 @@ export default async function PickupPage({ params }: { params: Promise<{ id: str
         />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">Pickup · {venue.name}</h1>
       </div>
-      <div className="max-w-5xl">
+      <div className="max-w-5xl space-y-6">
+        <PickupGuests
+          guests={block.pickupGuests.map((g) => ({
+            id: g.id,
+            guestName: g.guestName,
+            confirmationNumber: g.confirmationNumber,
+            checkIn: key(g.checkIn),
+            checkOut: key(g.checkOut),
+            roomType: g.roomType,
+            cancelled: g.cancelled,
+            bookedOn: key(g.bookedOn),
+            cancelledOn: key(g.cancelledOn),
+          }))}
+          roomTypes={Array.from(new Set([...typedRoomTypes, ...choices.roomTypes]))}
+          checkIn={key(block.checkIn)}
+          checkOut={key(block.checkOut)}
+          initialGuestId={openGuestId ?? null}
+          createGuest={createGuestAction}
+          updateGuest={updateGuestAction}
+          setCancelled={cancelGuestAction}
+        />
         <PickupImport
           blockHref={blockHref}
-          checkIn={block.checkIn ? dateKey(block.checkIn) : null}
-          checkOut={block.checkOut ? dateKey(block.checkOut) : null}
+          checkIn={key(block.checkIn)}
+          checkOut={key(block.checkOut)}
           blockRoomTypes={Array.from(new Set(block.nights.map((n) => n.roomType)))}
           tenantRoomTypes={choices.roomTypes}
           hasGuests={block.pickupGuests.length > 0}

@@ -1,4 +1,3 @@
-import { parseContractTypes } from "@/lib/hotels";
 import type { OfferHotel } from "@/lib/inboundParse";
 import type { HotelChargeScope } from "@prisma/client";
 import type {
@@ -76,7 +75,7 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     leadSourceDirect: formData.get("leadSource") === LEAD_SOURCE_DIRECT,
     leadSourceVendorId: formData.get("leadSource") === LEAD_SOURCE_DIRECT ? null : str("leadSource"),
     leadSourceContactId: str("leadSourceContactId"),
-    contractType: parseContractTypes(str("contractType") ?? undefined)[0] ?? null,
+    contractType: str("contractType"),
     guestType: str("guestType"),
     submittedOn: str("submittedOn"),
     checkIn: str("checkIn"),

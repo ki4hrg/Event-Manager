@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicApiKey } from "@/lib/email";
-import { labelKey } from "@/lib/hotels";
+import type { HotelChargeScope } from "@prisma/client";
+import { CHARGE_SCOPES, labelKey, type ContractKind } from "@/lib/hotels";
 import { PICKUP_FIELD_KEYS, type DateOrder, type PickupFieldKey, type PickupGuestRow } from "@/lib/pickupMapping";
 
 // Claude reads one inbox message and proposes what it is (docs/proposals/
@@ -28,7 +29,7 @@ export type ProposalSheet = {
   roomTypes?: RoomTypeMap;
 };
 
-export type ChargeScope = "PER_NIGHT" | "PER_STAY" | "PER_PERSON" | "PER_PERSON_PER_NIGHT" | "PER_DAY" | "PER_PERSON_PER_DAY";
+export type ChargeScope = HotelChargeScope;
 export type ConcessionMetValue = "MET" | "PARTIAL" | "NOT_MET";
 
 // A hotel's offer, in the shape ProposalForm starts from.
@@ -37,7 +38,7 @@ export type ProposalOffer = {
   rfpBlockId: string | null;
   submittedOn: string | null;
   // The kind of block offered; older reads have none.
-  contractType?: "CONTRACT" | "COURTESY" | null;
+  contractType?: ContractKind | null;
   checkIn: string | null;
   checkOut: string | null;
   nights: { night: string; roomType: string | null; rooms: number | null; rate: number | null }[];
@@ -339,7 +340,7 @@ const guestSchema = object({
 const int = { type: "integer" } as const;
 const num = { type: "number" } as const;
 
-const SCOPES = ["", "PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY"];
+const SCOPES = ["", ...CHARGE_SCOPES.map((s) => s.value)];
 const scope = { type: "string", enum: SCOPES } as const;
 
 const offerSchema = object({
@@ -626,7 +627,7 @@ For RFP_PROPOSAL, fill "offers" with one offer per property. One hotel's offer i
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types only when the offer puts those rooms on that type: a bed type (one bed / king, two beds / double / queen) or a suite. Rooms of any or unspecified type (Any Room, Run of House, ROH, Standard Room) are run of house: "". Never move rooms onto a bed type because a rate for that type is quoted elsewhere in the message; such a rate prices the rooms the offer does put on that type, and only those.
 - Booking-portal grids (Cvent and the like) give each night a row of counts under columns such as Any Room, One Bed, Two Beds, Suite, Staff and Total. Each non-zero cell is one entry: Any Room is run of house (""), One Bed and Two Beds the org's king and double-queen types, Suite its suite type, Staff run of house unless a type is named. Skip zero cells and the Total column; a night's entries add up to its Total. Read the grid from the PDF's text when a row is cut at a page break.
 - rate: the rate the offer gives for that room type. Run-of-house rooms take the offer's standard or run-of-house rate (a portal's "Standard Room" rate); suites take its suite rate.
-- charges: fees guests or the group pay for rooms and stays (resort fee, parking, breakfast, deposits), with amount and scope when given: a nightly fee is PER_NIGHT, a per-person fee PER_PERSON or PER_PERSON_PER_NIGHT. Meeting space, AV and F&B are read separately: leave them out here.
+- charges: fees guests or the group pay for rooms and stays (resort fee, parking, breakfast, deposits), with amount and scope when given: a nightly fee is PER_NIGHT, a per-person fee PER_PERSON or PER_PERSON_PER_NIGHT, a fee charged once per room (a per-room early departure or cleaning fee) PER_ROOM, a single fee for the group (a deposit, a one-time setup fee) ONE_TIME. Meeting space, AV and F&B are read separately: leave them out here.
 - validUntil: the offer's deadline, YYYY-MM-DD: the date the rates are good until or the contract must be signed by (the earlier when both are given), or "".
 - taxIncluded: INCLUDED when the offer says its rates include taxes and fees, EXCLUDED when it says they don't ("plus tax", "taxes not included"), "" when it doesn't say.
 - allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: the total revenue or F&B the group commits to for the whole agreement, as an amount, if stated. A minimum spend tied to one room or day (an F&B minimum that waives or replaces the meeting room rental, "$500 spend per day for meeting space") is not a guarantee: it's read with the function space, and guaranteedRevenue stays empty.
@@ -660,7 +661,7 @@ For CONTRACT, fill "contract":
 
 When asked for the function space and F&B of RFP_PROPOSAL offers (listed by number), fill "offers" with one entry per listed offer that quotes meeting space, AV or F&B terms, with offer its number; leave out the others. For each entry:
 - spaces: the function space the offer gives. When the offer answers an RFP, one entry per meeting space request of that RFP it answers, with its spaceRequestId from the RFP's list; then entries with spaceRequestId "" for rooms offered that no request covers. name is the request's function name, or for an unasked room its name. room: the room offered, as named. capacity: how many it holds for the requested set-up (else its stated capacity). hold24: YES or NO when the offer says whether the room is held 24 hours, else "". rental and rentalScope: the room's rental as quoted ($900 per full day use is 900 PER_DAY). waiverType, waiverAmount and waiverScope: what waives the rental, when the offer says: FB_SPEND with the spend ("or waived with a $500 F&B spend per day" is FB_SPEND 500 PER_DAY), ROOM_NIGHTS with the number of room nights ("waived with 50 room nights" is ROOM_NIGHTS 50 PER_STAY), OTHER for anything else (described in note); else "" and -1. note: other conditions on the room, briefly. A named room's rental goes here, not in meetingCharges.
-- meetingCharges: meeting space services not tied to one room (AV, a room rental quoted without naming the room), with amount and scope: day-rate services ("per day", "per full day use") are PER_DAY, or PER_PERSON_PER_DAY for a per-person day rate (a day meeting package).
+- meetingCharges: meeting space services not tied to one room (AV, a room rental quoted without naming the room), with amount and scope: day-rate services ("per day", "per full day use") are PER_DAY, or PER_PERSON_PER_DAY for a per-person day rate (a day meeting package); a flat fee charged once is ONE_TIME.
 - fbMinimum: an F&B minimum for the event, as an amount, with fbMinimumScope (PER_DAY, PER_STAY for the whole event, or "") and fbMinimumNote: what it applies to, briefly ("per function"); else -1 and "". A spend that waives one room's rental is that room's waiver, not this. fbTaxRate and fbServiceCharge: the standard F&B tax and service charge as percentages (24 for 24%), when stated.
 - meals: the average per-person price for each meal type the offer prices (a breakfast buffet at $24 is that meal at 24). For the RFP's F&B to price use exactly its names; others as the offer names them. A menu priced item by item gives no per-person average: leave it out. A breakfast that is a fee on the room (per person per night) is a guest charge, not a meal.
 

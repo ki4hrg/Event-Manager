@@ -52,6 +52,11 @@ export const PACKING_STATUS_CLASS: Record<PackingStatus, string> = {
   DELIVERED: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
 };
 
+// "In Transit · Shipped": the status with its sub-state, when it has one.
+export function packingStatusText(status: PackingStatus, substatus: string | null | undefined): string {
+  return substatus ? `${PACKING_STATUS_LABEL[status]} · ${substatus}` : PACKING_STATUS_LABEL[status];
+}
+
 export const PACKING_STATUS_OPTIONS: { value: PackingStatus; label: string }[] = [
   { value: "NEEDED", label: "Needed" },
   { value: "IN_TRANSIT", label: "In Transit" },

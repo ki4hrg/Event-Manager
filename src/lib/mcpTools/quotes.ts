@@ -4,6 +4,7 @@ import { dateKey } from "@/lib/hotels";
 import { quoteTotals } from "@/lib/rfp/quotes";
 import {
   awardVendorQuoteCore,
+  clearRfpLineAwardsCore,
   recordNoAwardCore,
   setVendorQuoteStatusCore,
   createVendorQuoteCore,
@@ -105,6 +106,7 @@ const quoteInclude = {
   vendor: { select: { id: true, name: true } },
   rfp: { select: { id: true, kind: true, title: true } },
   lines: { orderBy: { sortOrder: "asc" as const } },
+  awardedLines: { select: { id: true, description: true }, orderBy: { sortOrder: "asc" as const } },
 } as const;
 
 async function quoteFor(id: string, eventId: string, userId: string) {
@@ -158,7 +160,8 @@ export const quoteTools: McpToolDefinition[] = [
   },
   {
     name: "get_vendor_quote",
-    description: "Get one vendor quote: vendor, RFP, status, revision, dates, priced lines (each with the RFP line item it answers), fees, deposit, cancellation, notes, files, and totals.",
+    description:
+      "Get one vendor quote: vendor, RFP, status, revision, dates, priced lines (each with the RFP line item it answers), awardedLines (the RFP line items it won), fees, deposit, cancellation, notes, files, and totals.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
@@ -232,31 +235,59 @@ export const quoteTools: McpToolDefinition[] = [
   {
     name: "award_vendor_quote",
     description:
-      "Accept a vendor quote: it becomes ACCEPTED and the vendor is added to the event and to every order the RFP's line items were copied from. Several quotes on one RFP may be accepted (split work). With declineOthers, the RFP's other RECEIVED quotes become DECLINED and the RFP CLOSED; earlier accepted quotes stay accepted. Needs VENDORS write.",
+      "Accept a vendor quote: it becomes ACCEPTED, wins RFP line items (each line's awardedQuoteId in get_rfp / get_rfp_comparison), and the vendor is added to the event and to the orders those lines were copied from. Work can be split: several quotes on one RFP may be accepted, each winning different lines. Without lineItemIds it wins every line not yet awarded (refused when none is left); with lineItemIds it wins those lines, taking them from any quote that held them (a quote left with no line goes back to RECEIVED). The RFP is CLOSED once every line is awarded. With declineOthers (whole quote only), the RFP's other RECEIVED quotes become DECLINED and the RFP CLOSED; earlier accepted quotes keep their lines. Needs VENDORS write. Returns how many orders the vendor was added to and how many lines it won.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string" },
         eventId: { type: "string" },
-        declineOthers: { type: "boolean", description: "Decline the RFP's other open quotes and close the RFP. Default false." },
+        lineItemIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Award only these RFP line items (get_rfp lineItems) to the quote. Omit to award the whole quote.",
+        },
+        declineOthers: { type: "boolean", description: "Decline the RFP's other open quotes and close the RFP. Not with lineItemIds. Default false." },
       },
       required: ["id", "eventId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
-      awardVendorQuoteCore(requireString(args, "id"), requireString(args, "eventId"), userId, args.declineOthers === true),
+    handler: (args, { userId }) => {
+      const raw = args.lineItemIds;
+      if (raw != null && (!Array.isArray(raw) || raw.some((v) => typeof v !== "string"))) throw new Error("lineItemIds must be a list of ids");
+      return awardVendorQuoteCore(requireString(args, "id"), requireString(args, "eventId"), userId, args.declineOthers === true, (raw as string[] | undefined) ?? null);
+    },
+  },
+  {
+    name: "clear_rfp_line_awards",
+    description:
+      "Take the award off vendor RFP line items, leaving them open. The vendors stay on the event and their orders; a quote left with no line goes back to RECEIVED, and a CLOSED RFP reopens to ISSUED. Returns how many lines were cleared.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        rfpId: { type: "string" },
+        eventId: { type: "string" },
+        lineItemIds: { type: "array", items: { type: "string" }, description: "RFP line items (get_rfp lineItems)." },
+      },
+      required: ["rfpId", "eventId", "lineItemIds"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const ids = args.lineItemIds;
+      if (!Array.isArray(ids) || ids.some((v) => typeof v !== "string")) throw new Error("lineItemIds must be a list of ids");
+      return clearRfpLineAwardsCore(requireString(args, "rfpId"), requireString(args, "eventId"), ids as string[], userId);
+    },
   },
   {
     name: "set_vendor_quote_status",
     description:
-      "Set a vendor quote to RECEIVED or DECLINED. On an ACCEPTED quote this withdraws the award: with removeFromOrders (needs VENDORS write) the vendor is also taken off the orders the RFP's line items came from (it stays on the event); a CLOSED RFP left with no accepted quote reopens to ISSUED. Returns the status and how many order links were removed.",
+      "Set a vendor quote to RECEIVED or DECLINED. On an ACCEPTED quote this withdraws the award and the RFP lines it won become open: with removeFromOrders (needs VENDORS write) the vendor is also taken off those lines' orders (all the RFP's source orders if it won no line), except orders it still holds lines on through another accepted quote; it stays on the event. A CLOSED RFP left with an open line or no accepted quote reopens to ISSUED. Returns the status and how many order links were removed.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string" },
         eventId: { type: "string" },
         status: { type: "string", enum: ["RECEIVED", "DECLINED"] },
-        removeFromOrders: { type: "boolean", description: "Withdrawing an award: also remove the vendor from the RFP's orders. Default false." },
+        removeFromOrders: { type: "boolean", description: "Withdrawing an award: also remove the vendor from the orders of the lines it won. Default false." },
       },
       required: ["id", "eventId", "status"],
       additionalProperties: false,
@@ -281,7 +312,7 @@ export const quoteTools: McpToolDefinition[] = [
   },
   {
     name: "delete_vendor_quote",
-    description: "Delete a vendor quote with its lines and files.",
+    description: "Delete a vendor quote with its lines and files. RFP line items it won become open (a CLOSED RFP reopens to ISSUED).",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },

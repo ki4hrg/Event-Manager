@@ -101,7 +101,7 @@ export default async function EventInboxItemPage({
     item.status === "APPLIED" && proposal?.blockId
       ? await prisma.hotelBlock.findFirst({
           where: { id: proposal.blockId, proposal: { eventId } },
-          select: { id: true, proposal: { select: { venue: { select: { name: true } } } } },
+          select: { id: true, guestType: true, proposal: { select: { venue: { select: { name: true } } } } },
         })
       : null;
   // Where an applied pickup, decline, quote, BEO or contract went.
@@ -109,7 +109,7 @@ export default async function EventInboxItemPage({
     item.status !== "APPLIED" || !proposal
       ? null
       : appliedBlock
-        ? { label: `Applied to ${appliedBlock.proposal.venue.name}`, href: `/events/${eventId}/hotels/blocks/${appliedBlock.id}` }
+        ? { label: `Applied to ${[appliedBlock.proposal.venue.name, appliedBlock.guestType].filter(Boolean).join(" · ")}`, href: `/events/${eventId}/hotels/blocks/${appliedBlock.id}` }
         : proposal.kind === "RFP_DECLINE" && proposal.decline?.rfpId
           ? { label: "Marked declined on the RFP", href: `/events/${eventId}/hotels/rfps/${proposal.decline.rfpId}` }
           : proposal.appliedQuoteId

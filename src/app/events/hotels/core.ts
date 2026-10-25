@@ -7,7 +7,7 @@
 // refreshes the HotelProposalVersion row for the current revision, so earlier
 // revisions stay frozen and the current one always matches the proposal.
 
-import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope, HotelContractType, HotelWaiverType, Prisma } from "@prisma/client";
+import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope, HotelWaiverType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { addDays, AMENITY_STATUS_LABELS, blockTypeLabel, coveredByProfile, dateFromKey, dateKey, labelKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
@@ -51,7 +51,7 @@ export type ProposalWriteArgs = {
   leadSourceDirect: boolean;
   leadSourceVendorId: string | null;
   leadSourceContactId: string | null;
-  contractType: HotelContractType | null;
+  contractType: string | null; // hotel_contract_type option label
   guestType: string | null; // hotel_guest_type option label
   submittedOn: string | null; // YYYY-MM-DD
   checkIn: string | null;
@@ -141,9 +141,10 @@ export type ProposalChange = { field: string; from: string | null; to: string | 
 
 async function assertProposalRefs(eventId: string, args: ProposalWriteArgs) {
   const tenantId = await requireEventTenantId(eventId);
-  const [venue, status, leadVendor, leadContact] = await Promise.all([
+  const [venue, status, contractType, leadVendor, leadContact] = await Promise.all([
     prisma.venue.findFirst({ where: { id: args.venueId, tenantId }, select: { id: true } }),
     prisma.customOption.findFirst({ where: { tenantId, category: "proposal_status", label: args.status }, select: { id: true } }),
+    args.contractType ? prisma.customOption.findFirst({ where: { tenantId, category: "hotel_contract_type", label: args.contractType }, select: { id: true } }) : null,
     args.leadSourceVendorId ? prisma.vendor.findFirst({ where: { id: args.leadSourceVendorId, tenantId }, select: { id: true } }) : null,
     // The contact is one of the lead source's own.
     args.leadSourceContactId
@@ -152,6 +153,7 @@ async function assertProposalRefs(eventId: string, args: ProposalWriteArgs) {
   ]);
   if (!venue) throw new PermissionError("NOT_FOUND", "Hotel not found");
   if (!status) throw new Error(`Unknown proposal status: ${args.status}`);
+  if (args.contractType && !contractType) throw new Error(`Unknown contract type: ${args.contractType}`);
   if (args.leadSourceVendorId && !leadVendor) throw new PermissionError("NOT_FOUND", "Lead source not found");
   if (args.leadSourceContactId && !leadContact) throw new PermissionError("NOT_FOUND", "Lead source contact not found");
   if (args.leadSourceDirect && args.leadSourceVendorId) throw new Error("A lead is direct or through a lead source, not both");

@@ -138,7 +138,7 @@ export function GuestImport({
           aria-label="Guest list CSV"
           accept=".csv,text/csv"
           onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
-          className="block text-sm text-gray-700 dark:text-gray-300"
+          className="block w-full max-w-full text-sm text-gray-700 dark:text-gray-300"
         />
       )}
       {rows.length > 0 && (

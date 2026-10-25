@@ -5,13 +5,15 @@ import { rangeEndFor, rangeEndMin } from "@/lib/dateRange";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { HotelChargeScope } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
-import { CHARGE_SCOPES, chargeTypePatch, formatNight, nightKeys, roomTypeLabel, RUN_OF_HOUSE, type ChargeTypeOption } from "@/lib/hotels";
+import { appliedAttrition, CHARGE_SCOPES, chargeTypePatch, formatNight, nightKeys, roomTypeLabel, RUN_OF_HOUSE, type ChargeTypeOption, type ContractKind } from "@/lib/hotels";
 import { OptionSelect } from "@/components/ui/OptionSelect";
 import { useAutosave } from "@/lib/useAutosave";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { NightPickup } from "@/lib/hotelPickup";
 
 export type BlockValues = {
+  contractType: string | null;
+  guestType: string | null;
   isHq: boolean;
   checkIn: string | null;
   checkOut: string | null;
@@ -150,6 +152,9 @@ export function BlockForm({
   roomTypes,
   reservationMethods,
   chargeTypes,
+  contractTypes,
+  guestTypes,
+  contractKind,
   action,
 }: {
   block: BlockValues;
@@ -157,6 +162,10 @@ export function BlockForm({
   roomTypes: string[];
   reservationMethods: string[];
   chargeTypes: ChargeTypeOption[];
+  contractTypes: string[];
+  guestTypes: string[];
+  // The block contract type's kind: whether its attrition applies.
+  contractKind: ContractKind | null;
   action: (formData: FormData) => Promise<{ id: string; night: string; roomType: string | null }[]>;
 }) {
   const canWrite = useCanWrite("HOTELS");
@@ -182,8 +191,9 @@ export function BlockForm({
   );
   const [addType, setAddType] = useState("");
 
-  // The saved block's attrition (props refresh after each save).
-  const attrition = block.allowedAttrition != null ? Number(block.allowedAttrition) : null;
+  // The saved block's attrition (props refresh after each save); none for a
+  // contract type held without it.
+  const attrition = appliedAttrition(block.allowedAttrition != null ? Number(block.allowedAttrition) : null, contractKind);
 
   const keys = nightKeys(checkIn || null, checkOut || null);
   const keySet = new Set(keys);
@@ -260,6 +270,12 @@ export function BlockForm({
           <input type="hidden" name="charges" value={chargesJson} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Contract type" htmlFor="b-contractType">
+              <OptionSelect id="b-contractType" name="contractType" defaultValue={values.contractType} options={contractTypes} className={inputClass} />
+            </Field>
+            <Field label="Guest type" htmlFor="b-guestType">
+              <OptionSelect id="b-guestType" name="guestType" defaultValue={values.guestType} options={guestTypes} className={inputClass} />
+            </Field>
             <Field label="Check-in" htmlFor="b-checkIn">
               <DateInput
                 id="b-checkIn"

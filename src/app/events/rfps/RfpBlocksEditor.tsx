@@ -1,10 +1,9 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import type { HotelContractType } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnSecondary } from "@/lib/buttonStyles";
-import { addDays, CONTRACT_TYPES } from "@/lib/hotels";
+import { addDays } from "@/lib/hotels";
 import type { PatternBasis } from "@/lib/hotelPattern";
 import { useAutosave } from "@/lib/useAutosave";
 import { emptyGridState, gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "../hotels/RoomGridEditor";
@@ -14,7 +13,7 @@ import type { RfpBlockArgs, RfpFillArgs } from "./core";
 
 export type RfpBlockValues = {
   id: string;
-  contractType: HotelContractType;
+  contractType: string;
   guestType: string | null;
   targetRate: string | null;
   targetRateRequired: boolean;
@@ -26,7 +25,7 @@ type FillResult = { events: number; nights: { night: string; rooms: number }[] }
 
 type BlockState = {
   id: number;
-  contractType: HotelContractType;
+  contractType: string;
   guestType: string;
   targetRate: string;
   targetRateRequired: boolean;
@@ -69,6 +68,7 @@ const basisText = (basis: PatternBasis, events: number) => {
 
 function HistoryFill({
   block,
+  contractTypes,
   guestTypes,
   series,
   defaultSeriesId,
@@ -76,6 +76,7 @@ function HistoryFill({
   onFilled,
 }: {
   block: BlockState;
+  contractTypes: string[];
   guestTypes: string[];
   series: { id: string; name: string }[];
   defaultSeriesId: string | null;
@@ -103,7 +104,7 @@ function HistoryFill({
     startTransition(async () => {
       const result = await fill({
         seriesId: seriesId || null,
-        contractType: (contractType || null) as HotelContractType | null,
+        contractType: contractType || null,
         guestType: guestType || null,
         basis,
         adjust: Number(adjust) || 0,
@@ -128,9 +129,9 @@ function HistoryFill({
       </select>
       <select aria-label="Contract type" value={contractType} onChange={(e) => setContractType(e.target.value)} className={smallInput}>
         <option value="">Any contract</option>
-        {CONTRACT_TYPES.map((t) => (
-          <option key={t.value} value={t.value}>
-            {t.label}
+        {contractTypes.map((t) => (
+          <option key={t} value={t}>
+            {t}
           </option>
         ))}
       </select>
@@ -165,6 +166,7 @@ export function RfpBlocksEditor({
   departure,
   peakRooms,
   roomTypes,
+  contractTypes,
   guestTypes,
   series,
   defaultSeriesId,
@@ -178,6 +180,7 @@ export function RfpBlocksEditor({
   departure: string;
   peakRooms: number | null;
   roomTypes: string[];
+  contractTypes: string[];
   guestTypes: string[];
   series: { id: string; name: string }[];
   defaultSeriesId: string | null;
@@ -212,7 +215,7 @@ export function RfpBlocksEditor({
       ...prev,
       {
         id: nextId,
-        contractType: "CONTRACT",
+        contractType: contractTypes[0] ?? "",
         guestType: guestTypes[0] ?? "",
         targetRate: "",
         targetRateRequired: false,
@@ -281,18 +284,14 @@ export function RfpBlocksEditor({
                 <label htmlFor={`b-${b.id}-contract`} className={labelClass}>
                   Contract type
                 </label>
-                <select
+                <OptionSelect
                   id={`b-${b.id}-contract`}
                   value={b.contractType}
-                  onChange={(e) => change(b.id, { contractType: e.target.value as HotelContractType })}
+                  options={contractTypes}
+                  blank={null}
+                  onChange={(e) => change(b.id, { contractType: e.target.value })}
                   className={inputClass}
-                >
-                  {CONTRACT_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div>
                 <label htmlFor={`b-${b.id}-guest`} className={labelClass}>
@@ -350,6 +349,7 @@ export function RfpBlocksEditor({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <HistoryFill
                   block={b}
+                  contractTypes={contractTypes}
                   guestTypes={guestTypes}
                   series={series}
                   defaultSeriesId={defaultSeriesId}

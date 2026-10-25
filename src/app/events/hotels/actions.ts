@@ -6,7 +6,7 @@ import type { ConcessionMet, HotelChargeScope, HotelPickupMethod, Prisma } from 
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { withUserErrors } from "@/lib/userErrors";
-import { blockTypeLabel, dateKey, toChargeTypeOption } from "@/lib/hotels";
+import { blockTypeLabel, dateKey, daysOutCheckpoints, toChargeTypeOption, toContractTypeOption } from "@/lib/hotels";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import type { RfpChoice } from "./ProposalForm";
 import {
@@ -20,10 +20,12 @@ import { readJson, readNewHotel, readProposal } from "./proposalArgs";
 import {
   clearPickupCore,
   createHotelBlockCore,
+  createPickupGuestCore,
   deleteHotelBlockCore,
   importPickupGuestsCore,
   savePickupCountsCore,
   updateHotelBlockCore,
+  updatePickupGuestCore,
   type BlockNightArgs,
   type PickupCountArgs,
   type PickupGuestArgs,
@@ -32,7 +34,7 @@ import {
 const listInclude = {
   venue: { select: { id: true, name: true, city: true, state: true, brand: true } },
   nights: { select: { night: true, roomType: true, rooms: true, rate: true } },
-  block: { select: { id: true } },
+  blocks: { select: { id: true }, orderBy: { createdAt: "asc" } },
   rfp: { select: { id: true, title: true } },
   leadSourceVendor: { select: { name: true } },
   _count: { select: { files: true } },
@@ -61,7 +63,7 @@ export async function getHotelProposal(id: string, eventId: string) {
         orderBy: { revision: "desc" },
         include: { createdBy: { select: { name: true, email: true } } },
       },
-      block: { select: { id: true } },
+      blocks: { select: { id: true, contractType: true, guestType: true }, orderBy: { createdAt: "asc" } },
       rfp: {
         select: { id: true, title: true, concessions: { orderBy: { sortOrder: "asc" } }, spaceRequests: { orderBy: { sortOrder: "asc" } } },
       },
@@ -135,7 +137,7 @@ export async function getProposalFormChoices(eventId: string) {
       orderBy: { name: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_area", "rfp_concession", "meal_type", "hotel_charge"] } },
+      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_contract_type", "hotel_guest_type", "hotel_amenity", "hotel_area", "rfp_concession", "meal_type", "hotel_charge"] } },
       select: { category: true, label: true, group: true, color: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -157,6 +159,7 @@ export async function getProposalFormChoices(eventId: string) {
     concessionOptions: of("rfp_concession").map((o) => ({ label: o.label, group: o.group })),
     statuses: of("proposal_status").map((o) => ({ label: o.label, group: o.group, color: o.color })),
     roomTypes: of("hotel_room_type").map((o) => o.label),
+    contractTypes: of("hotel_contract_type").map(toContractTypeOption),
     guestTypes: of("hotel_guest_type").map((o) => o.label),
     amenities: of("hotel_amenity").map((o) => o.label),
     mealTypes: of("meal_type").map((o) => o.label),
@@ -229,7 +232,9 @@ export async function getHotelBlocks(eventId: string) {
       checkOut: true,
       cutoffDate: true,
       allowedAttrition: true,
-      proposal: { select: { id: true, contractType: true, guestType: true, venue: { select: { id: true, name: true } } } },
+      contractType: true,
+      guestType: true,
+      proposal: { select: { id: true, venue: { select: { id: true, name: true } } } },
       ...pickupSelect,
     },
     orderBy: [{ isHq: "desc" }, { proposal: { venue: { name: "asc" } } }],
@@ -243,10 +248,11 @@ export async function getHotelBlock(blockId: string, eventId: string) {
   const block = await prisma.hotelBlock.findFirst({
     where: { id: blockId, proposal: { eventId } },
     include: {
-      proposal: { select: { id: true, contractType: true, guestType: true, revision: true, venue: { select: { id: true, name: true, city: true, state: true } } } },
+      proposal: { select: { id: true, revision: true, venue: { select: { id: true, name: true, city: true, state: true } } } },
       nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
       charges: { orderBy: { sortOrder: "asc" } },
       pickupCounts: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
+      pickupSnapshots: { select: { takenOn: true, nights: true } },
       pickupImports: {
         orderBy: { createdAt: "desc" },
         include: { importedBy: { select: { name: true, email: true } } },
@@ -267,7 +273,7 @@ export async function getHotelBlock(blockId: string, eventId: string) {
 export async function getBlockFormChoices(eventId: string) {
   const session = await requirePermission("HOTELS", "VIEW", eventId);
   const options = await prisma.customOption.findMany({
-    where: { tenantId: session.tenantId, category: { in: ["hotel_room_type", "reservation_method", "hotel_charge"] } },
+    where: { tenantId: session.tenantId, category: { in: ["hotel_room_type", "reservation_method", "hotel_charge", "hotel_contract_type", "hotel_guest_type", "hotel_days_out"] } },
     select: { category: true, label: true, group: true },
     orderBy: { sortOrder: "asc" },
   });
@@ -275,13 +281,19 @@ export async function getBlockFormChoices(eventId: string) {
     roomTypes: options.filter((o) => o.category === "hotel_room_type").map((o) => o.label),
     reservationMethods: options.filter((o) => o.category === "reservation_method").map((o) => o.label),
     chargeTypes: options.filter((o) => o.category === "hotel_charge").map(toChargeTypeOption),
+    guestTypes: options.filter((o) => o.category === "hotel_guest_type").map((o) => o.label),
+    contractTypes: options.filter((o) => o.category === "hotel_contract_type").map(toContractTypeOption),
+    // Pickup checkpoints, days out, furthest first.
+    checkpoints: daysOutCheckpoints(options.filter((o) => o.category === "hotel_days_out").map((o) => o.label)),
   };
 }
 
-export async function createHotelBlock(proposalId: string, eventId: string) {
+// Another block from the accepted proposal, for the guest type picked.
+export async function createHotelBlock(proposalId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const block = await createHotelBlockCore(proposalId, eventId, session.user.id);
+  const block = await createHotelBlockCore(proposalId, eventId, session.user.id, { guestType: (formData.get("guestType") as string) || null });
   revalidatePath(`/events/${eventId}/hotels`);
+  revalidatePath(`/events/${eventId}/hotels/proposals/${proposalId}`);
   redirect(`/events/${eventId}/hotels/blocks/${block.id}?success=Block created`);
 }
 
@@ -295,6 +307,8 @@ export async function updateHotelBlock(blockId: string, eventId: string, formDat
     blockId,
     eventId,
     {
+      contractType: str("contractType"),
+      guestType: str("guestType"),
       isHq: formData.get("isHq") === "true",
       checkIn: str("checkIn"),
       checkOut: str("checkOut"),
@@ -342,6 +356,55 @@ export async function importPickupGuests(
   return withUserErrors(async () => {
     await importPickupGuestsCore(blockId, eventId, { method, fileName, guests }, session.user.id);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  });
+}
+
+// One guest's fields as the pickup page's guest form posts them.
+function readPickupGuest(formData: FormData): PickupGuestArgs {
+  const str = (k: string) => ((formData.get(k) as string) || "").trim() || null;
+  const cancelled = formData.get("cancelled") === "true";
+  return {
+    guestName: str("guestName"),
+    confirmationNumber: str("confirmationNumber"),
+    checkIn: str("checkIn"),
+    checkOut: str("checkOut"),
+    roomType: str("roomType"),
+    cancelled,
+    rawStatus: null,
+    bookedOn: str("bookedOn"),
+    cancelledOn: cancelled ? str("cancelledOn") : null,
+  };
+}
+
+const revalidatePickup = (eventId: string, blockId: string) => {
+  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}/pickup`);
+};
+
+export async function createPickupGuest(blockId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  return withUserErrors(async () => {
+    await createPickupGuestCore(blockId, eventId, readPickupGuest(formData), session.user.id);
+    revalidatePickup(eventId, blockId);
+  });
+}
+
+// The raw status stays as the hotel's report gave it.
+export async function updatePickupGuest(guestId: string, blockId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  return withUserErrors(async () => {
+    const args: Partial<PickupGuestArgs> = readPickupGuest(formData);
+    delete args.rawStatus;
+    await updatePickupGuestCore(guestId, eventId, args, session.user.id);
+    revalidatePickup(eventId, blockId);
+  });
+}
+
+export async function setPickupGuestCancelled(guestId: string, blockId: string, eventId: string, cancelled: boolean) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  return withUserErrors(async () => {
+    await updatePickupGuestCore(guestId, eventId, { cancelled }, session.user.id);
+    revalidatePickup(eventId, blockId);
   });
 }
 

@@ -12,6 +12,7 @@ import {
 import {
   clearPickupCore,
   createHotelBlockCore,
+  createPickupGuestCore,
   deleteHotelBlockCore,
   importPickupGuestsCore,
   savePickupCountsCore,
@@ -24,11 +25,11 @@ import {
 } from "@/app/events/hotels/blockCore";
 import { getHotelInfoReportData } from "@/app/events/reports/data";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
+import { CHARGE_SCOPES, isChargeScope } from "@/lib/hotels";
 import type { McpToolDefinition } from "./types";
 import { requireString } from "./types";
 
-const CONTRACT_TYPES = new Set(["CONTRACT", "COURTESY"]);
-const SCOPES = new Set(["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY"]);
+const SCOPE_VALUES = CHARGE_SCOPES.map((s) => s.value);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Partial-update merge: a key present in args (null clears) replaces the
@@ -41,18 +42,17 @@ function merged<T extends object>(current: T, args: Record<string, unknown>, key
     if (typeof v === "string" && /date|checkIn|checkOut|cutoff|submittedOn|contractedOn/i.test(String(k)) && v && !DATE.test(v)) {
       throw new Error(`${String(k)} must be YYYY-MM-DD`);
     }
-    if (k === "contractType" && v != null && !CONTRACT_TYPES.has(String(v))) throw new Error("contractType must be CONTRACT or COURTESY");
     (out as Record<string, unknown>)[k as string] = k === "amenities" ? readProposalAmenities(v) : v === "" ? null : v;
   }
   return out;
 }
 
-const SCOPE_ERROR = "scope must be PER_NIGHT, PER_STAY, PER_PERSON, PER_PERSON_PER_NIGHT, PER_DAY or PER_PERSON_PER_DAY";
+const SCOPE_ERROR = `scope must be one of ${SCOPE_VALUES.join(", ")}`;
 
 function checkCharges(v: unknown) {
   if (!Array.isArray(v)) return;
   for (const c of v as { scope?: unknown }[]) {
-    if (c.scope != null && !SCOPES.has(String(c.scope))) throw new Error(`charge ${SCOPE_ERROR}`);
+    if (c.scope != null && !isChargeScope(c.scope)) throw new Error(`charge ${SCOPE_ERROR}`);
   }
 }
 
@@ -60,13 +60,13 @@ function checkCharges(v: unknown) {
 // proposal cores take them.
 export function checkProposalExtras(args: Record<string, unknown>) {
   checkCharges(args.meetingCharges);
-  if (args.fbMinimumScope != null && !SCOPES.has(String(args.fbMinimumScope))) throw new Error(`fbMinimumScope ${SCOPE_ERROR.slice(6)}`);
+  if (args.fbMinimumScope != null && !isChargeScope(args.fbMinimumScope)) throw new Error(`fbMinimumScope ${SCOPE_ERROR.slice(6)}`);
   if (args.spaces === undefined) return;
   if (!Array.isArray(args.spaces)) throw new Error("spaces must be a list");
   for (const r of args.spaces as Record<string, unknown>[]) {
     if (typeof r?.name !== "string" && typeof r?.spaceRequestId !== "string") throw new Error("Each space needs a name or a spaceRequestId");
-    if (r.rentalScope != null && !SCOPES.has(String(r.rentalScope))) throw new Error(`rentalScope ${SCOPE_ERROR.slice(6)}`);
-    if (r.waiverScope != null && !SCOPES.has(String(r.waiverScope))) throw new Error(`waiverScope ${SCOPE_ERROR.slice(6)}`);
+    if (r.rentalScope != null && !isChargeScope(r.rentalScope)) throw new Error(`rentalScope ${SCOPE_ERROR.slice(6)}`);
+    if (r.waiverScope != null && !isChargeScope(r.waiverScope)) throw new Error(`waiverScope ${SCOPE_ERROR.slice(6)}`);
     if (r.waiverType != null && !["FB_SPEND", "ROOM_NIGHTS", "OTHER"].includes(String(r.waiverType))) throw new Error("waiverType must be FB_SPEND, ROOM_NIGHTS or OTHER");
   }
 }
@@ -105,7 +105,12 @@ const nightSchema = {
   required: ["night"],
 } as const;
 
-const scopeSchema = { type: ["string", "null"], enum: ["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY", null] } as const;
+// PER_NIGHT is per room per night, PER_ROOM once per room for the stay, ONE_TIME once for the group.
+const scopeSchema = { type: ["string", "null"], enum: [...SCOPE_VALUES, null] } as const;
+
+// A contract type is the tenant's list, keyed by kind.
+export const CONTRACT_TYPE_DESCRIPTION =
+  "hotel_contract_type option label (e.g. Contract, Courtesy). The option's group says whether it carries attrition: CONTRACT does, COURTESY is held without it.";
 
 export const chargeSchema = {
   type: "object",
@@ -163,7 +168,7 @@ const proposalProps = {
   leadSourceDirect: { type: "boolean", description: "The hotel generated the lead itself. Excludes leadSourceVendorId." },
   leadSourceVendorId: { type: ["string", "null"], description: "The organization that brought the lead: a vendor tagged LEAD_SOURCE (a CVB, a third-party planner; list_vendors)." },
   leadSourceContactId: { type: ["string", "null"], description: "That lead source's contact (get_vendor contacts)." },
-  contractType: { type: ["string", "null"], enum: ["CONTRACT", "COURTESY", null], description: "CONTRACT carries attrition; COURTESY is held without it." },
+  contractType: { type: ["string", "null"], description: CONTRACT_TYPE_DESCRIPTION },
   guestType: { type: ["string", "null"], description: "Who the rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
   submittedOn: { type: ["string", "null"], description: "YYYY-MM-DD." },
   checkIn: { type: ["string", "null"], description: "Earliest check-in, YYYY-MM-DD. Ignored when nights are given: the first night is the check-in." },
@@ -259,6 +264,8 @@ async function currentProposal(id: string, eventId: string): Promise<ProposalWri
 }
 
 const blockProps = {
+  contractType: { type: ["string", "null"], description: CONTRACT_TYPE_DESCRIPTION },
+  guestType: { type: ["string", "null"], description: "Who the block's rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
   isHq: { type: "boolean", description: "The event's headquarters hotel (only one per event)." },
   checkIn: { type: ["string", "null"], description: "YYYY-MM-DD." },
   checkOut: { type: ["string", "null"], description: "YYYY-MM-DD." },
@@ -303,7 +310,7 @@ const blockDetailInclude = {
   charges: { orderBy: { sortOrder: "asc" as const } },
   pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true } },
   pickupCounts: { select: { night: true, roomType: true, rooms: true } },
-  proposal: { select: { id: true, contractType: true, guestType: true, venue: { select: { id: true, name: true } } } },
+  proposal: { select: { id: true, venue: { select: { id: true, name: true } } } },
 };
 
 async function blockEvent(blockId: string): Promise<string> {
@@ -316,7 +323,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "list_hotel_proposals",
     description:
-      "List an event's hotel proposals: hotel, status, block type, stay dates, revision, lead source, and whether it became a block. Returns summary shape — use `get_hotel_proposal` for full detail (room grid, charges, amenities, terms, revision history).",
+      "List an event's hotel proposals: hotel, status, block type, stay dates, revision, lead source, and the blocks booked from it (one per guest type). Returns summary shape — use `get_hotel_proposal` for full detail (room grid, charges, amenities, terms, revision history).",
     inputSchema: { type: "object", properties: { eventId: { type: "string" } }, required: ["eventId"], additionalProperties: false },
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");
@@ -334,7 +341,7 @@ export const hotelTools: McpToolDefinition[] = [
           leadSourceDirect: true,
           leadSourceVendor: { select: { id: true, name: true } },
           venue: { select: { id: true, name: true } },
-          block: { select: { id: true } },
+          blocks: { select: { id: true, contractType: true, guestType: true }, orderBy: { createdAt: "asc" } },
           rfp: { select: { id: true, title: true } },
           rfpBlockId: true,
         },
@@ -360,7 +367,7 @@ export const hotelTools: McpToolDefinition[] = [
         include: {
           ...proposalValuesInclude,
           versions: { orderBy: { revision: "desc" } },
-          block: { select: { id: true } },
+          blocks: { select: { id: true, contractType: true, guestType: true }, orderBy: { createdAt: "asc" } },
           rfp: { select: { id: true, title: true } },
           concessions: { include: { concession: { select: { label: true, value: true, required: true } } }, orderBy: { sortOrder: "asc" } },
         },
@@ -424,7 +431,7 @@ export const hotelTools: McpToolDefinition[] = [
   },
   {
     name: "delete_hotel_proposal",
-    description: "Delete a hotel proposal, its documents, revisions and its block (with all pickup).",
+    description: "Delete a hotel proposal, its documents, revisions and its blocks (with all pickup).",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
@@ -439,7 +446,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "list_hotel_blocks",
     description:
-      "List an event's hotel blocks with hotel, HQ flag, stay, cut-off and pickup totals (blocked, contracted, picked up, %, peak night). Returns summary shape — use `get_hotel_block` for full detail (nights with per-night pickup, charges, booking details).",
+      "List an event's hotel blocks with hotel, contract and guest type (a hotel can have several blocks from one proposal), HQ flag, stay, cut-off and pickup totals (blocked, contracted, picked up, %, peak night). Returns summary shape — use `get_hotel_block` for full detail (nights with per-night pickup, charges, booking details).",
     inputSchema: { type: "object", properties: { eventId: { type: "string" } }, required: ["eventId"], additionalProperties: false },
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");
@@ -449,8 +456,8 @@ export const hotelTools: McpToolDefinition[] = [
         id: b.id,
         proposalId: b.proposal.id,
         hotel: b.proposal.venue,
-        contractType: b.proposal.contractType,
-        guestType: b.proposal.guestType,
+        contractType: b.contractType,
+        guestType: b.guestType,
         isHq: b.isHq,
         checkIn: b.checkIn,
         checkOut: b.checkOut,
@@ -476,14 +483,22 @@ export const hotelTools: McpToolDefinition[] = [
   },
   {
     name: "create_hotel_block",
-    description: "Turn an accepted proposal (status in the ACCEPTED stage) into the event's block for that hotel. Copies the stay, terms, charges and room grid (as contracted rooms).",
+    description:
+      "Add a block from an accepted proposal (status in the ACCEPTED stage). One proposal can become several blocks, one per guest type (attendees and staff from one offer). Copies the stay, terms, charges, contract type and room grid (as contracted rooms); adjust each block's rooms with update_hotel_block.",
     inputSchema: {
       type: "object",
-      properties: { proposalId: { type: "string" }, eventId: { type: "string" } },
+      properties: {
+        proposalId: { type: "string" },
+        eventId: { type: "string" },
+        guestType: { type: ["string", "null"], description: "The block's hotel_guest_type label. Default: the proposal's." },
+      },
       required: ["proposalId", "eventId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => createHotelBlockCore(requireString(args, "proposalId"), requireString(args, "eventId"), userId),
+    handler: (args, { userId }) =>
+      createHotelBlockCore(requireString(args, "proposalId"), requireString(args, "eventId"), userId, {
+        guestType: args.guestType === undefined ? undefined : typeof args.guestType === "string" ? args.guestType : null,
+      }),
   },
   {
     name: "update_hotel_block",
@@ -581,6 +596,49 @@ export const hotelTools: McpToolDefinition[] = [
     },
   },
   {
+    name: "add_hotel_pickup_guest",
+    description:
+      "Add one guest to a block's pickup (a reservation the hotel's last report missed). Writes no import history. roomType matches the block's or the hotel_room_type list's spelling. Before the block starts, a guest added without bookedOn is dated today. Use update_hotel_pickup_guest to change or cancel one.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        blockId: { type: "string" },
+        guestName: { type: ["string", "null"] },
+        confirmationNumber: { type: ["string", "null"] },
+        checkIn: { type: "string", description: "YYYY-MM-DD." },
+        checkOut: { type: "string", description: "YYYY-MM-DD, after checkIn." },
+        roomType: { type: ["string", "null"], description: "hotel_room_type option label." },
+        cancelled: { type: "boolean" },
+        rawStatus: { type: ["string", "null"] },
+        bookedOn: { type: ["string", "null"], description: "Date the reservation was made, YYYY-MM-DD." },
+        cancelledOn: { type: ["string", "null"], description: "Date it was cancelled, YYYY-MM-DD (implies cancelled)." },
+      },
+      required: ["blockId", "checkIn", "checkOut"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const blockId = requireString(args, "blockId");
+      for (const k of ["checkIn", "checkOut"]) if (typeof args[k] !== "string" || !DATE.test(args[k] as string)) throw new Error(`${k} must be YYYY-MM-DD`);
+      for (const k of ["bookedOn", "cancelledOn"]) if (args[k] != null && (typeof args[k] !== "string" || !DATE.test(args[k] as string))) throw new Error(`${k} must be YYYY-MM-DD`);
+      return createPickupGuestCore(
+        blockId,
+        await blockEvent(blockId),
+        {
+          guestName: (args.guestName as string) || null,
+          confirmationNumber: (args.confirmationNumber as string) || null,
+          checkIn: args.checkIn as string,
+          checkOut: args.checkOut as string,
+          roomType: (args.roomType as string) || null,
+          cancelled: args.cancelled === true,
+          rawStatus: (args.rawStatus as string) || null,
+          bookedOn: (args.bookedOn as string) || null,
+          cancelledOn: (args.cancelledOn as string) || null,
+        },
+        userId,
+      );
+    },
+  },
+  {
     name: "list_hotel_pickup_guests",
     description:
       "List a block's pickup guests (guest name, confirmation #, stay, room type, cancelled, booked / cancelled dates). Filter by confirmation number or to guests missing a booking date.",
@@ -614,7 +672,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "update_hotel_pickup_guest",
     description:
-      "Update one pickup guest; omitted fields are unchanged, null clears. Use it to fill in booking / cancel dates. Setting cancelled false clears the cancel date; a cancel date implies cancelled.",
+      "Update one pickup guest; omitted fields are unchanged, null clears. Use it to fill in booking / cancel dates or cancel a reservation. Setting cancelled false clears the cancel date; a cancel date implies cancelled; cancelling without a cancel date before the block starts dates it today. roomType matches the block's or the hotel_room_type list's spelling.",
     inputSchema: {
       type: "object",
       properties: {

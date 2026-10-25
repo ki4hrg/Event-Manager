@@ -9,7 +9,7 @@
 import type { HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
-import { dateFromKey, dateKey, nightKeys } from "@/lib/hotels";
+import { MAX_STAY_NIGHTS, addDays, dateFromKey, dateKey, labelKey, nightKeys } from "@/lib/hotels";
 import { closeAwardedRfp } from "./core";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { blockPickup, pickupByNight } from "@/lib/hotelPickup";
@@ -20,6 +20,21 @@ const inEvent = (eventId: string) => ({ proposal: { eventId } });
 async function assertBlockInEvent(blockId: string, eventId: string) {
   const b = await prisma.hotelBlock.findFirst({ where: { id: blockId, ...inEvent(eventId) }, select: { id: true } });
   if (!b) throw new PermissionError("NOT_FOUND");
+}
+
+// A block's contract and guest types are the tenant's labels; ones the block
+// already holds (`held`) may stay.
+async function assertBlockLabels(eventId: string, args: { contractType: string | null; guestType: string | null }, held: (string | null)[]) {
+  const wanted = [
+    { category: "hotel_contract_type", label: args.contractType, noun: "contract type" },
+    { category: "hotel_guest_type", label: args.guestType, noun: "guest type" },
+  ].filter((w) => w.label && !held.includes(w.label));
+  if (wanted.length === 0) return;
+  const tenantId = await requireEventTenantId(eventId);
+  for (const w of wanted) {
+    const found = await prisma.customOption.findFirst({ where: { tenantId, category: w.category, label: w.label! }, select: { id: true } });
+    if (!found) throw new Error(`Unknown ${w.noun}: ${w.label}`);
+  }
 }
 
 // Today in the event's timezone, as a DATE.
@@ -50,15 +65,19 @@ export async function writePickupSnapshot(tx: Prisma.TransactionClient, blockId:
 // ---------------------------------------------------------------------------
 // Blocks
 
-export async function createHotelBlockCore(proposalId: string, eventId: string, userId: string) {
+// One accepted proposal can become several blocks (attendees and staff from
+// one offer): each starts from the proposal's stay, terms, charges and room
+// grid, with its own guest type (the proposal's unless given).
+export async function createHotelBlockCore(proposalId: string, eventId: string, userId: string, opts: { guestType?: string | null } = {}) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   const tenantId = await requireEventTenantId(eventId);
   const proposal = await prisma.hotelProposal.findFirst({
     where: { id: proposalId, eventId },
-    include: { nights: true, charges: true, block: { select: { id: true } } },
+    include: { nights: true, charges: true },
   });
   if (!proposal) throw new PermissionError("NOT_FOUND");
-  if (proposal.block) throw new Error("This proposal already has a block");
+  const guestType = opts.guestType !== undefined ? opts.guestType || null : proposal.guestType;
+  await assertBlockLabels(eventId, { contractType: proposal.contractType, guestType }, [proposal.contractType, proposal.guestType]);
   const status = await prisma.customOption.findFirst({
     where: { tenantId, category: "proposal_status", label: proposal.status },
     select: { group: true },
@@ -71,6 +90,8 @@ export async function createHotelBlockCore(proposalId: string, eventId: string, 
     const block = await tx.hotelBlock.create({
       data: {
         proposalId,
+        contractType: proposal.contractType,
+        guestType,
         isHq: hasHq === 0,
         checkIn: proposal.checkIn,
         checkOut: proposal.checkOut,
@@ -115,6 +136,8 @@ export type BlockNightArgs = {
 };
 
 export type BlockWriteArgs = {
+  contractType: string | null; // hotel_contract_type option label
+  guestType: string | null; // hotel_guest_type option label
   isHq: boolean;
   checkIn: string | null;
   checkOut: string | null;
@@ -141,6 +164,8 @@ const day = (v: string | null) => (v ? dateFromKey(v) : null);
 export async function updateHotelBlockCore(blockId: string, eventId: string, args: BlockWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   await assertBlockInEvent(blockId, eventId);
+  const held = await prisma.hotelBlock.findUniqueOrThrow({ where: { id: blockId }, select: { contractType: true, guestType: true } });
+  await assertBlockLabels(eventId, args, [held.contractType, held.guestType]);
   if (args.checkIn && args.checkOut && args.checkOut <= args.checkIn) throw new Error("Check-out must be after check-in");
   if (args.allowedAttrition != null && (args.allowedAttrition < 0 || args.allowedAttrition > 100)) {
     throw new Error("Allowed attrition must be between 0 and 100");
@@ -173,6 +198,8 @@ export async function updateHotelBlockCore(blockId: string, eventId: string, arg
     const block = await tx.hotelBlock.update({
       where: { id: blockId },
       data: {
+        contractType: args.contractType,
+        guestType: args.guestType,
         isHq: args.isHq,
         checkIn: day(args.checkIn),
         checkOut: day(args.checkOut),
@@ -231,6 +258,10 @@ export type PickupGuestArgs = {
 function checkGuestDates(g: Pick<PickupGuestArgs, "guestName" | "confirmationNumber" | "checkIn" | "checkOut" | "bookedOn" | "cancelledOn">) {
   const who = g.guestName ?? g.confirmationNumber ?? "A guest";
   if (g.checkIn && g.checkOut && g.checkOut <= g.checkIn) throw new UserFacingError(`${who}: check-out must be after check-in`);
+  // The pickup math (nightKeys) refuses longer stays.
+  if (g.checkIn && g.checkOut && g.checkOut > addDays(g.checkIn, MAX_STAY_NIGHTS)) {
+    throw new UserFacingError(`${who}: stay is longer than ${MAX_STAY_NIGHTS} nights`);
+  }
   if (g.bookedOn && g.cancelledOn && g.cancelledOn < g.bookedOn) throw new UserFacingError(`${who}: cancelled before it was booked`);
 }
 
@@ -249,6 +280,46 @@ async function estimateDay(tx: Prisma.TransactionClient, blockId: string): Promi
   const first = b.checkIn ?? b.nights[0]?.night ?? null;
   const today = getDateKeyInTimezone(new Date(), b.proposal.event.timezone);
   return first && today < dateKey(first) ? today : null;
+}
+
+type PriorGuest = { cancelled: boolean; bookedOn: Date | null; cancelledOn: Date | null };
+
+// A guest as stored. Dates the args omit keep the prior row's. With an
+// estimate day (estimateDay), a guest newly cancelled without a date was
+// cancelled by then, and — when `datesNew` — a guest with no prior row and
+// no booking date was booked by then.
+function guestRow(g: PickupGuestArgs, was: PriorGuest | undefined, estimate: string | null, datesNew: boolean) {
+  const bookedOn = day(g.bookedOn ?? null) ?? was?.bookedOn ?? (estimate && datesNew && !was ? dateFromKey(estimate) : null);
+  const cancelledOn = !g.cancelled
+    ? null
+    : (day(g.cancelledOn ?? null) ?? was?.cancelledOn ?? (estimate && was && !was.cancelled ? dateFromKey(estimate) : null));
+  return {
+    guestName: g.guestName,
+    confirmationNumber: g.confirmationNumber,
+    checkIn: day(g.checkIn),
+    checkOut: day(g.checkOut),
+    roomType: g.roomType,
+    cancelled: g.cancelled,
+    rawStatus: g.rawStatus,
+    bookedOn,
+    cancelledOn,
+  };
+}
+
+// A typed room type as the block or the tenant's hotel_room_type list spells
+// it (matched by labelKey, as the import wizard matches a report's values);
+// an unknown one is kept as typed.
+async function canonicalRoomType(blockId: string, eventId: string, roomType: string | null): Promise<string | null> {
+  const typed = roomType?.trim();
+  if (!typed) return null;
+  const tenantId = await requireEventTenantId(eventId);
+  const [nights, options] = await Promise.all([
+    prisma.hotelBlockNight.findMany({ where: { blockId, roomType: { not: null } }, select: { roomType: true }, distinct: ["roomType"] }),
+    prisma.customOption.findMany({ where: { tenantId, category: "hotel_room_type" }, select: { label: true } }),
+  ]);
+  const key = labelKey(typed);
+  const known = [...nights.flatMap((n) => (n.roomType ? [n.roomType] : [])), ...options.map((o) => o.label)];
+  return known.find((t) => labelKey(t) === key) ?? typed;
 }
 
 // append adds every row; merge updates rows whose confirmation number the
@@ -287,24 +358,7 @@ export async function importPickupGuestsCore(
     const toUpdate = args.guests.filter((g) => prior(g));
     const toInsert = args.guests.filter((g) => !prior(g));
 
-    const row = (g: PickupGuestArgs) => {
-      const was = prior(g);
-      const bookedOn = day(g.bookedOn ?? null) ?? was?.bookedOn ?? (estimate && hadGuests && !was ? dateFromKey(estimate) : null);
-      const cancelledOn = !g.cancelled
-        ? null
-        : (day(g.cancelledOn ?? null) ?? was?.cancelledOn ?? (estimate && was && !was.cancelled ? dateFromKey(estimate) : null));
-      return {
-        guestName: g.guestName,
-        confirmationNumber: g.confirmationNumber,
-        checkIn: day(g.checkIn),
-        checkOut: day(g.checkOut),
-        roomType: g.roomType,
-        cancelled: g.cancelled,
-        rawStatus: g.rawStatus,
-        bookedOn,
-        cancelledOn,
-      };
-    };
+    const row = (g: PickupGuestArgs) => guestRow(g, prior(g), estimate, hadGuests);
 
     const imp = await tx.hotelPickupImport.create({
       data: {
@@ -327,8 +381,30 @@ export async function importPickupGuestsCore(
   });
 }
 
+// One guest added by hand. Check-in and check-out are required (the import
+// skips rows without them). Like a guest new in a merge, one added before the
+// block starts with no booking date was booked today.
+export async function createPickupGuestCore(blockId: string, eventId: string, args: PickupGuestArgs, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await assertBlockInEvent(blockId, eventId);
+  if (!args.checkIn || !args.checkOut) throw new UserFacingError("Check-in and check-out are required");
+  const g: PickupGuestArgs = {
+    ...args,
+    roomType: await canonicalRoomType(blockId, eventId, args.roomType),
+    cancelled: args.cancelled || !!args.cancelledOn,
+  };
+  checkGuestDates(g);
+  return prisma.$transaction(async (tx) => {
+    const estimate = await estimateDay(tx, blockId);
+    const created = await tx.hotelPickupGuest.create({ data: { ...guestRow(g, undefined, estimate, true), blockId } });
+    await writePickupSnapshot(tx, blockId);
+    return created;
+  });
+}
+
 // Partial update of one guest; omitted keys are unchanged. Un-cancelling
-// clears the cancel date.
+// clears the cancel date; cancelling with no cancel date, before the block
+// starts, dates it today (as a merge does).
 export async function updatePickupGuestCore(
   guestId: string,
   eventId: string,
@@ -344,7 +420,7 @@ export async function updatePickupGuestCore(
     confirmationNumber: args.confirmationNumber !== undefined ? args.confirmationNumber : guest.confirmationNumber,
     checkIn: args.checkIn !== undefined ? args.checkIn : key(guest.checkIn),
     checkOut: args.checkOut !== undefined ? args.checkOut : key(guest.checkOut),
-    roomType: args.roomType !== undefined ? args.roomType : guest.roomType,
+    roomType: args.roomType !== undefined ? await canonicalRoomType(guest.blockId, eventId, args.roomType) : guest.roomType,
     cancelled: args.cancelled !== undefined ? args.cancelled : guest.cancelled,
     rawStatus: args.rawStatus !== undefined ? args.rawStatus : guest.rawStatus,
     bookedOn: args.bookedOn !== undefined ? args.bookedOn : key(guest.bookedOn),
@@ -353,6 +429,7 @@ export async function updatePickupGuestCore(
   if (!next.cancelled) next.cancelledOn = null;
   checkGuestDates(next);
   return prisma.$transaction(async (tx) => {
+    if (next.cancelled && !guest.cancelled && !next.cancelledOn) next.cancelledOn = await estimateDay(tx, guest.blockId);
     const updated = await tx.hotelPickupGuest.update({
       where: { id: guestId },
       data: {
@@ -402,6 +479,8 @@ export function toBlockValues(b: Prisma.HotelBlockGetPayload<{ include: { nights
   const dec = (v: Prisma.Decimal | null) => (v == null ? null : v.toString());
   const d = (v: Date | null) => (v ? dateKey(v) : null);
   return {
+    contractType: b.contractType,
+    guestType: b.guestType,
     isHq: b.isHq,
     checkIn: d(b.checkIn),
     checkOut: d(b.checkOut),

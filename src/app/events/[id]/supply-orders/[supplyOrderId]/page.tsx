@@ -105,6 +105,7 @@ export default async function SupplyOrderPage({
     storageLocations,
     locationTypes,
     canManageLocations,
+    packingSubstatuses,
   ] = await Promise.all([
     getEvent(eventId),
     getSupplyOrder(supplyOrderId),
@@ -116,6 +117,7 @@ export default async function SupplyOrderPage({
     getStorageLocations(),
     getLocationTypes(),
     hasPermission(PermissionResource.STORAGE_LOCATIONS, "WRITE"),
+    getOptions("packing_substatus"),
   ]);
 
   if (!event || !supplyOrder) notFound();
@@ -190,10 +192,11 @@ export default async function SupplyOrderPage({
     await deleteSupplyOrder(supplyOrderId, eventId);
   };
 
-  const bulkSetPackingAction = async (status: PackingStatus) => {
+  const bulkSetPackingAction = async (status: PackingStatus, substatus: string | null) => {
     "use server";
-    await bulkSetSupplyOrderItemsPackingStatus(supplyOrderId, eventId, status);
+    await bulkSetSupplyOrderItemsPackingStatus(supplyOrderId, eventId, status, substatus);
   };
+  const packingSubstatusOptions = packingSubstatuses.map((o) => ({ label: o.label, group: o.group }));
 
   const bulkSetAcquisitionAction = async (state: AcquisitionState) => {
     "use server";
@@ -257,9 +260,9 @@ export default async function SupplyOrderPage({
     await deleteSupplyOrderItem(id, supplyOrderId, eventId);
   };
 
-  const updateItemPackingStatusAction = async (id: string, packingStatus: PackingStatus) => {
+  const updateItemPackingStatusAction = async (id: string, packingStatus: PackingStatus, packingSubstatus?: string | null) => {
     "use server";
-    await updateSupplyOrderItemPackingStatus(id, supplyOrderId, eventId, packingStatus);
+    await updateSupplyOrderItemPackingStatus(id, supplyOrderId, eventId, packingStatus, packingSubstatus);
   };
 
   const updateItemAcquisitionStateAction = async (id: string, acquisitionState: AcquisitionState) => {
@@ -417,6 +420,7 @@ export default async function SupplyOrderPage({
           <div className="lg:col-span-2 space-y-4">
             <BulkItemStatusPanel
               itemCount={supplyOrder.items.length}
+              packingSubstatusOptions={packingSubstatusOptions}
               bulkSetPacking={bulkSetPackingAction}
               bulkSetAcquisition={bulkSetAcquisitionAction}
             />
@@ -440,6 +444,7 @@ export default async function SupplyOrderPage({
               createItem={createItemAction}
               updateItem={updateItemAction}
               deleteItem={deleteItemAction}
+              packingSubstatusOptions={packingSubstatusOptions}
               updateItemPackingStatus={updateItemPackingStatusAction}
               updateItemAcquisitionState={updateItemAcquisitionStateAction}
             />

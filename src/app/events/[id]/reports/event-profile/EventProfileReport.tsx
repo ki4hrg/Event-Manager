@@ -12,7 +12,7 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { reportTh as th, reportTd as td, reportSectionCard as sectionCard, labelMicroCaps } from "@/lib/reportStyles";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { firmestGuestCount } from "@/lib/cateringGuestCount";
-import { PACKING_STATUS_CLASS, PACKING_STATUS_LABEL } from "@/lib/statusConstants";
+import { PACKING_STATUS_CLASS, packingStatusText } from "@/lib/statusConstants";
 
 export const PROFILE_SECTIONS = [
   { value: "contacts", label: "Key Contacts" },
@@ -469,7 +469,7 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
                   <EntityStatusBadge status={o.status} substatus={o.substatus} />
                   {o.packingStatus && (
                     <span className={`px-1.5 py-0.5 rounded ${PACKING_STATUS_CLASS[o.packingStatus]}`}>
-                      {PACKING_STATUS_LABEL[o.packingStatus]}
+                      {packingStatusText(o.packingStatus, o.packingSubstatus)}
                     </span>
                   )}
                 </div>
@@ -524,7 +524,7 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
                     <EntityStatusBadge status={o.status} substatus={o.substatus} />
                     {o.packingStatus && (
                       <span className={`px-1.5 py-0.5 rounded text-xs ${PACKING_STATUS_CLASS[o.packingStatus]}`}>
-                        {PACKING_STATUS_LABEL[o.packingStatus]}
+                        {packingStatusText(o.packingStatus, o.packingSubstatus)}
                       </span>
                     )}
                   </div>
