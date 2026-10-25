@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { getSetupOrders } from "./actions";
-import type { WorkflowBadgeSummary } from "@/lib/workflowProgress";
+import type { WorkflowRowSummary } from "@/lib/workflowProgress";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
@@ -29,7 +29,7 @@ type SetupOrder = Awaited<ReturnType<typeof getSetupOrders>>[number];
 type Props = {
   setupOrders: SetupOrder[];
   eventId: string;
-  workflowSummaries: Record<string, WorkflowBadgeSummary>;
+  workflowSummaries: Record<string, WorkflowRowSummary>;
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
   initialStatus?: string;

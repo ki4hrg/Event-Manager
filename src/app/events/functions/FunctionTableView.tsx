@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { CustomOption } from "@prisma/client";
 import type { EntityStatus } from "@prisma/client";
 import type { FunctionForTable } from "./actions";
-import type { WorkflowBadgeSummary } from "@/lib/workflowProgress";
+import type { WorkflowRowSummary } from "@/lib/workflowProgress";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { colorClasses } from "@/lib/colors";
@@ -68,7 +68,7 @@ type Props = {
   timezone: string;
   functionTypes: CustomOption[];
   substatuses: CustomOption[];
-  workflowSummaries: Record<string, WorkflowBadgeSummary>;
+  workflowSummaries: Record<string, WorkflowRowSummary>;
   initialStatus?: string;
   initialSchedule?: string;
   initialRoom?: string;
@@ -77,7 +77,7 @@ type Props = {
   bulkUpdateFunctions: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; type?: string }) => Promise<void>;
 };
 
-function workflowStatus(summary: WorkflowBadgeSummary | undefined): "none" | "in_progress" | "done" {
+function workflowStatus(summary: WorkflowRowSummary | undefined): "none" | "in_progress" | "done" {
   if (!summary || summary.count === 0 || summary.total === 0) return "none";
   if (summary.done === summary.total) return "done";
   return "in_progress";

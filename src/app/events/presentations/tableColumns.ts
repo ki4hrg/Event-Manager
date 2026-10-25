@@ -3,6 +3,7 @@ import type { TableColumnDef } from "@/lib/tableColumns";
 export const PRESENTATION_TABLE_COLUMNS = [
   { key: "title", label: "Title", required: true },
   { key: "status", label: "Status" },
+  { key: "workflow", label: "Workflow" },
   { key: "type", label: "Type" },
   { key: "track", label: "Track" },
   { key: "speaker", label: "Primary Speaker" },

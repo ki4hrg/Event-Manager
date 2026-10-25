@@ -6,7 +6,7 @@ import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { useRouter } from "next/navigation";
 import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { getCateringOrders } from "./actions";
-import type { WorkflowBadgeSummary } from "@/lib/workflowProgress";
+import type { WorkflowRowSummary } from "@/lib/workflowProgress";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
@@ -28,7 +28,7 @@ type CateringOrder = Awaited<ReturnType<typeof getCateringOrders>>[number];
 type Props = {
   cateringOrders: CateringOrder[];
   eventId: string;
-  workflowSummaries: Record<string, WorkflowBadgeSummary>;
+  workflowSummaries: Record<string, WorkflowRowSummary>;
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
   initialStatus?: string;

@@ -30,6 +30,11 @@ export type InstanceProgress = {
 // Counts across every workflow on a record, for the list and detail badges.
 export type WorkflowBadgeSummary = { count: number; done: number; total: number };
 
+// A list row's workflows, each as dots (getWorkflowBadgeSummaries).
+export type WorkflowRowSummary = WorkflowBadgeSummary & {
+  workflows: { id: string; name: string; steps: ProgressStep[] }[];
+};
+
 export type CompletionSets = { steps: Set<string>; items: Set<string> };
 
 export function completionSets(instance: Pick<ProgressInstanceInput, "stepCompletions" | "itemCompletions">): CompletionSets {

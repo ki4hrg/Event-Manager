@@ -18,6 +18,7 @@ import { PresentationList } from "../../presentations/PresentationList";
 import { TrackPanel } from "../../presentations/TrackPanel";
 import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { getHiddenColumns } from "@/app/events/table-columns-actions";
+import { getWorkflowBadgeSummaries } from "@/app/events/workflows/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,10 @@ export default async function PresentationsPage({
   if (!event) {
     notFound();
   }
+
+  const workflowSummaries = presentations.length > 0
+    ? await getWorkflowBadgeSummaries("presentation", presentations.map((p) => p.id), eventId)
+    : {};
 
   const createTrackAction = async (formData: FormData) => {
     "use server";
@@ -110,6 +115,7 @@ export default async function PresentationsPage({
         initialSlot={initialSlot}
         initialSpeaker={initialSpeaker}
         initialHiddenColumns={hiddenColumns}
+        workflowSummaries={workflowSummaries}
         duplicatePresentation={duplicatePresentationAction}
         deletePresentation={deletePresentationAction}
         deletePresentations={deletePresentationsAction}

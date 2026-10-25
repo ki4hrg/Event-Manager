@@ -5,7 +5,7 @@ import { requirePermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { EntityStatus } from "@prisma/client";
-import { instanceProgress, stepProgress, completionSets, type WorkflowBadgeSummary } from "@/lib/workflowProgress";
+import { instanceProgress, stepProgress, completionSets, templateProgress, type WorkflowRowSummary } from "@/lib/workflowProgress";
 import { ENTITY_TYPE_RESOURCE } from "./entity-types";
 import { WORKFLOW_ENTITY_DELEGATES } from "./entity-delegates";
 import {
@@ -198,7 +198,7 @@ export async function getWorkflowBadgeSummaries(
   entityType: WorkflowEntityType,
   entityIds: string[],
   eventId: string
-): Promise<Record<string, WorkflowBadgeSummary>> {
+): Promise<Record<string, WorkflowRowSummary>> {
   await gateWorkflowAction(entityType, eventId, "VIEW");
   if (entityIds.length === 0) return {};
 
@@ -221,14 +221,16 @@ export async function getWorkflowBadgeSummaries(
       stepCompletions: true,
       itemCompletions: true,
     },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 
-  const result: Record<string, WorkflowBadgeSummary> = {};
+  const result: Record<string, WorkflowRowSummary> = {};
 
   for (const instance of instances) {
     const eid = instance.entityId;
-    if (!result[eid]) result[eid] = { count: 0, done: 0, total: 0 };
+    if (!result[eid]) result[eid] = { count: 0, done: 0, total: 0, workflows: [] };
     result[eid].count += 1;
+    result[eid].workflows.push({ id: instance.id, name: instance.template.name, steps: templateProgress(instance).steps });
 
     const { ticksDone, ticksTotal } = instanceProgress(instance);
     result[eid].done += ticksDone;

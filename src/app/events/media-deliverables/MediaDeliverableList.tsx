@@ -6,7 +6,7 @@ import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { useRouter } from "next/navigation";
 import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { getMediaDeliverables } from "./actions";
-import type { WorkflowBadgeSummary } from "@/lib/workflowProgress";
+import type { WorkflowRowSummary } from "@/lib/workflowProgress";
 import { partyLabel } from "@/lib/partyLabel";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -29,7 +29,7 @@ type MediaDeliverable = Awaited<ReturnType<typeof getMediaDeliverables>>[number]
 type Props = {
   mediaDeliverables: MediaDeliverable[];
   eventId: string;
-  workflowSummaries: Record<string, WorkflowBadgeSummary>;
+  workflowSummaries: Record<string, WorkflowRowSummary>;
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
   functions: { id: string; name: string }[];
