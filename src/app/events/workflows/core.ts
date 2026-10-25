@@ -2,7 +2,7 @@
 // e.g. entity creation. NOT a "use server" file — see src/app/contacts/core.ts
 // for the security rationale.
 
-import type { EntityStatus } from "@prisma/client";
+import type { EntityStatus, Prisma, WorkflowCompletionMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { countAtSteps, instanceProgress, isInstanceComplete } from "@/lib/workflowProgress";
 import { isWorkflowCheckKey } from "@/lib/workflowChecks";
@@ -80,28 +80,40 @@ type ResolvedStatus = { status: EntityStatus | null; substatus: string | null };
 
 // The status an entity's assigned workflows call for, from their progress.
 // `status: null` means no workflow sets one.
-async function resolveWorkflowStatus(entityType: WorkflowEntityType, entityId: string): Promise<ResolvedStatus> {
+// What resolveStatus needs: a record's instances in assignment order, with
+// their templates' steps and the record's checks.
+const resolvableInclude = {
+  template: { include: { steps: { orderBy: { sortOrder: "asc" as const }, include: { items: true } } } },
+  stepCompletions: true,
+  itemCompletions: true,
+} as const;
+
+// Loads each record's instances for resolveStatus, keyed by entity id.
+async function loadResolvable(entityType: WorkflowEntityType, entityIds: string[]) {
   const rows = await prisma.workflowInstance.findMany({
-    where: { entityType, entityId },
+    where: { entityType, entityId: { in: entityIds } },
     // Assignment order, so "first template with a pending status" is stable —
     // a form link's own template is attached before the tenant defaults.
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    include: {
-      template: {
-        include: {
-          steps: {
-            orderBy: { sortOrder: "asc" },
-            include: { items: true },
-          },
-        },
-      },
-      stepCompletions: true,
-      itemCompletions: true,
-    },
+    include: resolvableInclude,
   });
-  const checks = (await loadWorkflowChecks(entityType, [entityId])).get(entityId) ?? [];
-  const instances = rows.map((r) => ({ ...r, checks }));
+  const checks = await loadWorkflowChecks(entityType, entityIds);
+  const out = new Map<string, ResolvableInstance[]>();
+  for (const r of rows) {
+    if (!out.has(r.entityId)) out.set(r.entityId, []);
+    out.get(r.entityId)!.push({ ...r, checks: checks.get(r.entityId) ?? [] });
+  }
+  return out;
+}
 
+type ResolvableInstance = Prisma.WorkflowInstanceGetPayload<{ include: typeof resolvableInclude }> & { checks: readonly string[] };
+
+async function resolveWorkflowStatus(entityType: WorkflowEntityType, entityId: string): Promise<ResolvedStatus> {
+  return resolveStatus((await loadResolvable(entityType, [entityId])).get(entityId) ?? []);
+}
+
+// The status a record's workflows call for, from their progress. Pure.
+function resolveStatus(instances: ResolvableInstance[]): ResolvedStatus {
   const progress = new Map(instances.map((inst) => [inst.id, instanceProgress(inst)]));
 
   // Phase 0: workflow just assigned (no completions at all) → apply template-level pending status.
@@ -282,4 +294,54 @@ export async function refreshWorkflowStatusForRfp(
   await refreshWorkflowStatus("av_order", ids(lines.map((l) => l.avOrderId), also.avOrderIds), eventId);
   await refreshWorkflowStatus("catering_order", ids(lines.map((l) => l.cateringOrderId), also.cateringOrderIds), eventId);
   await refreshWorkflowStatus("print_order", ids(lines.map((l) => l.printOrderId), also.printOrderIds), eventId);
+}
+
+export type StepCompletionChange = { completionMode: WorkflowCompletionMode; computedKey: string | null };
+export type StatusMove = { entityType: WorkflowEntityType; id: string; eventId: string } & ResolvedStatus;
+
+// The records (on the tenant's events) whose status would move if one of the
+// template's steps completed differently. Only records whose stored status
+// follows their workflows today count: a hand-set status, or a cancelled
+// record, is left out. Simulated in memory; writes nothing. Permission is the
+// caller's job.
+export async function stepChangeImpact(
+  templateId: string,
+  stepId: string,
+  change: StepCompletionChange,
+  tenantId: string,
+): Promise<StatusMove[]> {
+  const assigned = await prisma.workflowInstance.findMany({
+    where: { templateId, template: { tenantId } },
+    select: { entityType: true, entityId: true },
+  });
+  const byType = new Map<WorkflowEntityType, string[]>();
+  for (const a of assigned) {
+    const type = a.entityType as WorkflowEntityType;
+    if (!(type in WORKFLOW_ENTITY_DELEGATES)) continue;
+    byType.set(type, [...(byType.get(type) ?? []), a.entityId]);
+  }
+  const moves: StatusMove[] = [];
+  for (const [entityType, ids] of Array.from(byType)) {
+    const records = (await WORKFLOW_ENTITY_DELEGATES[entityType].findInTenant(ids, tenantId)).filter((r) => r.status !== "CANCELLED");
+    const resolvable = await loadResolvable(entityType, records.map((r) => r.id));
+    for (const r of records) {
+      const instances = resolvable.get(r.id) ?? [];
+      const now = resolveStatus(instances);
+      if (now.status !== r.status || now.substatus !== r.substatus) continue;
+      const changed = instances.map((i) =>
+        i.templateId !== templateId
+          ? i
+          : { ...i, template: { ...i.template, steps: i.template.steps.map((s) => (s.id === stepId ? { ...s, ...change } : s)) } },
+      );
+      const next = resolveStatus(changed);
+      if (next.status !== now.status || next.substatus !== now.substatus) {
+        moves.push({ entityType, id: r.id, eventId: r.eventId, ...next });
+      }
+    }
+  }
+  return moves;
+}
+
+export async function applyStatusMoves(moves: StatusMove[]) {
+  for (const m of moves) await updateEntityStatusCore(m.entityType, m.id, m.eventId, m.status, m.substatus);
 }

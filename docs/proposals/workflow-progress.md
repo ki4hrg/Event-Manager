@@ -171,8 +171,11 @@ location, or as a breakout block. `HEADCOUNT_SET` reads a catering order's
 guarantee count and a function's expected attendance. Media deliverables
 also get `VENDOR_ASSIGNED` (their provider) and `LINKED_TO_FUNCTION`.
 Unticking a required item drops its step's confirm and cascades later steps;
-an optional item moves nothing. Changing a template step's mode doesn't
-re-derive existing records' statuses; their next write or tick does.
+an optional item moves nothing. Changing a step's mode or check
+in the editor first counts the records whose status follows the workflow and
+would move (`stepChangeImpact`, simulated in memory; hand-set and cancelled
+statuses don't count). With any, it asks: update them too, leave them (their
+next write or tick catches up), or cancel.
 
 **Storage.** An `AUTO` step's state is never stored: it is computed on read,
 so dots, strips and counts can't drift. The one stored thing that can go

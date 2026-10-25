@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type {
   WorkflowTemplate,
@@ -32,6 +32,7 @@ type WorkflowEditorProps = {
   deleteTemplate: () => Promise<void>;
   createStep: (formData: FormData) => Promise<void>;
   updateStep: (id: string, formData: FormData) => Promise<void>;
+  previewStep: (id: string, formData: FormData) => Promise<{ records: number }>;
   deleteStep: (id: string) => Promise<void>;
   createItem: (stepId: string, formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
@@ -144,6 +145,7 @@ function StepRow({
   checks,
   substatuses,
   updateStep,
+  previewStep,
   deleteStep,
   createItem,
   updateItem,
@@ -154,6 +156,7 @@ function StepRow({
   checks: WorkflowCheckKey[];
   substatuses: CustomOption[];
   updateStep: (id: string, formData: FormData) => Promise<void>;
+  previewStep: (id: string, formData: FormData) => Promise<{ records: number }>;
   deleteStep: (id: string) => Promise<void>;
   createItem: (stepId: string, formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
@@ -164,6 +167,28 @@ function StepRow({
   const [editPendingStatus, setEditPendingStatus] = useState<string>(step.pendingStatusValue ?? "");
   const filteredPendingSubstatuses = substatuses.filter((s) => s.group === (editPendingStatus || null));
   const [mode, setMode] = useState<WorkflowCompletionMode>(step.completionMode);
+  // Records whose status would move with the pending change (null: none
+  // pending); the change waits on the user's choice when there are any.
+  const [impact, setImpact] = useState<number | null>(null);
+  const completionForm = useRef<HTMLFormElement>(null);
+  const updateRecords = useRef<HTMLInputElement>(null);
+  const proposeChange = async () => {
+    const form = completionForm.current;
+    if (!form) return;
+    const { records } = await previewStep(step.id, new FormData(form));
+    if (records > 0) setImpact(records);
+    else form.requestSubmit();
+  };
+  const saveChange = (moveRecords: boolean) => {
+    if (updateRecords.current) updateRecords.current.value = moveRecords ? "true" : "";
+    setImpact(null);
+    completionForm.current?.requestSubmit();
+  };
+  const cancelChange = () => {
+    setImpact(null);
+    setMode(step.completionMode);
+    completionForm.current?.reset();
+  };
   const savedCheck = isWorkflowCheckKey(step.computedKey) ? step.computedKey : null;
   // A check the template's record types can't use still shows, so it can be changed.
   const checkOptions = savedCheck && !checks.includes(savedCheck) ? [savedCheck, ...checks] : checks;
@@ -289,12 +314,14 @@ function StepRow({
             )}
           </form>
           <form
+            ref={completionForm}
             action={async (fd) => {
               await updateStep(step.id, fd);
             }}
-            className="grid grid-cols-1 gap-2 pl-6 sm:flex sm:items-center"
+            className="grid grid-cols-1 gap-2 pl-6 sm:flex sm:flex-wrap sm:items-center"
           >
             <input type="hidden" name="label" value={step.label} />
+            <input ref={updateRecords} type="hidden" name="updateRecords" defaultValue="" />
             <input type="hidden" name="pendingStatusValue" value={editPendingStatus} />
             <input type="hidden" name="pendingSubstatusValue" value={step.pendingSubstatusValue ?? ""} />
             <label className="text-xs text-gray-500 dark:text-gray-400 sm:w-16 sm:shrink-0">Completes</label>
@@ -305,7 +332,7 @@ function StepRow({
                 const next = e.target.value as WorkflowCompletionMode;
                 setMode(next);
                 // Automatic and confirm modes need a check; pick one before saving.
-                if (next === "MANUAL" || savedCheck) e.currentTarget.form?.requestSubmit();
+                if (next === "MANUAL" || savedCheck) void proposeChange();
               }}
               disabled={checkOptions.length === 0 && mode === "MANUAL"}
               className={selectClass}
@@ -320,7 +347,7 @@ function StepRow({
               <select
                 name="computedKey"
                 defaultValue={savedCheck ?? ""}
-                onChange={(e) => e.target.value && e.currentTarget.form?.requestSubmit()}
+                onChange={(e) => e.target.value && void proposeChange()}
                 className={selectClass}
               >
                 {!savedCheck && <option value="">When…</option>}
@@ -330,6 +357,22 @@ function StepRow({
                   </option>
                 ))}
               </select>
+            )}
+            {impact !== null && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-700 dark:text-gray-300 sm:basis-full">
+                <span>
+                  {impact} record{impact === 1 ? "" : "s"} using this workflow would change status.
+                </span>
+                <button type="button" onClick={() => saveChange(true)} className="px-2 py-0.5 rounded bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600">
+                  Update {impact === 1 ? "it" : "them"} too
+                </button>
+                <button type="button" onClick={() => saveChange(false)} className="px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800">
+                  Leave as is
+                </button>
+                <button type="button" onClick={cancelChange} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                  Cancel
+                </button>
+              </div>
             )}
           </form>
         </>
@@ -382,6 +425,7 @@ export function WorkflowEditor({
   deleteTemplate,
   createStep,
   updateStep,
+  previewStep,
   deleteStep,
   createItem,
   updateItem,
@@ -624,6 +668,7 @@ export function WorkflowEditor({
               checks={checks}
               substatuses={substatuses}
               updateStep={updateStep}
+              previewStep={previewStep}
               deleteStep={deleteStep}
               createItem={createItem}
               updateItem={updateItem}

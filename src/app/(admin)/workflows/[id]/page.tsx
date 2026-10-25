@@ -11,6 +11,7 @@ import {
   deleteWorkflowTemplate,
   createWorkflowStep,
   updateWorkflowStep,
+  previewStepCompletionChange,
   deleteWorkflowStep,
   createChecklistItem,
   updateChecklistItem,
@@ -69,6 +70,11 @@ export default async function WorkflowDetailPage({
     await updateWorkflowStep(stepId, id, formData);
   };
 
+  const previewStepAction = async (stepId: string, formData: FormData) => {
+    "use server";
+    return previewStepCompletionChange(stepId, id, formData);
+  };
+
   const deleteStepAction = async (stepId: string) => {
     "use server";
     await deleteWorkflowStep(stepId, id);
@@ -110,6 +116,7 @@ export default async function WorkflowDetailPage({
         deleteTemplate={deleteTemplateAction}
         createStep={createStepAction}
         updateStep={updateStepAction}
+        previewStep={previewStepAction}
         deleteStep={deleteStepAction}
         createItem={createItemAction}
         updateItem={updateItemAction}
