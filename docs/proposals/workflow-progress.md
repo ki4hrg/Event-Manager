@@ -1,6 +1,6 @@
 # Workflow progress: strips, dots, automatic steps, deadlines and owners
 
-Status: proposed, from an interview with the owner. It folds in
+Status: proposed, from an interview with the owner; no open questions. It folds in
 [#43 deadlines](./43-deadlines-expected-completion.md) and
 [#44 responsibility per step](./44-responsibility-per-step.md): one design,
 built in three phases. Where this document and those two disagree, this one
@@ -69,7 +69,8 @@ type ProgressStep = {
   - The current step is the first one not done, which matches how
     `pendingStatusValue` already picks the entity status.
   - Several templates on one record render one strip per template, labelled
-    with the template's name.
+    with the template's name. List rows show one line of dots per template,
+    too; several templates on one record should be rare.
 
 Placement:
 
@@ -82,7 +83,9 @@ Placement:
 
 ## 2. Automatic, prompted and manual steps
 
-Each template step (and checklist item) gets a **completion mode**:
+Each template step gets a **completion mode**. Checklist items stay manual
+ticks, but each item is marked **required** or **optional**
+(`WorkflowChecklistItem.required`, default true):
 
 | Mode | Behaviour |
 |---|---|
@@ -90,10 +93,24 @@ Each template step (and checklist item) gets a **completion mode**:
 | `AUTO` | Done exactly while its check is true. No tick box. It **re-opens** if the data stops satisfying the check (vendor removed, quantities cleared), and the entity status is recomputed. |
 | `PROMPT` | Stays open, with a nudge on the detail page: "Looks done — confirm". Confirming writes a normal completion. Dots and counts treat it as open until then. |
 
+**Steps with checklist items.** The step's mode applies once every
+**required** item is ticked. Optional items never hold a step back.
+
+- `AUTO`: done when all required items are ticked and its check (if it
+  has one) is true.
+- `PROMPT`: the nudge appears once both are met.
+- `MANUAL`: the tick box. The panel can still offer it before the required
+  items are done, as today.
+
+A step with only optional items behaves as if it had none. The partial dot
+and "2 of 4" count required items. Optional ones show in the panel, not the
+dots.
+
 `computedKey` becomes the check's key, from a closed registry in
 `src/lib/workflowChecks.ts`. Each check is a pure function over a small
 per-entity snapshot, loaded once per page. A check that doesn't apply to the
-entity type isn't offered in the template editor.
+entity type isn't offered in the template editor. Checks belong to steps
+only. `WorkflowChecklistItem.computedKey` is dropped.
 
 | Key | Applies to | True when |
 |---|---|---|
@@ -192,7 +209,9 @@ so it gets all five share surfaces
   data.
 - **Share link:** `ShareLink.reportType` gains `TASK_LIST`. The owner is
   stored in the link's filter params like other reports' filters, so a
-  vendor's link always shows that vendor and nobody else. The share view
+  vendor's link always shows that vendor and nobody else. Any owner kind can
+  be shared, team members included: their link is a running list they can
+  open without signing in, beside the signed-in My steps page. The share view
   renders read-only. Nothing can be ticked from a share link (that would be
   the `/f/[token]` form pattern, a possible later step).
 - **"Running":** the share view is computed on every load, so the vendor
@@ -206,9 +225,11 @@ so it gets all five share surfaces
 | Which records first | Orders, functions, and the vendor RFP chain (through order templates) |
 | Template length | 3–6 steps; dots fall back to a count past 8 |
 | How a step completes | Per step: automatic, prompt ("looks done — confirm"), or manual |
+| Checklist items | Manual ticks, each required or optional; the step's mode applies once every required item is ticked |
 | Automatic step when data changes | Re-opens |
 | Prompt step before confirming | Counts as open; the detail page nudges |
-| Checklist items in dots | Partial dot; the strip shows "2 of 4" |
+| Checklist items in dots | Partial dot; the strip shows "2 of 4" (required items) |
+| Several templates on one record | One strip and one line of dots per template |
 | Vendor RFP chain | Template checks (`RFP_ISSUED`, `QUOTES_IN`, `AWARDED`), not a fixed flow |
 | Hotels | Stay built-in; share the components |
 | #43 anchors | Event start/end, function start, order needed-by (new field), previous step |
@@ -216,7 +237,7 @@ so it gets all five share surfaces
 | #44 party type | Admin-editable `responsible_party_type` option list (#44 Q1, as recommended) |
 | #44 checklist owners | Inherit the step's until overridden (#44 Q4, as recommended) |
 | Overview rollup | Count at each step, overdue / due soon, unowned, my open steps |
-| Sharing | A task-list report scoped to one owner (vendor, contact, team member or type) |
+| Sharing | A task-list report scoped to one owner (vendor, contact, team member or type); team members get share links too |
 
 ## Phases
 
@@ -226,20 +247,11 @@ so it gets all five share surfaces
    change.
 2. **Checks.** Completion mode on steps and items, the check registry
    including the RFP checks, prompt nudges, re-open and status recompute,
-   and the template editor's mode and check pickers. Migration: `completionMode`
-   on `WorkflowStep` / `WorkflowChecklistItem`.
+   required / optional items, and the template editor's mode, check and
+   required controls. Migration: `completionMode` on `WorkflowStep`,
+   `required` on `WorkflowChecklistItem` (existing items default to
+   required, so today's behaviour holds), drop the item `computedKey`.
 3. **Deadlines, owners, My steps, task list.** #43 + #44 schema in one
    migration (state rows, owner junctions, due rules, `neededBy`,
    `completedById`), the panel's due and owner controls, overview overdue /
    unowned / mine, `/my-steps`, and the shareable task-list report.
-
-## Open questions
-
-1. **Prompt checks on items:** should checklist items get completion modes
-   too, or only steps? This draft says both, but items might be manual-only
-   in practice.
-2. **Several templates on one record:** one strip per template (drafted), or
-   only the default template's in the dots?
-3. **Task list sharing for team members:** is a share link needed for staff,
-   who can sign in and use My steps, or only for vendors, contacts and party
-   types?
