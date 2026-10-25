@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { StepFilterChip } from "@/components/StepFilterChip";
+import { atWorkflowStep, stepFilterLabel } from "@/lib/workflowProgress";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/event";
@@ -27,10 +30,10 @@ export default async function MediaDeliverablesPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string; vendor?: string; function?: string; linked?: string }>;
+  searchParams?: Promise<{ status?: string; vendor?: string; function?: string; linked?: string; step?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus, vendor: initialVendor, function: initialFunction, linked: initialLinked } =
+  const { status: initialStatus, vendor: initialVendor, function: initialFunction, linked: initialLinked, step } =
     (await searchParams) ?? {};
   const [event, mediaDeliverables, substatuses, responsiblePartyVendors, functions, presentations, mediaTypeOptions, hiddenColumns] =
     await Promise.all([
@@ -49,6 +52,8 @@ export default async function MediaDeliverablesPage({
   const workflowSummaries = mediaDeliverables.length > 0
     ? await getWorkflowBadgeSummaries("media_deliverable", mediaDeliverables.map((d) => d.id), eventId)
     : {};
+  const stepLabel = stepFilterLabel(workflowSummaries, step);
+  const shown = stepLabel && step ? mediaDeliverables.filter((r) => atWorkflowStep(workflowSummaries[r.id], step)) : mediaDeliverables;
 
   const vendors = flattenResponsiblePartyOptions(responsiblePartyVendors);
 
@@ -91,8 +96,13 @@ export default async function MediaDeliverablesPage({
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{event.name}</h1>
       </div>
 
+      {stepLabel && (
+        <Suspense fallback={null}>
+          <StepFilterChip label={stepLabel} />
+        </Suspense>
+      )}
       <MediaDeliverableList
-        mediaDeliverables={mediaDeliverables}
+        mediaDeliverables={shown}
         eventId={eventId}
         workflowSummaries={workflowSummaries}
         substatuses={substatuses}

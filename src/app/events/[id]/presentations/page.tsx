@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { StepFilterChip } from "@/components/StepFilterChip";
+import { atWorkflowStep, stepFilterLabel } from "@/lib/workflowProgress";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import type { EntityStatus } from "@prisma/client";
@@ -29,10 +32,10 @@ export default async function PresentationsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string; slot?: string; speaker?: string }>;
+  searchParams?: Promise<{ status?: string; slot?: string; speaker?: string; step?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus, slot: initialSlot, speaker: initialSpeaker } = (await searchParams) ?? {};
+  const { status: initialStatus, slot: initialSlot, speaker: initialSpeaker, step } = (await searchParams) ?? {};
   const [event, presentations, tracks, presentationTypes, substatuses, hiddenColumns] = await Promise.all([
     getEvent(eventId),
     getPresentations(eventId),
@@ -49,6 +52,8 @@ export default async function PresentationsPage({
   const workflowSummaries = presentations.length > 0
     ? await getWorkflowBadgeSummaries("presentation", presentations.map((p) => p.id), eventId)
     : {};
+  const stepLabel = stepFilterLabel(workflowSummaries, step);
+  const shown = stepLabel && step ? presentations.filter((r) => atWorkflowStep(workflowSummaries[r.id], step)) : presentations;
 
   const createTrackAction = async (formData: FormData) => {
     "use server";
@@ -104,9 +109,13 @@ export default async function PresentationsPage({
         updateTrack={updateTrackAction}
         deleteTrack={deleteTrackAction}
       />
-
+      {stepLabel && (
+        <Suspense fallback={null}>
+          <StepFilterChip label={stepLabel} />
+        </Suspense>
+      )}
       <PresentationList
-        presentations={presentations}
+        presentations={shown}
         eventId={eventId}
         tracks={tracks}
         presentationTypes={presentationTypes}

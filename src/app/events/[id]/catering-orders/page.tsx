@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { StepFilterChip } from "@/components/StepFilterChip";
+import { atWorkflowStep, stepFilterLabel } from "@/lib/workflowProgress";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/event";
@@ -20,10 +23,10 @@ export default async function CateringOrdersPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string; vendor?: string; function?: string }>;
+  searchParams?: Promise<{ status?: string; vendor?: string; function?: string; step?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus, vendor: initialVendor, function: initialFunction } = (await searchParams) ?? {};
+  const { status: initialStatus, vendor: initialVendor, function: initialFunction, step } = (await searchParams) ?? {};
   const [event, cateringOrders, substatuses, responsiblePartyVendors, hiddenColumns] = await Promise.all([
     getEvent(eventId),
     getCateringOrders(eventId),
@@ -37,6 +40,8 @@ export default async function CateringOrdersPage({
   const workflowSummaries = cateringOrders.length > 0
     ? await getWorkflowBadgeSummaries("catering_order", cateringOrders.map((o) => o.id), eventId)
     : {};
+  const stepLabel = stepFilterLabel(workflowSummaries, step);
+  const shown = stepLabel && step ? cateringOrders.filter((r) => atWorkflowStep(workflowSummaries[r.id], step)) : cateringOrders;
 
   const vendors = flattenResponsiblePartyOptions(responsiblePartyVendors);
 
@@ -67,9 +72,13 @@ export default async function CateringOrdersPage({
         </h1>
       </div>
 
-
+      {stepLabel && (
+        <Suspense fallback={null}>
+          <StepFilterChip label={stepLabel} />
+        </Suspense>
+      )}
       <CateringOrderList
-        cateringOrders={cateringOrders}
+        cateringOrders={shown}
         eventId={eventId}
         workflowSummaries={workflowSummaries}
         substatuses={substatuses}

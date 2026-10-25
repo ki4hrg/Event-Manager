@@ -4,7 +4,7 @@
 
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { instanceProgress, isInstanceComplete } from "@/lib/workflowProgress";
+import { countAtSteps, instanceProgress, isInstanceComplete } from "@/lib/workflowProgress";
 import { WORKFLOW_ENTITY_DELEGATES } from "./entity-delegates";
 
 export type { WorkflowEntityType } from "./entity-types";
@@ -162,3 +162,33 @@ async function applyAssignedWorkflowStatus(entityType: WorkflowEntityType, entit
   return { status, substatus };
 }
 
+
+// For the event overview: how many of the given records sit at each step of
+// each of the tenant's default templates for the type. Templates no record
+// carries are left out. Permission and event ownership of `entityIds` are the
+// caller's job.
+export async function defaultWorkflowStepCounts(entityType: WorkflowEntityType, entityIds: string[], eventId: string) {
+  if (entityIds.length === 0) return [];
+  const templates = await prisma.workflowTemplate.findMany({
+    where: { defaultForEntityTypes: { has: entityType }, tenant: { events: { some: { id: eventId } } } },
+    select: { id: true, name: true, steps: { orderBy: { sortOrder: "asc" }, select: { id: true, label: true } } },
+    orderBy: { name: "asc" },
+  });
+  const drawn = templates.filter((t) => t.steps.length > 0);
+  if (drawn.length === 0) return [];
+  const instances = await prisma.workflowInstance.findMany({
+    where: { entityType, entityId: { in: entityIds }, templateId: { in: drawn.map((t) => t.id) } },
+    select: {
+      templateId: true,
+      template: { select: { steps: { orderBy: { sortOrder: "asc" }, select: { id: true, items: { select: { id: true } } } } } },
+      stepCompletions: { select: { stepId: true } },
+      itemCompletions: { select: { itemId: true } },
+    },
+  });
+  return drawn
+    .map((t) => {
+      const mine = instances.filter((i) => i.templateId === t.id);
+      return { templateId: t.id, name: t.name, records: mine.length, steps: countAtSteps(t, mine) };
+    })
+    .filter((t) => t.records > 0);
+}

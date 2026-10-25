@@ -32,7 +32,7 @@ export type WorkflowBadgeSummary = { count: number; done: number; total: number 
 
 // A list row's workflows, each as dots (getWorkflowBadgeSummaries).
 export type WorkflowRowSummary = WorkflowBadgeSummary & {
-  workflows: { id: string; name: string; steps: ProgressStep[] }[];
+  workflows: { id: string; templateId: string; name: string; steps: ProgressStep[] }[];
 };
 
 export type CompletionSets = { steps: Set<string>; items: Set<string> };
@@ -119,4 +119,56 @@ export function templateProgress(
     return { key: s.id, label: s.label, state, status, href: null };
   });
   return { steps, current: p.current === null ? null : instance.template.steps[p.current].id };
+}
+
+// List pages filter on `?step=`: a template step's id (records whose workflow
+// is on that step) or `done:<templateId>` (records whose workflow is through).
+// The event overview's per-step counts link here.
+export const DONE_STEP_PREFIX = "done:";
+
+function workflowAt(w: WorkflowRowSummary["workflows"][number], step: string) {
+  if (step.startsWith(DONE_STEP_PREFIX)) {
+    return w.templateId === step.slice(DONE_STEP_PREFIX.length) && w.steps.every((s) => s.status === "done");
+  }
+  return w.steps.some((s) => s.key === step && (s.status === "active" || s.status === "partial"));
+}
+
+// The filter's chip label, or null when no row's workflow knows the step (a
+// stale or hand-edited link means no filter, not an empty list).
+export function stepFilterLabel(summaries: Record<string, WorkflowRowSummary>, step: string | undefined): string | null {
+  if (!step) return null;
+  for (const summary of Object.values(summaries)) {
+    for (const w of summary.workflows) {
+      if (step === `${DONE_STEP_PREFIX}${w.templateId}`) return `${w.name}: done`;
+      const s = w.steps.find((x) => x.key === step);
+      if (s) return `${w.name}: ${s.label}`;
+    }
+  }
+  return null;
+}
+
+export function atWorkflowStep(summary: WorkflowRowSummary | undefined, step: string): boolean {
+  return summary?.workflows.some((w) => workflowAt(w, step)) ?? false;
+}
+
+// How many records sit at each step of one template, for the event overview.
+export type WorkflowStepCount = { key: string; label: string; count: number };
+export function countAtSteps(
+  template: { id: string; steps: { id: string; label: string }[] },
+  instances: ProgressInstanceInput[],
+): WorkflowStepCount[] {
+  const counts = new Map<string, number>();
+  let done = 0;
+  for (const inst of instances) {
+    const { current } = instanceProgress(inst);
+    if (current === null) done += 1;
+    else {
+      const id = inst.template.steps[current].id;
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+  return [
+    ...template.steps.map((s) => ({ key: s.id, label: s.label, count: counts.get(s.id) ?? 0 })),
+    { key: `${DONE_STEP_PREFIX}${template.id}`, label: "Done", count: done },
+  ];
 }

@@ -230,7 +230,7 @@ export async function getWorkflowBadgeSummaries(
     const eid = instance.entityId;
     if (!result[eid]) result[eid] = { count: 0, done: 0, total: 0, workflows: [] };
     result[eid].count += 1;
-    result[eid].workflows.push({ id: instance.id, name: instance.template.name, steps: templateProgress(instance).steps });
+    result[eid].workflows.push({ id: instance.id, templateId: instance.templateId, name: instance.template.name, steps: templateProgress(instance).steps });
 
     const { ticksDone, ticksTotal } = instanceProgress(instance);
     result[eid].done += ticksDone;

@@ -1,6 +1,8 @@
 # Workflow progress: strips, dots, automatic steps, deadlines and owners
 
-Status: proposed, from an interview with the owner; no open questions. It folds in
+Status: phase 1 implemented (strips, dots, overview counts on today's
+workflows); phases 2–3 proposed. From an interview with the owner; no open
+questions. It folds in
 [#43 deadlines](./43-deadlines-expected-completion.md) and
 [#44 responsibility per step](./44-responsibility-per-step.md): one design,
 built in three phases. Where this document and those two disagree, this one
@@ -69,7 +71,7 @@ changes the rule in one place, and the dots, strip, counts, status and form
 approval all follow.
 
 Move the presentational parts out of `src/app/events/hotels/HotelWorkflow.tsx`
-into `src/components/`:
+into `src/components/ProgressStrip.tsx`:
 
 - `ProgressStrip`: steps with label, state line, status, optional link, and
   the current page marked.
@@ -106,7 +108,8 @@ Placement:
   print, supply, media deliverables). `getWorkflowBadgeSummaries` grows to
   return steps, not counts. The **presentations list**, which has no badge
   today, gets dots too.
-- **Detail page:** `ProgressStrip` sits above `WorkflowPanel`. The panel stays
+- **Detail page:** `WorkflowStrips` (one `ProgressStrip` per template) sits
+  under the header, above the tabs, so it shows on every tab. The panel stays
   the place to tick items, add notes, set owners and due dates.
 - **Event overview:** see § 4.
 
@@ -235,7 +238,11 @@ line and add a marker to the dots.
 - the signed-in member's own open steps.
 
 These extend `getEventOverviewStats()`'s `attention` rows behind the existing
-`hasPermission` checks.
+`hasPermission` checks. Phase 1 ships the count at each step
+(`defaultWorkflowStepCounts`, non-cancelled records only). The list pages
+apply `?step=` server-side before handing rows to the list client, with a
+chip to drop it; a `done:<templateId>` value selects records through the
+template. An unknown step means no filter.
 
 **My steps.** `/events/[id]/my-steps`, an Archetype A list grouped by due
 week (Overdue / This week / Next week / Later / No date), linking to each

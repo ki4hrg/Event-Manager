@@ -1,7 +1,7 @@
 import type { EntityStatus } from "@prisma/client";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/statusConstants";
 import type { StatusCounts } from "@/lib/statusConstants";
-import type { EntityAttention } from "./actions";
+import type { EntityAttention, EntityWorkflowCounts } from "./actions";
 
 type Props = {
   label: string;
@@ -9,6 +9,7 @@ type Props = {
   basePath: string;
   counts: StatusCounts;
   attention: EntityAttention[];
+  workflows: EntityWorkflowCounts[];
   canEdit: boolean;
 };
 
@@ -16,7 +17,7 @@ const STATUS_ORDER: EntityStatus[] = ["PENDING", "IN_PROGRESS", "COMPLETE", "CAN
 const NO_STATUS_BADGE = "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
 const DIM_BADGE = "bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-600";
 
-export function EntityOverviewCard({ label, total, basePath, counts, attention, canEdit }: Props) {
+export function EntityOverviewCard({ label, total, basePath, counts, attention, workflows, canEdit }: Props) {
   const activeAttention = attention.filter((a) => a.count > 0);
   const showAttention = canEdit && (attention.length > 0);
 
@@ -57,6 +58,29 @@ export function EntityOverviewCard({ label, total, basePath, counts, attention, 
           </a>
         ) : null}
       </div>
+
+      {workflows.map((w) => (
+        <div key={w.templateId} className="mb-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{w.name}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {w.steps.map((s) =>
+              s.count === 0 ? (
+                <span key={s.key} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${DIM_BADGE}`}>
+                  {s.label} 0
+                </span>
+              ) : (
+                <a
+                  key={s.key}
+                  href={s.href}
+                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:opacity-80"
+                >
+                  {s.label} {s.count}
+                </a>
+              ),
+            )}
+          </div>
+        </div>
+      ))}
 
       {showAttention ? (
         <div className="space-y-1 text-sm mb-3">

@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { StepFilterChip } from "@/components/StepFilterChip";
+import { atWorkflowStep, stepFilterLabel } from "@/lib/workflowProgress";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/event";
@@ -20,10 +23,10 @@ export default async function EventFunctionsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string; schedule?: string; room?: string }>;
+  searchParams?: Promise<{ status?: string; schedule?: string; room?: string; step?: string }>;
 }) {
   const { id } = await params;
-  const { status: initialStatus, schedule: initialSchedule, room: initialRoom } = (await searchParams) ?? {};
+  const { status: initialStatus, schedule: initialSchedule, room: initialRoom, step } = (await searchParams) ?? {};
   const [event, functions, functionTypes, substatuses, hiddenColumns, scheduleTypes] = await Promise.all([
     getEvent(id),
     getFunctionsForTable(id),
@@ -40,6 +43,8 @@ export default async function EventFunctionsPage({
   const workflowSummaries = functions.length > 0
     ? await getWorkflowBadgeSummaries("function", functions.map((f) => f.id), id)
     : {};
+  const stepLabel = stepFilterLabel(workflowSummaries, step);
+  const shown = stepLabel && step ? functions.filter((r) => atWorkflowStep(workflowSummaries[r.id], step)) : functions;
 
   const duplicateFunctionAction = async (functionId: string) => {
     "use server";
@@ -91,8 +96,13 @@ export default async function EventFunctionsPage({
         />
       </div>
 
+      {stepLabel && (
+        <Suspense fallback={null}>
+          <StepFilterChip label={stepLabel} />
+        </Suspense>
+      )}
       <FunctionList
-        functions={functions}
+        functions={shown}
         eventId={id}
         timezone={event.timezone || "America/Chicago"}
         functionTypes={functionTypes}
