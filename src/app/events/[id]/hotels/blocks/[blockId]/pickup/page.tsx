@@ -8,6 +8,7 @@ import {
   createPickupGuest,
   getBlockFormChoices,
   getHotelBlock,
+  getHotelWorkflow,
   importPickupGuests,
   savePickupCounts,
   setPickupGuestCancelled,
@@ -15,6 +16,7 @@ import {
 } from "../../../../../hotels/actions";
 import { PickupImport } from "../../../../../hotels/PickupImport";
 import { PickupGuests } from "../../../../../hotels/PickupGuests";
+import { HotelWorkflow } from "../../../../../hotels/HotelWorkflow";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +33,12 @@ export default async function PickupPage({
   // ?guest=<id> opens that guest for editing (the block page's Edit link).
   const { guest: openGuestId } = await searchParams;
   await requirePermission("HOTELS", "WRITE", eventId);
-  const [event, block, choices] = await Promise.all([getEvent(eventId), getHotelBlock(blockId, eventId), getBlockFormChoices(eventId)]);
+  const [event, block, choices, workflow] = await Promise.all([
+    getEvent(eventId),
+    getHotelBlock(blockId, eventId),
+    getBlockFormChoices(eventId),
+    getHotelWorkflow(eventId, { blockId }),
+  ]);
   if (!event || !block) notFound();
 
   const importAction = async (
@@ -79,6 +86,7 @@ export default async function PickupPage({
         />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">Pickup · {venue.name}</h1>
       </div>
+      {workflow && <HotelWorkflow steps={workflow} current="GUESTS" />}
       <div className="max-w-5xl space-y-6">
         <PickupGuests
           guests={block.pickupGuests.map((g) => ({

@@ -10,6 +10,8 @@ import { hasPermission } from "@/lib/permissions";
 import { appliedAttrition, blockTypeLabel, contractKindOf, dateKey, formatDateKey } from "@/lib/hotels";
 import { getEvent } from "@/app/events/event";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
+import { blockStage } from "@/lib/hotelWorkflow";
+import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
 import { scopeLabels } from "@/lib/areas";
 import { getRfps } from "../../rfps/actions";
@@ -45,6 +47,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
     return Math.max(0, ...Array.from(byNight.values()));
   };
   const issued = rfps.filter((r) => r.issuedOn).length;
+  const stageDates = { today: getDateKeyInTimezone(new Date(), event.timezone), eventEnd: dateKey(event.endDate) };
 
   return (
     <>
@@ -140,6 +143,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
               const attrition = appliedAttrition(b.allowedAttrition != null ? Number(b.allowedAttrition) : null, contractKindOf(b.contractType, choices.contractTypes));
               const floor = attrition != null ? 100 - attrition : null;
               const low = floor != null && t.percent != null && t.percent < floor;
+              const stage = blockStage({ ...b, pickedUp: t.pickedUp, blocked: t.blocked }, stageDates);
               return (
                 <Link key={b.id} href={`/events/${eventId}/hotels/blocks/${b.id}`} className={rowLink}>
                   <div className="min-w-0">
@@ -157,9 +161,20 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                         .join(" · ")}
                     </p>
                   </div>
-                  <p className={`text-sm ${low ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-700 dark:text-gray-300"}`}>
-                    {t.pickedUp}/{t.blocked} room nights{t.percent != null && ` · ${t.percent}%`}
-                  </p>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className={`text-sm ${low ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-700 dark:text-gray-300"}`}>
+                      {t.pickedUp}/{t.blocked} room nights{t.percent != null && ` · ${t.percent}%`}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        b.reviewedOn
+                          ? "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {stage.label}
+                    </span>
+                  </span>
                 </Link>
               );
             })}

@@ -6,14 +6,15 @@
 // pickup writes today's HotelPickupSnapshot so the PER can report pickup at
 // N days out.
 
-import type { HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
+import type { HotelAttritionBasis, HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
-import { MAX_STAY_NIGHTS, addDays, dateFromKey, dateKey, labelKey, nightKeys } from "@/lib/hotels";
+import { MAX_STAY_NIGHTS, addDays, dateFromKey, dateKey, isAttritionBasis, labelKey, nightKeys } from "@/lib/hotels";
 import { closeAwardedRfp } from "./core";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { blockPickup, pickupByNight } from "@/lib/hotelPickup";
 import { UserFacingError } from "@/lib/userErrors";
+import { reconcileGuests } from "@/lib/hotelReconcile";
 
 const inEvent = (eventId: string) => ({ proposal: { eventId } });
 
@@ -153,6 +154,8 @@ export type BlockWriteArgs = {
   distanceMiles: number | null;
   driveMinutes: number | null;
   compRooms: number | null;
+  attritionBasis: HotelAttritionBasis | null;
+  compRatio: number | null; // one comp per this many room nights
   staffRooms: number | null;
   notes: string | null;
   nights: BlockNightArgs[];
@@ -170,6 +173,8 @@ export async function updateHotelBlockCore(blockId: string, eventId: string, arg
   if (args.allowedAttrition != null && (args.allowedAttrition < 0 || args.allowedAttrition > 100)) {
     throw new Error("Allowed attrition must be between 0 and 100");
   }
+  if (args.attritionBasis != null && !isAttritionBasis(args.attritionBasis)) throw new Error(`Unknown attrition basis: ${args.attritionBasis}`);
+  if (args.compRatio != null && (!Number.isInteger(args.compRatio) || args.compRatio < 1)) throw new Error("Comp ratio must be a whole number of room nights");
   const stay = new Set(nightKeys(args.checkIn, args.checkOut));
   for (const n of args.nights) {
     if (!stay.has(n.night)) throw new Error(`Night ${n.night} is outside the stay`);
@@ -215,6 +220,8 @@ export async function updateHotelBlockCore(blockId: string, eventId: string, arg
         distanceMiles: args.distanceMiles,
         driveMinutes: args.driveMinutes,
         compRooms: args.compRooms,
+        attritionBasis: args.attritionBasis,
+        compRatio: args.compRatio,
         staffRooms: args.staffRooms,
         notes: args.notes,
         updatedById: userId,
@@ -475,6 +482,94 @@ export async function clearPickupCore(blockId: string, eventId: string, userId: 
 }
 
 // Plain (client-serializable) values for BlockForm.
+// ---------------------------------------------------------------------------
+// Final review
+
+// A stay on the hotel's final list. Cancelled rows (a status mapped as
+// cancelled) aren't stays and are dropped.
+export type FinalGuestArgs = Pick<PickupGuestArgs, "guestName" | "confirmationNumber" | "checkIn" | "checkOut" | "roomType" | "cancelled">;
+
+// Loads the hotel's final (actualized) guest list, replacing any earlier one.
+export async function importFinalGuestListCore(blockId: string, eventId: string, args: { fileName: string | null; guests: FinalGuestArgs[] }, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await assertBlockInEvent(blockId, eventId);
+  const stays = args.guests.filter((g) => !g.cancelled);
+  if (stays.length === 0) throw new UserFacingError("No stays to load");
+  stays.forEach(checkGuestDates);
+  await prisma.$transaction(async (tx) => {
+    await tx.hotelFinalGuest.deleteMany({ where: { blockId } });
+    await tx.hotelFinalGuest.createMany({
+      data: stays.map((g) => ({
+        blockId,
+        guestName: g.guestName,
+        confirmationNumber: g.confirmationNumber,
+        checkIn: day(g.checkIn),
+        checkOut: day(g.checkOut),
+        roomType: g.roomType,
+      })),
+    });
+    await tx.hotelBlock.update({ where: { id: blockId }, data: { finalListFileName: args.fileName, finalListLoadedAt: new Date(), updatedById: userId } });
+  });
+  return { loaded: stays.length };
+}
+
+export async function clearFinalGuestListCore(blockId: string, eventId: string, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await assertBlockInEvent(blockId, eventId);
+  await prisma.$transaction([
+    prisma.hotelFinalGuest.deleteMany({ where: { blockId } }),
+    prisma.hotelBlock.update({ where: { id: blockId }, data: { finalListFileName: null, finalListLoadedAt: null, updatedById: userId } }),
+  ]);
+}
+
+// The sign-off: reviewedOn null reopens the review.
+export async function saveBlockReviewCore(blockId: string, eventId: string, args: { reviewedOn: string | null; reviewNotes: string | null }, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await assertBlockInEvent(blockId, eventId);
+  if (args.reviewedOn && !/^\d{4}-\d{2}-\d{2}$/.test(args.reviewedOn)) throw new Error(`Invalid date: ${args.reviewedOn}`);
+  return prisma.hotelBlock.update({
+    where: { id: blockId },
+    data: {
+      reviewedOn: day(args.reviewedOn),
+      reviewedById: args.reviewedOn ? userId : null,
+      reviewNotes: args.reviewNotes?.trim() || null,
+      updatedById: userId,
+    },
+    select: { id: true, reviewedOn: true, reviewNotes: true },
+  });
+}
+
+// Our guest list against the hotel's final list (src/lib/hotelReconcile.ts).
+export async function getBlockReviewCore(blockId: string, eventId: string, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "VIEW", eventId);
+  const block = await prisma.hotelBlock.findFirst({
+    where: { id: blockId, ...inEvent(eventId) },
+    select: {
+      id: true,
+      checkIn: true,
+      checkOut: true,
+      contractType: true,
+      guestType: true,
+      finalListFileName: true,
+      finalListLoadedAt: true,
+      reviewedOn: true,
+      reviewNotes: true,
+      reviewedBy: { select: { name: true, email: true } },
+      proposal: { select: { id: true, venue: { select: { id: true, name: true } } } },
+      pickupGuests: { select: { id: true, guestName: true, confirmationNumber: true, checkIn: true, checkOut: true, roomType: true, cancelled: true } },
+      finalGuests: { select: { id: true, guestName: true, confirmationNumber: true, checkIn: true, checkOut: true, roomType: true } },
+    },
+  });
+  if (!block) return null;
+  const { pickupGuests, finalGuests, ...rest } = block;
+  return {
+    ...rest,
+    guestCount: pickupGuests.filter((g) => !g.cancelled).length,
+    finalCount: finalGuests.length,
+    reconciliation: finalGuests.length ? reconcileGuests(pickupGuests, finalGuests) : null,
+  };
+}
+
 export function toBlockValues(b: Prisma.HotelBlockGetPayload<{ include: { nights: true; charges: true } }>) {
   const dec = (v: Prisma.Decimal | null) => (v == null ? null : v.toString());
   const d = (v: Date | null) => (v ? dateKey(v) : null);
@@ -496,6 +591,8 @@ export function toBlockValues(b: Prisma.HotelBlockGetPayload<{ include: { nights
     distanceMiles: dec(b.distanceMiles),
     driveMinutes: b.driveMinutes,
     compRooms: b.compRooms,
+    attritionBasis: b.attritionBasis,
+    compRatio: b.compRatio,
     staffRooms: b.staffRooms,
     notes: b.notes,
     nights: b.nights.map((n) => ({

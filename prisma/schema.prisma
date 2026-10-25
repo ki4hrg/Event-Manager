@@ -49,6 +49,7 @@ model User {
   updatedRfps                Rfp[]                    @relation("RfpUpdatedBy")
   updatedVendorQuotes        VendorQuote[]            @relation("VendorQuoteUpdatedBy")
   updatedHotelBlocks         HotelBlock[]             @relation("HotelBlockUpdatedBy")
+  reviewedHotelBlocks        HotelBlock[]             @relation("HotelBlockReviewedBy")
   hotelPickupImports         HotelPickupImport[]
   hotelProposalVersions      HotelProposalVersion[]
   updatedExhibitBoothGroups  ExhibitBoothGroup[]      @relation("ExhibitBoothGroupUpdatedBy")
@@ -2743,8 +2744,21 @@ model HotelBlock {
   distanceMiles     Decimal?              @db.Decimal(10, 2)
   driveMinutes      Int?
   compRooms         Int?
+  // Contract terms: what attrition is measured on (null = not stated), and
+  // one comp room earned per this many room nights picked up.
+  attritionBasis    HotelAttritionBasis?
+  compRatio         Int?
   staffRooms        Int?
   notes             String?
+  // Final review: the hotel's post-event guest list (finalGuests, loaded on
+  // finalListLoadedAt) reconciled against ours, then signed off.
+  finalListFileName String?
+  finalListLoadedAt DateTime?
+  reviewedOn        DateTime?             @db.Date
+  reviewedById      String?
+  reviewedBy        User?                 @relation("HotelBlockReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewNotes       String?
+  finalGuests       HotelFinalGuest[]
   nights            HotelBlockNight[]
   charges           HotelCharge[]
   pickupImports     HotelPickupImport[]
@@ -2759,6 +2773,30 @@ model HotelBlock {
 
   @@index([proposalId])
   @@index([updatedById])
+  @@index([reviewedById])
+}
+
+enum HotelAttritionBasis {
+  ROOM_NIGHTS // total room nights picked up
+  PER_NIGHT // each night on its own
+  REVENUE // room revenue
+  PROFIT // the hotel's lost profit
+}
+
+// A stay on the hotel's final (actualized) guest list: who actually checked
+// in, and when they left. Kept apart from the pickup guests, which it is
+// reconciled against (src/lib/hotelReconcile.ts); a new list replaces it.
+model HotelFinalGuest {
+  id                 String     @id @default(cuid())
+  blockId            String
+  block              HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  guestName          String?
+  confirmationNumber String?
+  checkIn            DateTime?  @db.Date
+  checkOut           DateTime?  @db.Date
+  roomType           String? // @option hotel_room_type
+
+  @@index([blockId])
 }
 
 model HotelBlockNight {
