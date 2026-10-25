@@ -7,10 +7,11 @@ import { Toast } from "@/components/Toast";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { hasPermission } from "@/lib/permissions";
-import { appliedAttrition, blockTypeLabel, contractKindOf, dateKey, formatDateKey } from "@/lib/hotels";
+import { appliedAttrition, blockTypeLabel, contractKindOf, dateKey, formatDateKey, stageOf } from "@/lib/hotels";
 import { getEvent } from "@/app/events/event";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
-import { blockStage } from "@/lib/hotelWorkflow";
+import { blockStage, workflowSteps } from "@/lib/hotelWorkflow";
+import { HotelWorkflowMini } from "../../hotels/HotelWorkflow";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
 import { scopeLabels } from "@/lib/areas";
@@ -48,6 +49,23 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
   };
   const issued = rfps.filter((r) => r.issuedOn).length;
   const stageDates = { today: getDateKeyInTimezone(new Date(), event.timezone), eventEnd: dateKey(event.endDate) };
+  // Each block as the workflow reads it, by proposal.
+  const workflowBlocks = new Map<string, Parameters<typeof workflowSteps>[0]["blocks"]>();
+  for (const b of blocks) {
+    const t = pickupTotals(blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts }));
+    workflowBlocks.set(b.proposal.id, [...(workflowBlocks.get(b.proposal.id) ?? []), { ...b, pickedUp: t.pickedUp, blocked: t.blocked }]);
+  }
+  const proposalSteps = (p: (typeof proposals)[number]) =>
+    workflowSteps(
+      {
+        eventId,
+        rfp: p.rfp,
+        proposal: { id: p.id, status: p.status, stage: stageOf(p.status, choices.statuses), revision: p.revision },
+        blocks: workflowBlocks.get(p.id) ?? [],
+        ...stageDates,
+      },
+      canWrite,
+    );
 
   return (
     <>
@@ -120,10 +138,9 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                       .join(" · ") || "—"}
                   </p>
                 </div>
-                <span className="flex items-center gap-2">
-                  {p.blocks.length > 0 && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{p.blocks.length === 1 ? "Block" : `${p.blocks.length} blocks`}</span>
-                  )}
+                <span className="flex flex-wrap items-center gap-3">
+                  <HotelWorkflowMini steps={proposalSteps(p)} />
+                  {p.blocks.length > 1 && <span className="text-xs text-gray-500 dark:text-gray-400">{p.blocks.length} blocks</span>}
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor(p.status)}`}>{p.status}</span>
                 </span>
               </Link>
