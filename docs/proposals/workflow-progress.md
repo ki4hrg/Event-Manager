@@ -41,6 +41,33 @@ step's state and the step in progress, and every state is derived from data.
 
 ## 1. The strip and the dots, shared
 
+### First: one rule for "is this step done"
+
+Today the rule (a step without items is done when ticked; a step with items
+is done when every item is ticked) is written out separately in five places,
+which agree only by care:
+
+- `getWorkflowBadgeSummaries` (list counts)
+- `computeWorkflowBadgeSummary` (the detail-page badge)
+- `workflowCompletionCore` (form-submission approval)
+- `recomputeEntityStatusCore` (status from the first unfinished step)
+- `WorkflowPanel` (ticking UI)
+
+Phase 2 changes the rule twice: required versus optional items, then
+automatic and prompt steps. So before any UI work, move it into one pure
+module, `src/lib/workflowProgress.ts`:
+
+```ts
+stepProgress(step, completions, checks?) // → { status: "done" | "partial" | "open" | "prompt", itemsDone, itemsRequired }
+instanceProgress(instance, checks?)      // → { steps, current, done, total }
+```
+
+Phase 1 passes no `checks`, and every item counts as required, so its
+results are exactly today's behavior. All five callers switch to it in one
+commit with no visible change. That commit is the prerequisite: phase 2 then
+changes the rule in one place, and the dots, strip, counts, status and form
+approval all follow.
+
 Move the presentational parts out of `src/app/events/hotels/HotelWorkflow.tsx`
 into `src/components/`:
 
@@ -74,9 +101,11 @@ type ProgressStep = {
 
 Placement:
 
-- **List rows:** `ProgressDots` replaces `WorkflowStatusBadge` wherever the
-  badge is rendered (`getWorkflowBadgeSummaries` grows to return steps, not
-  counts).
+- **List rows:** `ProgressDots` replaces `WorkflowBadge` in the eight lists
+  that render it (functions and the function table, catering, AV, setup,
+  print, supply, media deliverables). `getWorkflowBadgeSummaries` grows to
+  return steps, not counts. The **presentations list**, which has no badge
+  today, gets dots too.
 - **Detail page:** `ProgressStrip` sits above `WorkflowPanel`. The panel stays
   the place to tick items, add notes, set owners and due dates.
 - **Event overview:** see § 4.
@@ -129,10 +158,36 @@ orders. So an AV template can run "RFP issued → Quotes in → Awarded → Adva
 sent", and a catering template can use only "Awarded".
 
 **Storage.** An `AUTO` step's state is never stored: it is computed on read,
-so it can't drift. The entity-status recompute
-(`recomputeEntityStatusCore`) must then run after any write that can flip a
-check. That means vendor, link, item and RFP-award writes, not only workflow
-ticks. They call it the way they already call `syncFunctionNumbers`.
+so dots, strips and counts can't drift. The one stored thing that can go
+stale is the entity's `status` / `substatus`, which `recomputeEntityStatusCore`
+writes from the current step.
+
+**Keeping status current: one shared refresh.** Every write that can flip a
+check calls one function after its writes:
+
+```ts
+refreshWorkflowStatus(entityType, ids, eventId) // src/app/events/workflows/core.ts
+```
+
+That covers vendor, function-link, line-item and RFP-award writes, not only
+workflow ticks. It loads the records' instances and check snapshots once,
+works out the current step with `instanceProgress`, and writes status only
+where it changed. It uses the global client, so it is called after a
+transaction commits, never inside one (CLAUDE.md § Transactions).
+
+- **Which writes call it.** `src/lib/workflowChecks.ts` lists, for each
+  check, the writes that can change it. A code reviewer can check a new
+  write against that list. This is the same convention as
+  `syncFunctionNumbers`: one function, called from each core that needs it.
+- **Most call sites are already shared.** The vendor, function-link and
+  bulk-update cores are already per concern (`*OrderVendor` junction writes,
+  `link_*_to_function`, `bulkUpdate*`), and RFP awards go through
+  `settleAwards`. So the calls land in a handful of shared cores, not in
+  every page.
+- **Rejected: a Prisma client extension.** A query hook on the relevant
+  models would run without any call sites. But it would also run inside
+  transactions, where the global-client helper can't join. And it would
+  hide a write's side effect from anyone reading the core.
 
 ## 3. Deadlines and owners (#43, #44)
 
@@ -237,16 +292,20 @@ so it gets all five share surfaces
 | #44 party type | Admin-editable `responsible_party_type` option list (#44 Q1, as recommended) |
 | #44 checklist owners | Inherit the step's until overridden (#44 Q4, as recommended) |
 | Overview rollup | Count at each step, overdue / due soon, unowned, my open steps |
+| Existing records | Not back-filled; a bulk "assign workflow" action is ki4hrg/Event-Manager#243 |
+| Status upkeep for automatic steps | One shared `refreshWorkflowStatus`, called from the cores that can flip a check; no Prisma hook |
 | Sharing | A task-list report scoped to one owner (vendor, contact, team member or type); team members get share links too |
 
 ## Phases
 
-1. **Strip and dots on today's workflows.** Shared `ProgressStrip` /
+1. **Strip and dots on today's workflows.** First the shared
+   `workflowProgress` rule with its five callers (no visible change). Then shared `ProgressStrip` /
    `ProgressDots` (hotels moved onto them), `templateProgress`, dots in list
-   rows, strip on detail pages, the overview's count-at-each-step. No schema
-   change.
+   rows (presentations included), strip on detail pages, the overview's
+   count-at-each-step. No schema change.
 2. **Checks.** Completion mode on steps and items, the check registry
-   including the RFP checks, prompt nudges, re-open and status recompute,
+   including the RFP checks, prompt nudges, re-open, `refreshWorkflowStatus`
+   wired into the cores the check registry names,
    required / optional items, and the template editor's mode, check and
    required controls. Migration: `completionMode` on `WorkflowStep`,
    `required` on `WorkflowChecklistItem` (existing items default to
