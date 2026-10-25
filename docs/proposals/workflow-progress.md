@@ -1,7 +1,8 @@
 # Workflow progress: strips, dots, automatic steps, deadlines and owners
 
 Status: phases 1 (strips, dots, overview counts) and 2 (completion modes,
-checks, optional items) implemented; phase 3 proposed. From an interview with the owner; no open
+checks, optional items) implemented; phase 3 proposed (handoff:
+[workflow-progress-phase3-handoff.md](./workflow-progress-phase3-handoff.md)). From an interview with the owner; no open
 questions. It folds in
 [#43 deadlines](./43-deadlines-expected-completion.md) and
 [#44 responsibility per step](./44-responsibility-per-step.md): one design,
