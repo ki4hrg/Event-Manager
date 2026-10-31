@@ -81,8 +81,13 @@ Claude                        Event Manager
 ```
 
 `https://claude.ai/api/mcp/auth_callback` is the redirect URI hosted Claude
-registers. Nothing is hard-coded to it — a client may register any redirect URI,
-and only URIs it registered are ever accepted.
+registers. Nothing is hard-coded to it: a client may register up to 10 redirect
+URIs, each `https`, or `http` on a loopback host (`localhost`, `127.0.0.1`, `[::1]`)
+for a native client, with no fragment or user name (OAuth 2.1). Other schemes are
+refused at registration. Authorize accepts only a URI the client registered, and
+checks the same rule again, so a client registered before the rule can't use a
+URI that breaks it. A loopback redirect may use any port at authorize time
+(`redirectUriMatches` in `src/lib/mcpOAuth.ts`).
 
 ### PKCE
 
