@@ -16,7 +16,7 @@ Closes #
 
 <!-- What was actually run and seen, not what should work. -->
 
-- [ ] `npm run typecheck && npm run lint && npm run build`
+- [ ] `npm run typecheck && npm run lint && npm run test && npm run build`
 - [ ] `/code-review` run; findings fixed or answered below
 - [ ] `/security-review` run (required if this touches auth, OAuth/MCP, permissions, public routes, inbound email/webhooks, secrets or uploads)
 - [ ] Checked in light and dark, and at phone width (UI changes)

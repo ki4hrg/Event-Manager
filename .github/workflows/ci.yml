@@ -31,8 +31,9 @@ jobs:
     with:
       # Still on npm; moving to pnpm is stack work (migration Phase 6).
       package-manager: npm
-      # Only the scripts this repo has. Later phases add test, db:drift, check:contrast.
-      scripts: typecheck lint
+      # Only the scripts this repo has. `test` starts Postgres with Testcontainers
+      # (Docker is on the runner). Later phases add db:drift, check:contrast.
+      scripts: typecheck lint test
 
   security:
     uses: ki4hrg/standards/.github/workflows/security.yml@v1
