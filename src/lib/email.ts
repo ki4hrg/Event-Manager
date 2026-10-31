@@ -132,7 +132,9 @@ export async function generatePasswordResetToken(
   return { token, url: appUrl(`/reset-password/${token}`), expiresAt };
 }
 
-export async function consumePasswordResetToken(
+// Read-only: whether a link is still usable (the reset page shows the form or
+// the expired message). setNewPassword claims the token itself, atomically.
+export async function findValidPasswordResetToken(
   token: string
 ): Promise<{ id: string; userId: string } | null> {
   const row = await prisma.passwordResetToken.findUnique({

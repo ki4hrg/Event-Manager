@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { setNewPassword } from "./actions";
 import { keepFormValues } from "@/lib/keepFormValues";
+import { isUserError } from "@/lib/userErrors";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -22,21 +23,13 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(formData: FormData) {
-    const password = (formData.get("password") as string) || "";
-    const confirm = (formData.get("confirm") as string) || "";
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Passwords don't match.");
-      return;
-    }
+    // The server checks length, match and the link, and returns each refusal.
     setError(null);
     try {
-      await setNewPassword(formData);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not set password.");
+      const result = await setNewPassword(formData);
+      if (isUserError(result)) setError(result.error);
+    } catch {
+      setError("Could not set password.");
     }
   }
 
