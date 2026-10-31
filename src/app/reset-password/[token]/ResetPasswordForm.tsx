@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { setNewPassword } from "./actions";
 import { keepFormValues } from "@/lib/keepFormValues";
+import { isUserError } from "@/lib/userErrors";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -34,9 +35,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
     }
     setError(null);
     try {
-      await setNewPassword(formData);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not set password.");
+      const result = await setNewPassword(formData);
+      if (isUserError(result)) setError(result.error);
+    } catch {
+      setError("Could not set password.");
     }
   }
 
