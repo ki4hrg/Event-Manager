@@ -31,7 +31,7 @@ describe("readProposal: the lists a proposal form posts", () => {
 
   it.each([
     ["a night with a non-date", { nights: JSON.stringify([{ ...night, night: "soon" }]) }],
-    ["a night with negative rooms", { nights: JSON.stringify([{ ...night, rooms: -5 }]) }],
+    ["a night with fractional rooms", { nights: JSON.stringify([{ ...night, rooms: 2.5 }]) }],
     ["a charge with an unknown scope", { charges: JSON.stringify([{ chargeType: "Fee", amount: 1, scope: "PER_GUEST" }]) }],
     ["an amenity with an unknown status", { amenities: JSON.stringify([{ label: "Pool", status: "MAYBE", note: null }]) }],
     ["a meal price that isn't a number", { meals: JSON.stringify([{ mealType: "Lunch", price: "42" }]) }],

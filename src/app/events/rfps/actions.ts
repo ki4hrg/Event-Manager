@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { readJsonList } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
 
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
@@ -425,8 +426,9 @@ export async function deleteRfp(id: string, eventId: string) {
 export async function saveRfpBlocks(id: string, eventId: string, blocks: RfpBlockArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const parsed = z.array(RfpBlockSchema).max(50).parse(blocks);
-  const ids = await saveRfpBlocksCore(id, eventId, parsed, session.user.id);
+  const parsed = z.array(RfpBlockSchema).max(50).safeParse(blocks);
+  if (!parsed.success) throw new UserFacingError("The blocks sent data this page can't read. Reload the page and try again.");
+  const ids = await saveRfpBlocksCore(id, eventId, parsed.data, session.user.id);
   revalidatePath(rfpPath(eventId, kind, id));
   return ids;
 }

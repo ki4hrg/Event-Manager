@@ -91,13 +91,14 @@ export const RfpBlockSchema = z.object({
   targetRate: nullableNumber,
   targetRateRequired: z.boolean().optional(), // a ceiling, not a target
   notes: text().nullable(),
-  nights: z.array(z.object({ roomType: text(200).nullable(), night: dateKeySchema, rooms: z.number().int().min(0).max(100_000) })).max(400),
+  nights: z.array(z.object({ roomType: text(200).nullable(), night: dateKeySchema, rooms: z.number().int().max(100_000) })).max(2_000),
 });
 export type RfpBlockArgs = z.infer<typeof RfpBlockSchema>;
 
 // An alternate date range the RFP form posts (JSON in "alternateDates");
 // either end may be blank while the row is being filled in.
-export const RfpAlternateDatesSchema = z.object({ startDate: z.string().max(10), endDate: z.string().max(10) });
+const dateOrBlank = dateKeySchema.or(z.literal(""));
+export const RfpAlternateDatesSchema = z.object({ startDate: dateOrBlank, endDate: dateOrBlank });
 
 // Fill from history: which past blocks to draw on (null = any).
 export type RfpFillArgs = {

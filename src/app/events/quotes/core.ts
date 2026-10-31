@@ -23,7 +23,7 @@ import { idSchema, nullableNumber, text } from "@/lib/validation";
 export const QuoteLineSchema = z.object({
   id: idSchema.nullish(),
   rfpLineItemId: idSchema.nullable(),
-  description: text(2_000),
+  description: text(20_000),
   quantity: nullableNumber,
   unitPrice: nullableNumber,
   amount: nullableNumber, // as quoted; blank = quantity × unit price

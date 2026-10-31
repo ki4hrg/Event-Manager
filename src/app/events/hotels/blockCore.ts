@@ -129,7 +129,8 @@ export async function createHotelBlockCore(proposalId: string, eventId: string, 
 }
 
 // One night of a block's grid as the block form posts it (JSON in "nights").
-const roomCount = z.number().int().min(0).max(100_000);
+// No lower bound: the autosaving block form posts what was typed.
+const roomCount = z.number().int().max(100_000);
 export const BlockNightSchema = z.object({
   id: idSchema.nullable(), // null = a new night
   roomType: text(200).nullable(),

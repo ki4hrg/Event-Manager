@@ -1,7 +1,8 @@
 import type { OfferHotel } from "@/lib/inboundParse";
 
-// ProposalForm's FormData → the proposal cores' args. Plain module: the
-// hotels actions and the inbox (applying a proposal read from email) share it.
+// ProposalForm's constants and the new-hotel fields, shared by the form, the
+// hotels actions and the inbox. Client-safe: no server imports here; the
+// FormData → args reader is ./readProposal.ts.
 
 // ProposalForm's venueId for a hotel that isn't in Venues yet ("New hotel"):
 // created on save from the newHotel.* fields.
