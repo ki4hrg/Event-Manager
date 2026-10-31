@@ -1,0 +1,70 @@
+name: ci
+
+# PR: check + security → image (build only) → merge-on-green (if labelled `automerge`)
+# main: check + security → image (build + push to GHCR) → deploy (Dockhand webhook)
+# Standards: https://github.com/ki4hrg/standards/blob/main/docs/core/deploy.md
+
+on:
+  push:
+    branches: [main]
+    # A docs-only direct push doesn't rebuild or redeploy. Push only: PRs always run,
+    # because merge-on-green needs a green run to merge.
+    paths-ignore: ['docs/**', '**/*.md']
+  pull_request:
+    # `labeled`: adding `automerge` to a PR whose checks already ran starts the merge.
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
+  # merge-on-green dispatches this after merging (a merge by GITHUB_TOKEN raises no
+  # push event). Also: rebuild and redeploy by hand from the Actions tab.
+  workflow_dispatch:
+
+# Superseded runs are cancelled on a PR, never on main, where every commit is an image.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    uses: ki4hrg/standards/.github/workflows/node-check.yml@v1
+    with:
+      # Still on npm; moving to pnpm is stack work (migration Phase 6).
+      package-manager: npm
+      # Only the scripts this repo has. Later phases add test, db:drift, check:contrast.
+      scripts: typecheck lint
+
+  security:
+    uses: ki4hrg/standards/.github/workflows/security.yml@v1
+    with:
+      package-managers: npm
+
+  image:
+    needs: [check, security]
+    permissions:
+      contents: read
+      packages: write
+    uses: ki4hrg/standards/.github/workflows/image.yml@v1
+    with:
+      push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+      # The name compose pulls (docker-compose.yml APP_IMAGE default).
+      image: ghcr.io/ki4hrg/event-manager
+      # The deploy host is amd64.
+      platforms: linux/amd64
+
+  automerge:
+    needs: [check, security, image]
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write   # dispatches this workflow on main after merging
+    uses: ki4hrg/standards/.github/workflows/merge-on-green.yml@v1
+
+  deploy:
+    needs: image
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    # Reads DOCKHAND_WEBHOOK_URL / DOCKHAND_WEBHOOK_TOKEN (Secrets or Variables), the
+    # same names build.yml used, and fails unless Dockhand's body says success: true.
+    uses: ki4hrg/standards/.github/workflows/dockhand-deploy.yml@v1
+    secrets: inherit
