@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveBearerToUserId } from "@/lib/mcpAuth";
 import { verifyMcpAccessToken, getRequestBaseUrl } from "@/lib/mcpOAuth";
 import { findMcpTool, classifiedTools, TENANT_ARG, TENANT_FREE_TOOLS } from "@/lib/mcpTools";
+import { checkToolArgs } from "@/lib/mcpTools/argGate";
 import { accessibleTenantsForUser, resolveTenantForUser } from "@/lib/tenant";
 import { serializeForMcp } from "@/lib/mcpSerialize";
 import { PermissionError } from "@/lib/permissions";
@@ -151,6 +152,12 @@ async function dispatch(
       // name. Unknown or off-limits handles read the same as an absent one, so
       // a caller can't probe which slugs exist.
       const { [TENANT_ARG]: tenantArg, ...toolArgs } = args;
+      // The tool's inputSchema, checked before the handler runs. A refusal is a
+      // tool error, so the model sees which argument to fix and retries.
+      const checked = checkToolArgs(tool, toolArgs);
+      if (!checked.ok) {
+        return ok(req.id, { isError: true, content: [{ type: "text", text: checked.message }] });
+      }
       let tenantId = "";
       if (!TENANT_FREE_TOOLS.has(name)) {
         if (typeof tenantArg === "string" && tenantArg.length > 0) {
@@ -174,7 +181,7 @@ async function dispatch(
         }
       }
       try {
-        const result = await tool.handler(toolArgs, { userId, tenantId });
+        const result = await tool.handler(checked.args, { userId, tenantId });
         return ok(req.id, {
           content: [
             { type: "text", text: JSON.stringify(serializeForMcp(result), null, 2) },

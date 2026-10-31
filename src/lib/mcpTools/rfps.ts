@@ -710,9 +710,9 @@ export const rfpTools: McpToolDefinition[] = [
         taxIncluded: { type: ["boolean", "null"], description: "Whether the quoted rates include taxes and fees; null when not stated." },
         amenities: {
           type: "array",
-          description: "Amenities the offer states: { label (hotel_amenity), status CONFIRMED | UNAVAILABLE, note }.",
+          description: "Amenities the offer states: { label (hotel_amenity), status CONFIRMED | UNAVAILABLE, note }; a bare label string means CONFIRMED.",
           items: {
-            type: "object",
+            type: ["object", "string"],
             properties: { label: { type: "string" }, status: { type: "string", enum: ["CONFIRMED", "UNAVAILABLE"] }, note: { type: ["string", "null"] } },
             required: ["label", "status"],
           },
