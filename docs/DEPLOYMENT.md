@@ -10,6 +10,14 @@
 3. `deploy` calls the Dockhand git-stack webhook (a plain `GET` with `?secret=`) and fails unless the
    reply says `"success": true`. Dockhand redeploys the `event-manager` stack from
    `docker-compose.yml`, which only pulls (`pull_policy: always`, no `build:`).
+
+   The stack needs **Force redeploy** and **Re-pull images** turned on in Dockhand. Without them,
+   Dockhand compares git commits, not images: when two PRs merge minutes apart, the first deploy
+   syncs the later commit while pulling the earlier image, and the second deploy answers
+   `"No changes detected, skipping redeploy"` (still `success: true`), so the new image never
+   runs. This happened on 2026-10-31 (#272 sat undeployed behind #268). The deploy job also checks
+   the running revision when the `APP_HEALTH_URL` repository variable is set (standards
+   `dockhand-deploy`).
 4. On start, `docker-entrypoint.sh` puts the database password into `DATABASE_URL`, runs
    `prisma/baseline.mjs` (marks the `0_init` migration applied on a database that predates
    Migrate), `prisma migrate deploy` and the seed, then `next start`. `src/instrumentation.ts`
