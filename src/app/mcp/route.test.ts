@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateApiKey } from "@/lib/mcpAuth";
-import { makeUser } from "../../../test/fixtures";
+import { makeMember, makeTenant, makeUser } from "../../../test/fixtures";
 import { POST } from "./route";
 
 // Bearer auth goes through the API-key path; OAuth tokens aren't under test.
@@ -11,8 +11,8 @@ vi.mock("@/lib/mcpOAuth", () => ({
   getRequestBaseUrl: vi.fn(async () => "http://localhost"),
 }));
 
-async function apiKey() {
-  const user = await makeUser();
+async function apiKey(userId?: string) {
+  const user = userId ? { id: userId } : await makeUser();
   const { fullKey, keyPrefix, hashedKey } = generateApiKey();
   await prisma.apiKey.create({ data: { userId: user.id, name: "test", keyPrefix, hashedKey } });
   return fullKey;
@@ -114,5 +114,21 @@ describe("POST /mcp: the JSON-RPC envelope", () => {
   it("refuses a request without a valid key before reading it", async () => {
     const { status } = await call("not-a-key", rpc(1, "ping"));
     expect(status).toBe(401);
+  });
+
+  it("checks tool arguments against the tool's schema before the handler runs", async () => {
+    const tenant = await makeTenant();
+    const member = await makeMember(tenant.id, {});
+    const key = await apiKey(member.id);
+
+    const missing = await call(key, rpc(7, "tools/call", { name: "get_event", arguments: {} }));
+    expect(missing.json.result).toMatchObject({ isError: true, content: [{ text: expect.stringContaining("id: required") }] });
+
+    const wrong = await call(key, rpc(8, "tools/call", { name: "get_event", arguments: { id: 42 } }));
+    expect(wrong.json.result).toMatchObject({ isError: true, content: [{ text: expect.stringContaining("id: wrong type") }] });
+
+    // A well-formed call reaches the handler, which refuses an unknown event itself.
+    const unknown = await call(key, rpc(9, "tools/call", { name: "get_event", arguments: { id: "nope" } }));
+    expect(JSON.stringify(unknown.json)).not.toContain("Invalid arguments");
   });
 });

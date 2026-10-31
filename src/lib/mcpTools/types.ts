@@ -1,11 +1,10 @@
 // Shared shape for every MCP tool. The dispatcher in /mcp/route.ts loads
 // the registry (see ./index.ts), advertises tools on tools/list, and runs the
-// matching handler on tools/call. The dispatcher guarantees `args` is a JSON
-// object; the handler is responsible for shape-checking what it needs.
-//
-// The advertised JSON Schema isn't enforced per argument yet (phase 3,
-// docs/plans/phase3-boundaries.md); until it is, Prisma and permission checks
-// throw on bad input and the dispatcher returns the error to the caller.
+// matching handler on tools/call. Before the handler runs, the dispatcher
+// checks `args` against `inputSchema` (./argGate.ts): required keys, types,
+// enums and sizes, with undeclared keys dropped. So the schema must name every
+// key the handler reads; `null` and `""` still arrive as "clear". Handlers
+// check what the values mean (ids, dates, permissions).
 export type McpToolHandler = (args: Record<string, unknown>, ctx: McpToolContext) => Promise<unknown>;
 
 export type McpToolContext = {

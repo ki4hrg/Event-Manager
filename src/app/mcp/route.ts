@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveBearerToUserId } from "@/lib/mcpAuth";
 import { verifyMcpAccessToken, getRequestBaseUrl } from "@/lib/mcpOAuth";
 import { findMcpTool, classifiedTools, TENANT_ARG, TENANT_FREE_TOOLS } from "@/lib/mcpTools";
+import { checkToolArgs } from "@/lib/mcpTools/argGate";
 import { accessibleTenantsForUser, resolveTenantForUser } from "@/lib/tenant";
 import { serializeForMcp } from "@/lib/mcpSerialize";
 import { PermissionError } from "@/lib/permissions";
@@ -173,8 +174,14 @@ async function dispatch(
           tenantId = tenants[0].id;
         }
       }
+      // The tool's inputSchema, checked before the handler runs. A refusal is a
+      // tool error, so the model sees which argument to fix and retries.
+      const checked = checkToolArgs(tool, toolArgs);
+      if (!checked.ok) {
+        return ok(req.id, { isError: true, content: [{ type: "text", text: checked.message }] });
+      }
       try {
-        const result = await tool.handler(toolArgs, { userId, tenantId });
+        const result = await tool.handler(checked.args, { userId, tenantId });
         return ok(req.id, {
           content: [
             { type: "text", text: JSON.stringify(serializeForMcp(result), null, 2) },
