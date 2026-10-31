@@ -8,6 +8,18 @@ const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const parsedMax = process.env.MAX_UPLOAD_BYTES ? parseInt(process.env.MAX_UPLOAD_BYTES, 10) : NaN;
 export const MAX_UPLOAD_BYTES = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : DEFAULT_MAX_UPLOAD_BYTES;
 
+// The upload routes sit outside the proxy (src/proxy.ts), so nothing else caps
+// their bodies: each checks the declared length after auth and before
+// formData() buffers it: 411 when there is no Content-Length (a chunked
+// body), 413 when it is over the cap, else null. The slack covers the
+// multipart boundaries and the small fields.
+export function uploadBodyRefusal(request: Request, maxBytes: number): 411 | 413 | null {
+  const header = request.headers.get("content-length");
+  const length = header === null ? NaN : Number(header);
+  if (!Number.isFinite(length) || length < 0) return 411;
+  return length > maxBytes + 64 * 1024 ? 413 : null;
+}
+
 export const ALLOWED_UPLOAD_MIME_TYPES = new Set<string>([
   "application/pdf",
   "image/jpeg",

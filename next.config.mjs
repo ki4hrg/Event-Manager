@@ -5,13 +5,9 @@ const nextConfig = {
   // Server-only document renderers for the ESG / PER downloads (exceljs uses
   // optional requires the bundler shouldn't try to bundle).
   serverExternalPackages: ["exceljs", "docx"],
-  experimental: {
-    // Every request passes through the auth proxy (src/proxy.ts), and Next 16
-    // cuts request bodies passing through it off at 10MB by default, which
-    // would truncate uploads. Match the default MAX_UPLOAD_BYTES
-    // (src/lib/uploads.ts); raise both together.
-    proxyClientMaxBodySize: "100mb",
-  },
+  // No `experimental.proxyClientMaxBodySize`: it applies to every route the
+  // proxy matches, signed in or not. Requests through the proxy keep Next's
+  // 10MB default; the upload routes skip the proxy instead (src/proxy.ts).
   // OAuth discovery documents must be served from the spec /.well-known/ paths,
   // but Next's App Router can't host a route segment whose folder starts with a
   // dot — so the handlers live under /api/well-known/* and we rewrite the spec
