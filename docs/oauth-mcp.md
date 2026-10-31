@@ -43,7 +43,7 @@ App Router can't host a route segment whose folder starts with a dot. The handle
 therefore live at `src/app/api/well-known/*` and `next.config.mjs` rewrites the
 spec paths onto them.
 
-All of these are exempted from the auth middleware by the `authorized` callback in
+All of these are exempted from the auth proxy (`src/proxy.ts`) by the `authorized` callback in
 `src/lib/auth.ts`. The approval page at `/oauth/authorize` is **not** exempt — it
 is deliberately gated, because a signed-in session is the credential the whole
 flow rests on.

@@ -3,8 +3,10 @@ import { randomUUID } from "crypto";
 import { mkdirSync, writeFileSync, unlinkSync, existsSync } from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import {
+  uploadBodyRefusal,
   VALID_ENTITY_TYPES,
   EntityType,
   ENTITY_FK_FIELD,
@@ -20,13 +22,18 @@ import {
 export async function POST(request: NextRequest) {
   let filePath: string | null = null;
 
-  // Refuse an oversized body before formData() buffers all of it; the slack
-  // covers the multipart boundaries and the other fields.
-  const contentLength = Number(request.headers.get("content-length"));
-  if (contentLength > MAX_UPLOAD_BYTES + 64 * 1024) {
+  // Outside the proxy (src/proxy.ts): sign-in and the size cap come before
+  // formData() buffers the body. The FILES permission needs the entity from
+  // the body, so it is checked below.
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const refusal = uploadBodyRefusal(request, MAX_UPLOAD_BYTES);
+  if (refusal) {
     return NextResponse.json(
-      { error: `File exceeds maximum size of ${MAX_UPLOAD_BYTES} bytes` },
-      { status: 413 }
+      { error: refusal === 411 ? "Content-Length required" : `File exceeds maximum size of ${MAX_UPLOAD_BYTES} bytes` },
+      { status: refusal }
     );
   }
 

@@ -12,6 +12,7 @@ import {
   permissionFieldName,
   unsetResources,
 } from "./resources";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 function buildPermissionMap(perms: RolePermission[] | undefined): Map<string, PermissionLevel> {
   const map = new Map<string, PermissionLevel>();
@@ -80,7 +81,7 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
           Not set (read as None): {unset.map((r) => r.label).join(", ")}
         </div>
       )}
-      <form action={handleSubmit} className="space-y-6">
+      <form action={handleSubmit} onReset={keepFormValues} className="space-y-6">
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">

@@ -8,6 +8,7 @@ import { btnOutlinedSm, btnPrimarySm } from "@/lib/buttonStyles";
 import { rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
 import { formatDateKey } from "@/lib/hotels";
 import { isUserError, type UserError } from "@/lib/userErrors";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 export type PickupGuestValues = {
   id: string;
@@ -71,6 +72,7 @@ function GuestForm({
 
   return (
     <form
+      onReset={keepFormValues}
       action={async (formData) => {
         setError(null);
         const result = await save(formData);
