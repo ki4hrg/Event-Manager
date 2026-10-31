@@ -15,8 +15,10 @@ checklists: `docs/checklists/` · sweep status: `docs/HANDOFF.md`.
 
 - `npm run dev` needs `.env` (copy `.env.example`) and a database:
   `docker compose -f docker-compose.dev.yml up -d`, then `npm run db:deploy && npm run db:seed`.
-- `npm run typecheck && npm run lint && npm run build` pass before anything is called done. There
-  is no test suite yet (phase 3 of the standards sweep).
+- `npm run typecheck && npm run lint && npm run test && npm run build` pass before anything is
+  called done. `test` is Vitest against a real Postgres that Testcontainers starts (Docker must be
+  running); `test/fixtures.ts` builds tenants, users and roles. Tests sit next to the code
+  (`core.test.ts`) and cover refusals: bad input, wrong user, wrong tenant.
 - `npm run db:migrate` creates and applies a migration after a schema change. Migrations in
   `prisma/migrations/` are what ship; the image runs `migrate deploy`. `npm run db:push` is for
   throwaway databases only, never a populated one.
@@ -117,7 +119,7 @@ checklists: `docs/checklists/` · sweep status: `docs/HANDOFF.md`.
 These differ from the standards on purpose or until a sweep phase lands (`docs/HANDOFF.md`):
 
 - Stack (phase 6, out of scope): npm, Prisma, NextAuth, a hand-rolled MCP JSON-RPC endpoint.
-- No tests yet and no runtime input validation (phase 3).
+- Few tests yet, and no runtime input validation at most entry points (phase 3 in progress).
 - Raw palette classes with `dark:` variants instead of design tokens (phase 5).
 - Postgres keeps `PGDATA=/var/lib/postgresql/data` on its existing volume: moving to the standard
   mount means migrating production data (accepted 2026-10-31).

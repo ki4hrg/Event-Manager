@@ -21,7 +21,8 @@ real.
 
 ## Checks
 
-`npm run typecheck && npm run lint && npm run build`. CI runs the same on every pull request, plus
+`npm run typecheck && npm run lint && npm run test && npm run build`. The tests start a Postgres
+container (Testcontainers), so Docker must be running. CI runs the same on every pull request, plus
 `npm audit --audit-level=high`.
 
 ## Deploy
