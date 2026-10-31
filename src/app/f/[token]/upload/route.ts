@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { DRAFT_COOKIE, PublicFormError, draftCookieOptions, formRequestAllowed, getActiveFormLink } from "@/lib/forms/links";
 import { attachPublicUploadCore } from "@/lib/forms/publicCore";
 import { clientIpFrom } from "@/lib/rateLimit";
-import { PUBLIC_UPLOAD_MAX_BYTES, uploadBodyTooLarge } from "@/lib/uploads";
+import { PUBLIC_UPLOAD_MAX_BYTES, uploadBodyRefusal } from "@/lib/uploads";
 
 // Public form upload: a route handler because Server Actions can't take a
 // streamed multipart body of this size. Public by the /f/ prefix in the
@@ -30,9 +30,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!sameOrigin(request)) return NextResponse.json({ error: "upload" }, { status: 403 });
 
   // Refuse oversized bodies before buffering them.
-  if (uploadBodyTooLarge(request, PUBLIC_UPLOAD_MAX_BYTES)) {
-    return NextResponse.json({ error: "upload" }, { status: 413 });
-  }
+  const refusal = uploadBodyRefusal(request, PUBLIC_UPLOAD_MAX_BYTES);
+  if (refusal) return NextResponse.json({ error: "upload" }, { status: refusal });
 
   const link = await getActiveFormLink(token);
   if (!link) return NextResponse.json({ error: "closed" }, { status: 404 });

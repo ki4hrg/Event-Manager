@@ -83,12 +83,16 @@ Changes a user or operator can see that `tsc`, lint and the build don't catch.
   cuts it off at 10MB (`experimental.proxyClientMaxBodySize`). The proxy matches every route,
   so uploads over 10MB arrived truncated. #248 raised the limit to `"100mb"`, which let any
   request, signed in or not, buffer 100MB on any route. #253 put it back to the default and
-  took the three upload routes out of the proxy matcher (`src/proxy.ts`): `/api/upload`,
-  `/f/[token]/upload` and `/api/events/[id]/inbox/upload`. Each authenticates before reading
-  the body (session, `requirePermission`, or the form-link token plus Origin) and refuses a
-  body over its limit, or with no `Content-Length`, through `uploadBodyTooLarge`
-  (`src/lib/uploads.ts`). The inbox cap covers all its files together. A new upload route
-  needs the same matcher exclusion and checks.
+  took four routes out of the proxy matcher (`src/proxy.ts`): the uploads `/api/upload`,
+  `/f/[token]/upload` and `/api/events/[id]/inbox/upload`, and the inbound-email webhook
+  `/api/inbound-email` (Cloudflare passes mail up to 25 MiB; cut at 10MB it would fail its
+  HMAC check and bounce). Each refuses a body over its limit (413) or with no
+  `Content-Length` (411) through `uploadBodyRefusal` (`src/lib/uploads.ts`) before reading
+  it. The uploads authenticate first (session, then permission, or the form-link token plus
+  Origin); the inbox upload answers a refusal with a JSON status rather than a redirect,
+  which its `fetch` would follow to a 200 page. The webhook's HMAC covers the body, so it
+  verifies after reading a body of at most 25 MiB. The inbox cap covers all its files
+  together. A new route that takes a large body needs the same matcher exclusion and checks.
 
 - **Caching.** GET route handlers and `fetch` are no longer cached by default, and the client
   router cache keeps dynamic pages for 0 s (Next 15). Every page here is `force-dynamic` and

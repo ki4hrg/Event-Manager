@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import {
-  uploadBodyTooLarge,
+  uploadBodyRefusal,
   VALID_ENTITY_TYPES,
   EntityType,
   ENTITY_FK_FIELD,
@@ -29,10 +29,11 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (uploadBodyTooLarge(request, MAX_UPLOAD_BYTES)) {
+  const refusal = uploadBodyRefusal(request, MAX_UPLOAD_BYTES);
+  if (refusal) {
     return NextResponse.json(
-      { error: `File exceeds maximum size of ${MAX_UPLOAD_BYTES} bytes` },
-      { status: 413 }
+      { error: refusal === 411 ? "Content-Length required" : `File exceeds maximum size of ${MAX_UPLOAD_BYTES} bytes` },
+      { status: refusal }
     );
   }
 

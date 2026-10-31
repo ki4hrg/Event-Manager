@@ -10,12 +10,14 @@ export const MAX_UPLOAD_BYTES = Number.isFinite(parsedMax) && parsedMax > 0 ? pa
 
 // The upload routes sit outside the proxy (src/proxy.ts), so nothing else caps
 // their bodies: each checks the declared length after auth and before
-// formData() buffers it. No Content-Length (a chunked body) is refused too.
-// The slack covers the multipart boundaries and the small fields.
-export function uploadBodyTooLarge(request: Request, maxFileBytes: number): boolean {
+// formData() buffers it: 411 when there is no Content-Length (a chunked
+// body), 413 when it is over the cap, else null. The slack covers the
+// multipart boundaries and the small fields.
+export function uploadBodyRefusal(request: Request, maxBytes: number): 411 | 413 | null {
   const header = request.headers.get("content-length");
   const length = header === null ? NaN : Number(header);
-  return !Number.isFinite(length) || length > maxFileBytes + 64 * 1024;
+  if (!Number.isFinite(length) || length < 0) return 411;
+  return length > maxBytes + 64 * 1024 ? 413 : null;
 }
 
 export const ALLOWED_UPLOAD_MIME_TYPES = new Set<string>([

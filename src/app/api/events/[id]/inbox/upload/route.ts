@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/permissions";
-import { MAX_UPLOAD_BYTES, uploadBodyTooLarge } from "@/lib/uploads";
+import { auth } from "@/lib/auth";
+import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
+import { MAX_UPLOAD_BYTES, uploadBodyRefusal } from "@/lib/uploads";
 import { submitInboundItemCore, type SubmitAttachment } from "@/app/events/inbox/core";
 import { isInboxUploadable } from "@/app/events/inbox/views";
 
@@ -13,11 +14,28 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
-  const session = await requirePermission("EVENTS", "WRITE", eventId);
-  // Outside the proxy (src/proxy.ts): cap the whole body, all files together,
-  // before formData() buffers it.
-  if (uploadBodyTooLarge(request, MAX_UPLOAD_BYTES)) {
-    return NextResponse.json({ error: "The files together are larger than the upload limit" }, { status: 413 });
+  // Outside the proxy (src/proxy.ts): auth and the cap on the whole body (all
+  // files together) come before formData() buffers it. Refusals are JSON
+  // statuses, not redirects: the drop zone's fetch would follow a redirect to
+  // a 200 page and report the upload as done.
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Signed out. Sign in and try again." }, { status: 401 });
+  try {
+    await requirePermissionForUser(session.user.id, "EVENTS", "WRITE", eventId);
+  } catch (err) {
+    if (err instanceof PermissionError) {
+      return err.kind === "NOT_FOUND"
+        ? NextResponse.json({ error: "Not found" }, { status: 404 })
+        : NextResponse.json({ error: "You can't add to this inbox" }, { status: 403 });
+    }
+    throw err;
+  }
+  const refusal = uploadBodyRefusal(request, MAX_UPLOAD_BYTES);
+  if (refusal) {
+    return NextResponse.json(
+      { error: refusal === 411 ? "Content-Length required" : "The files together are larger than the upload limit" },
+      { status: refusal },
+    );
   }
 
   const formData = await request.formData();
