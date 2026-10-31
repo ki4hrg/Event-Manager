@@ -67,10 +67,18 @@ Changes a user or operator can see that `tsc`, lint and the build don't catch.
   `SendTestEmailForm`, `ResetPasswordForm`, `ApiKeyForm`, `OptionList` (add, edit),
   `SetupTableList`, `ScheduleList` (add, edit), `KeyStaffList`, `EventStaffList`, the
   function/venue/vendor contact and speaker add forms, `FormLinkButton`, `PickupGuests`,
-  `RfpRecipients` (add hotel), `SeriesList` (create, rename) and `LocationContents` (add, edit
-  item). `LocationContents`' add form clears itself after a success for the next item, so it
-  cancels the reset only after a refusal. Forms that redirect, close or remount on success and
-  let a throw reach the error boundary are unchanged: the reset there is invisible.
+  `RfpRecipients` (add hotel), `SeriesList` (create, rename), `LocationContents` (add, edit
+  item) and `BreakoutGrid` (add session, add group, rename group: their actions return at once
+  and run the save in `startTransition`, so React reset them on submit, blanking the fields
+  while the save was pending). `LocationContents`' add form clears after a success for the
+  next item, so it cancels the reset only after a refusal. `SendTestEmailForm` stays on screen
+  after a send and now keeps the recipient, as on React 18. In `ScheduleList`, editing the form
+  after a conflict withdraws "Save anyway", which saves the values that conflicted.
+  Unchanged: forms whose action awaits the save and then redirects, closes or remounts, with
+  a throw going to the error boundary (`SupplyOrderItemPanel`'s item form, `PresentationForm`,
+  `MediaDeliverableForm`, `WorkflowEditor`, the order forms). They never show a refusal in
+  place, so the reset isn't seen. A new form that shows a refusal in place needs
+  `keepFormValues` too (parked in `reviews/claudemd/candidates.md`).
 - **Proxy body limit.** Next 16 buffers the body of a request passing through the proxy and
   cuts it off at 10MB (`experimental.proxyClientMaxBodySize`). The proxy matches every route,
   so uploads over 10MB arrived truncated. `next.config.mjs` sets it to `"100mb"`, matching
@@ -83,9 +91,11 @@ Changes a user or operator can see that `tsc`, lint and the build don't catch.
   edge. Same matcher and the same NextAuth check (signed-out page → `/login`, `/mcp` → 401).
 - **Server error messages.** A plain `Error` thrown by a Server Action reaches the client as
   React's minified "error #441" text in production (Next 14 showed an English "omitted in
-  production" sentence). The forms that print `e.message` (`UserForm`, `RoleForm`,
-  `TenantForm`, `ResetPasswordForm`) now show that text for a refusal. Not fixed here: tracked
-  as a follow-up issue.
+  production" sentence). Every client component that prints `e.message` from a thrown action
+  shows that text: the redirecting admin forms (`UserForm`, `RoleForm`, `TenantForm`,
+  `ResetPasswordForm`) for every refusal, and the `useTransition` callers (`ApiKeyForm`,
+  `SeriesList`, `MembershipEditor`, `LocationContents`, the inbox reviews and others) for
+  anything that isn't a `UserFacingError`. Not fixed here: a follow-up issue.
 
 ## Follow-ups
 

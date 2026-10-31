@@ -304,18 +304,17 @@ function AddItemForm({
   fieldProps: FieldProps;
   createItem: (formData: FormData) => Promise<void | UserError>;
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
   const detailRef = useRef<HTMLInputElement>(null);
   const [equipmentId, setEquipmentId] = useState("");
   const [error, setError] = useState<string | null>(null);
-  // Clears after an add, for the next item; keeps what was typed after a
-  // refusal (see keepFormValues).
+  // React clears the form after an add, for the next item; keep what was
+  // typed after a refusal (see keepFormValues). The submit button is
+  // disabled while pending, so submissions don't overlap.
   const refused = useRef(false);
   const router = useRouter();
 
   return (
     <form
-      ref={formRef}
       onReset={(e) => {
         if (refused.current) keepFormValues(e);
       }}
@@ -329,7 +328,6 @@ function AddItemForm({
             setError(result.error);
             return;
           }
-          formRef.current?.reset();
           detailRef.current?.focus();
           router.refresh();
         } catch (e) {
