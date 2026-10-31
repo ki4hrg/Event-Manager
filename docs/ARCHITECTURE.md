@@ -333,7 +333,7 @@ The report readers in `src/app/events/reports/data.ts` remain auth-free (the sha
 1. Pick or create `src/lib/mcpTools/<entity>.ts`. Export a `McpToolDefinition[]`.
 2. Each handler must (a) call `requirePermissionForUser` first, (b) call Prisma directly via `@/lib/prisma` — do NOT call sibling Server Actions (they use session auth via `auth()`), (c) return raw shapes; the dispatcher serializes them.
 3. Register the new array in `src/lib/mcpTools/index.ts`.
-4. JSON Schema in `inputSchema` is not yet enforced at runtime (input validation at every boundary is phase 3 of the standards sweep). Tools throw `Error` for bad input.
+4. The dispatcher (`src/app/mcp/route.ts`) checks the JSON-RPC envelope: a `method`, `params` and tool `arguments` that are objects, and batches of 1–20 requests. JSON Schema in `inputSchema` is not yet enforced per argument (the next phase 3 step). Tools throw `Error` for bad input.
 5. Partial-update args use `partialString` / `partialInt` / `partialBoolean` from `src/lib/mcpTools/types.ts` (absent → unchanged, `null` → clear), so a new optional column doesn't force callers to resend it.
 6. Every id a write tool requires must be discoverable from another tool's output — `create_inventory_item` needs `equipmentId`, so `list_equipment_catalog` shipped with it.
 7. Gate at the permission the app enforces for the same operation, not the resource that shares the name (`list_equipment_catalog` checks `STORAGE_LOCATIONS` VIEW because `getEquipment()` serves every order form's picker; `EQUIPMENT` is admin-only).

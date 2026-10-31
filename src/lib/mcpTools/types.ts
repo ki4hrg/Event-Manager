@@ -1,12 +1,11 @@
 // Shared shape for every MCP tool. The dispatcher in /mcp/route.ts loads
 // the registry (see ./index.ts), advertises tools on tools/list, and runs the
-// matching handler on tools/call. Tool args are passed as parsed JSON; the
-// handler is responsible for shape-checking what it needs.
+// matching handler on tools/call. The dispatcher guarantees `args` is a JSON
+// object; the handler is responsible for shape-checking what it needs.
 //
-// We do not run runtime JSON Schema validation on incoming args — same trust
-// model as Server Actions trusting FormData typing. The advertised schema is
-// descriptive (helps the LLM construct correct calls); Prisma + permission
-// checks throw on bad input and the dispatcher returns the error to the caller.
+// The advertised JSON Schema isn't enforced per argument yet (phase 3,
+// docs/plans/phase3-boundaries.md); until it is, Prisma and permission checks
+// throw on bad input and the dispatcher returns the error to the caller.
 export type McpToolHandler = (args: Record<string, unknown>, ctx: McpToolContext) => Promise<unknown>;
 
 export type McpToolContext = {
