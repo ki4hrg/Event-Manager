@@ -241,6 +241,9 @@ export async function requirePermission(
 ): Promise<PermittedSession> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  // An action's eventId comes from the client. Anything but a string (an
+  // object would read as a tenant-wide target) is an event that doesn't exist.
+  if (eventId != null && typeof eventId !== "string") notFound();
   const target: PermissionTarget = eventId ? eventId : { tenantId: await requireActiveTenantId() };
   try {
     const { scope, allowed, tenantId } = await resolvePermissionForUser(

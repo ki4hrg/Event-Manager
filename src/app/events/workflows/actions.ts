@@ -4,10 +4,11 @@ import { notFound } from "next/navigation";
 import { requirePermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import type { EntityStatus } from "@prisma/client";
+import { EntityStatus } from "@prisma/client";
+import { z } from "zod";
 import { instanceProgress, templateProgress, type WorkflowRowSummary } from "@/lib/workflowProgress";
 import { loadWorkflowChecks, withWorkflowChecks } from "@/lib/workflowCheckData";
-import { ENTITY_TYPE_RESOURCE } from "./entity-types";
+import { ENTITY_TYPE_RESOURCE, isWorkflowEntityType } from "./entity-types";
 import { WORKFLOW_ENTITY_DELEGATES } from "./entity-delegates";
 import {
   autoAssignDefaultWorkflowsCore,
@@ -26,6 +27,7 @@ async function assertEntityInEvent(
   entityId: string,
   eventId: string,
 ) {
+  if (!idSchema.safeParse(entityId).success) notFound();
   const found = await WORKFLOW_ENTITY_DELEGATES[entityType].find(entityId, eventId);
   if (!found) notFound();
 }
@@ -38,6 +40,7 @@ async function assertInstanceMatches(
   entityType: WorkflowEntityType,
   entityId: string,
 ) {
+  if (!idSchema.safeParse(instanceId).success) notFound();
   const inst = await prisma.workflowInstance.findUnique({
     where: { id: instanceId },
     select: { entityType: true, entityId: true },
@@ -48,6 +51,7 @@ async function assertInstanceMatches(
 // Confirms a step / checklist item belongs to the instance's own template, so
 // a completion can't be recorded against (or cascade from) a foreign step.
 async function assertInInstanceTemplate(instanceId: string, ref: { stepId: string } | { itemId: string }) {
+  if (!idSchema.safeParse("stepId" in ref ? ref.stepId : ref.itemId).success) notFound();
   const onInstance = { template: { instances: { some: { id: instanceId } } } };
   const found =
     "stepId" in ref
@@ -55,6 +59,8 @@ async function assertInInstanceTemplate(instanceId: string, ref: { stepId: strin
       : await prisma.workflowChecklistItem.findFirst({ where: { id: ref.itemId, step: onInstance }, select: { id: true } });
   if (!found) notFound();
 }
+
+const idSchema = z.string().min(1).max(100);
 
 async function filterEntityIdsInEvent(
   entityType: WorkflowEntityType,
@@ -65,13 +71,22 @@ async function filterEntityIdsInEvent(
   return rows.map((r) => r.id);
 }
 
+// The first line of every action. entityType keys the resource and delegate
+// maps, so an unknown one (or "constructor") reads as not-found, as does an
+// event id that isn't a string.
 async function gateWorkflowAction(
   entityType: WorkflowEntityType,
   eventId: string,
   action: PermissionAction,
 ) {
+  if (!isWorkflowEntityType(entityType) || typeof eventId !== "string" || !eventId) notFound();
   return requirePermission(ENTITY_TYPE_RESOURCE[entityType], action, eventId);
 }
+
+// A status, or "" for none. A substatus is a CustomOption label, stored as
+// sent (trimming could stop it matching its option); only bounded here.
+const StatusSchema = z.union([z.enum(EntityStatus), z.literal("")]).transform((s) => s || null);
+const SubstatusSchema = z.string().max(1000).transform((s) => s || null);
 
 function revalidateEntity(entityType: WorkflowEntityType, entityId: string, eventId: string) {
   revalidatePath(WORKFLOW_ENTITY_DELEGATES[entityType].path(eventId, entityId));
@@ -109,6 +124,7 @@ export async function assignWorkflow(
 ) {
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
+  if (!idSchema.safeParse(templateId).success) notFound();
   // The template must be the event's tenant's own; a foreign id would attach
   // (and then render) another organization's workflow.
   const template = await prisma.workflowTemplate.findFirst({
@@ -186,6 +202,8 @@ export async function getWorkflowBadgeSummaries(
   eventId: string
 ): Promise<Record<string, WorkflowRowSummary>> {
   await gateWorkflowAction(entityType, eventId, "VIEW");
+  // No length cap: list pages pass every row's id.
+  entityIds = z.array(idSchema).parse(entityIds);
   if (entityIds.length === 0) return {};
 
   // Restrict to ids that actually belong to this event; a caller could pass
@@ -289,8 +307,8 @@ export async function setEntityStatus(
 ) {
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
-  const status = (formData.get("status") as EntityStatus | null) || null;
-  const substatus = (formData.get("substatus") as string | null) || null;
+  const status = StatusSchema.parse(formData.get("status") ?? "");
+  const substatus = SubstatusSchema.parse(formData.get("substatus") ?? "");
   await updateEntityStatusCore(entityType, entityId, eventId, status, substatus);
   revalidateEntity(entityType, entityId, eventId);
 }
@@ -303,7 +321,7 @@ export async function cancelEntity(
 ) {
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
-  await updateEntityStatusCore(entityType, entityId, eventId, "CANCELLED", substatus);
+  await updateEntityStatusCore(entityType, entityId, eventId, "CANCELLED", SubstatusSchema.parse(substatus ?? ""));
   revalidateEntity(entityType, entityId, eventId);
 }
 

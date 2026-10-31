@@ -3,6 +3,7 @@ import { formLinkUrl } from "@/lib/email";
 import {
   applyFormSubmissionCore,
   createFormLinkCore,
+  isFormType,
   deleteFormLinkCore,
   endOfDayInEvent,
   listFormLinksCore,
@@ -24,8 +25,8 @@ const FORM_TYPES = Object.values(FormType);
 
 function readFormType(args: Record<string, unknown>): FormType {
   const v = requireString(args, "formType");
-  if (!FORM_TYPES.includes(v as FormType)) throw new Error(`formType must be one of ${FORM_TYPES.join(", ")}`);
-  return v as FormType;
+  if (!isFormType(v)) throw new Error(`formType must be one of ${FORM_TYPES.join(", ")}`);
+  return v;
 }
 
 export const formTools: McpToolDefinition[] = [
@@ -98,7 +99,7 @@ export const formTools: McpToolDefinition[] = [
       if (dueRaw && !dueAt) throw new Error("dueAt must be YYYY-MM-DD");
       const sections = optionalStringArray(args, "sections");
       const alsoFormTypes = optionalStringArray(args, "alsoFormTypes");
-      if (alsoFormTypes.some((t) => !FORM_TYPES.includes(t as FormType))) throw new Error("Unknown form type in alsoFormTypes");
+      if (!alsoFormTypes.every(isFormType)) throw new Error("Unknown form type in alsoFormTypes");
       const allTypes = [formType, ...(alsoFormTypes as FormType[])];
       const link = await createFormLinkCore(
         {
