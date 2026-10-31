@@ -30,7 +30,11 @@ const REDIRECTED = { digest: expect.stringContaining("NEXT_REDIRECT") };
 describe("setNewPassword", () => {
   it("sets the password and spends the link", async () => {
     const { user, token } = await resetToken();
+    // Also proves the spy sees the action's hash, so the refusal tests can't pass vacuously.
+    const hash = vi.spyOn(bcrypt, "hash");
     await expect(setNewPassword(form({ token, password: "correct horse", confirm: "correct horse" }))).rejects.toMatchObject(REDIRECTED);
+    expect(hash).toHaveBeenCalledTimes(1);
+    hash.mockRestore();
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     expect(await bcrypt.compare("correct horse", after.password!)).toBe(true);
     const row = await prisma.passwordResetToken.findUniqueOrThrow({ where: { token } });
@@ -54,10 +58,17 @@ describe("setNewPassword", () => {
     ["an unknown token", async () => ({ token: randomUUID() })],
     ["an expired token", async () => resetToken({ expiresInMs: -1000 })],
     ["a used token", async () => resetToken({ used: true })],
-  ])("returns the expired-link error for %s", async (_label, make) => {
+  ])("returns the expired-link error for %s, without hashing the password", async (_label, make) => {
     const { token } = await make();
-    const result = await setNewPassword(form({ token, password: "correct horse", confirm: "correct horse" }));
-    expect(result).toEqual({ error: expect.stringContaining("no longer valid") });
+    const hash = vi.spyOn(bcrypt, "hash");
+    try {
+      // A short password too: the dead link is the refusal the person sees.
+      const result = await setNewPassword(form({ token, password: "abc", confirm: "abc" }));
+      expect(result).toEqual({ error: expect.stringContaining("no longer valid") });
+      expect(hash).not.toHaveBeenCalled();
+    } finally {
+      hash.mockRestore();
+    }
   });
 
   it.each([
@@ -85,19 +96,4 @@ describe("setNewPassword", () => {
     expect(first !== second).toBe(true);
   });
 
-  it.each([
-    ["an unknown link", async () => randomUUID()],
-    ["an expired link", async () => (await resetToken({ expiresInMs: -1000 })).token],
-    ["a spent link", async () => (await resetToken({ used: true })).token],
-  ])("refuses %s without hashing the password", async (_, makeToken) => {
-    const token = await makeToken();
-    const hash = vi.spyOn(bcrypt, "hash");
-    try {
-      const result = await setNewPassword(form({ token, password: "correct horse", confirm: "correct horse" }));
-      expect(result).toMatchObject({ error: expect.stringContaining("no longer valid") });
-      expect(hash).not.toHaveBeenCalled();
-    } finally {
-      hash.mockRestore();
-    }
-  });
 });

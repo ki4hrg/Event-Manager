@@ -143,7 +143,7 @@ export async function findValidPasswordResetToken(
   });
   if (!row) return null;
   if (row.usedAt) return null;
-  if (row.expiresAt < new Date()) return null;
+  if (row.expiresAt <= new Date()) return null;
   return { id: row.id, userId: row.userId };
 }
 

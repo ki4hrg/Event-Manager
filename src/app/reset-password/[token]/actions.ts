@@ -35,12 +35,13 @@ export async function setNewPassword(formData: FormData): Promise<void | UserErr
     const expired = new UserFacingError("This link is no longer valid. Request a new one from the sign-in page.");
     const token = TokenSchema.safeParse(field(formData, "token"));
     if (!token.success) throw expired;
+    // A cheap read first: a dead or made-up link is refused before anything
+    // else, and never costs a bcrypt hash (this action is public). It doesn't
+    // decide; the claim below does.
+    const live = await findValidPasswordResetToken(token.data);
+    if (!live) throw expired;
     const parsed = PasswordSchema.safeParse({ password: field(formData, "password"), confirm: field(formData, "confirm") });
     if (!parsed.success) throw new UserFacingError(parsed.error.issues[0].message);
-
-    // A cheap read first: a dead or made-up link never costs a bcrypt hash
-    // (this action is public). It doesn't decide; the claim below does.
-    if (!(await findValidPasswordResetToken(token.data))) throw expired;
 
     const hashed = await bcrypt.hash(parsed.data.password, 10);
     // One atomic claim decides: unused and unexpired at the moment of the
@@ -53,8 +54,8 @@ export async function setNewPassword(formData: FormData): Promise<void | UserErr
         data: { usedAt: now },
       });
       if (count !== 1) return false;
-      const row = await tx.passwordResetToken.findUniqueOrThrow({ where: { token: token.data }, select: { userId: true } });
-      await tx.user.update({ where: { id: row.userId }, data: { password: hashed } });
+      // A token's user never changes, so the pre-check's read still holds.
+      await tx.user.update({ where: { id: live.userId }, data: { password: hashed } });
       return true;
     });
     if (!claimed) throw expired;
