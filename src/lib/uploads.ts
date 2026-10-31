@@ -8,6 +8,16 @@ const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const parsedMax = process.env.MAX_UPLOAD_BYTES ? parseInt(process.env.MAX_UPLOAD_BYTES, 10) : NaN;
 export const MAX_UPLOAD_BYTES = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : DEFAULT_MAX_UPLOAD_BYTES;
 
+// The upload routes sit outside the proxy (src/proxy.ts), so nothing else caps
+// their bodies: each checks the declared length after auth and before
+// formData() buffers it. No Content-Length (a chunked body) is refused too.
+// The slack covers the multipart boundaries and the small fields.
+export function uploadBodyTooLarge(request: Request, maxFileBytes: number): boolean {
+  const header = request.headers.get("content-length");
+  const length = header === null ? NaN : Number(header);
+  return !Number.isFinite(length) || length > maxFileBytes + 64 * 1024;
+}
+
 export const ALLOWED_UPLOAD_MIME_TYPES = new Set<string>([
   "application/pdf",
   "image/jpeg",

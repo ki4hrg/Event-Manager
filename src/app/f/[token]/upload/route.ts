@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { DRAFT_COOKIE, PublicFormError, draftCookieOptions, formRequestAllowed, getActiveFormLink } from "@/lib/forms/links";
 import { attachPublicUploadCore } from "@/lib/forms/publicCore";
 import { clientIpFrom } from "@/lib/rateLimit";
-import { PUBLIC_UPLOAD_MAX_BYTES } from "@/lib/uploads";
+import { PUBLIC_UPLOAD_MAX_BYTES, uploadBodyTooLarge } from "@/lib/uploads";
 
 // Public form upload: a route handler because Server Actions can't take a
 // streamed multipart body of this size. Public by the /f/ prefix in the
@@ -11,8 +11,8 @@ import { PUBLIC_UPLOAD_MAX_BYTES } from "@/lib/uploads";
 // Server Actions get Next's Origin check for free, this handler does not, so
 // it checks Origin itself.
 
-// Room for the multipart envelope around one file.
-const MAX_BODY_BYTES = PUBLIC_UPLOAD_MAX_BYTES + 64 * 1024;
+// Outside the proxy (src/proxy.ts), which never authenticated it anyway: the
+// size cap below is the only one on the body.
 
 function sameOrigin(request: NextRequest): boolean {
   const origin = request.headers.get("origin");
@@ -30,8 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!sameOrigin(request)) return NextResponse.json({ error: "upload" }, { status: 403 });
 
   // Refuse oversized bodies before buffering them.
-  const length = Number(request.headers.get("content-length") ?? NaN);
-  if (!Number.isFinite(length) || length > MAX_BODY_BYTES) {
+  if (uploadBodyTooLarge(request, PUBLIC_UPLOAD_MAX_BYTES)) {
     return NextResponse.json({ error: "upload" }, { status: 413 });
   }
 

@@ -45,7 +45,7 @@ Found while upgrading (not in the guides' headline list):
 | Change | Here | Action |
 |---|---|---|
 | `next/dynamic` with `ssr: false` not allowed in Server Components (15) | Agenda page | Moved into a small Client Component, `AgendaGridNoSsr.tsx` |
-| Bodies of requests passing through the proxy are cut off at 10MB by default (`experimental.proxyClientMaxBodySize`) | The proxy matches every route, uploads allow 100MB | Set `proxyClientMaxBodySize: "100mb"` to match `MAX_UPLOAD_BYTES` |
+| Bodies of requests passing through the proxy are cut off at 10MB by default (`experimental.proxyClientMaxBodySize`) | The proxy matches every route, uploads allow 100MB | Keep the 10MB default; the three upload routes skip the proxy and cap their own bodies after auth (#253) |
 | `eslint-plugin-react-hooks` 7.1 `set-state-in-effect` | 7 hand-rolled type-ahead searches cleared results inside the effect | Derive "no results" from the query length instead, as `useDebouncedSearch` does |
 | `next build` rewrites `tsconfig.json` (`jsx: react-jsx`, `target`, `.next/dev/types`) | | Committed as written |
 | React 19 resets a `<form action={fn}>`'s uncontrolled fields after the action returns | Forms that show a validation or caught server error lose what the user typed | `onReset={keepFormValues}`: see Runtime behaviour changes |
@@ -81,8 +81,14 @@ Changes a user or operator can see that `tsc`, lint and the build don't catch.
   `keepFormValues` too (parked in `reviews/claudemd/candidates.md`).
 - **Proxy body limit.** Next 16 buffers the body of a request passing through the proxy and
   cuts it off at 10MB (`experimental.proxyClientMaxBodySize`). The proxy matches every route,
-  so uploads over 10MB arrived truncated. `next.config.mjs` sets it to `"100mb"`, matching
-  `MAX_UPLOAD_BYTES`.
+  so uploads over 10MB arrived truncated. #248 raised the limit to `"100mb"`, which let any
+  request, signed in or not, buffer 100MB on any route. #253 put it back to the default and
+  took the three upload routes out of the proxy matcher (`src/proxy.ts`): `/api/upload`,
+  `/f/[token]/upload` and `/api/events/[id]/inbox/upload`. Each authenticates before reading
+  the body (session, `requirePermission`, or the form-link token plus Origin) and refuses a
+  body over its limit, or with no `Content-Length`, through `uploadBodyTooLarge`
+  (`src/lib/uploads.ts`). The inbox cap covers all its files together. A new upload route
+  needs the same matcher exclusion and checks.
 
 - **Caching.** GET route handlers and `fetch` are no longer cached by default, and the client
   router cache keeps dynamic pages for 0 s (Next 15). Every page here is `force-dynamic` and

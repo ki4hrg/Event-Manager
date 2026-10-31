@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/permissions";
-import { MAX_UPLOAD_BYTES } from "@/lib/uploads";
+import { MAX_UPLOAD_BYTES, uploadBodyTooLarge } from "@/lib/uploads";
 import { submitInboundItemCore, type SubmitAttachment } from "@/app/events/inbox/core";
 import { isInboxUploadable } from "@/app/events/inbox/views";
 
@@ -14,6 +14,11 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
   const session = await requirePermission("EVENTS", "WRITE", eventId);
+  // Outside the proxy (src/proxy.ts): cap the whole body, all files together,
+  // before formData() buffers it.
+  if (uploadBodyTooLarge(request, MAX_UPLOAD_BYTES)) {
+    return NextResponse.json({ error: "The files together are larger than the upload limit" }, { status: 413 });
+  }
 
   const formData = await request.formData();
   const files = formData.getAll("files").filter((f): f is File => typeof f !== "string" && f.size > 0);
