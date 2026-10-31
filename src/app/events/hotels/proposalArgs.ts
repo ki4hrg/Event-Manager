@@ -1,15 +1,4 @@
 import type { OfferHotel } from "@/lib/inboundParse";
-import type { HotelChargeScope } from "@prisma/client";
-import type {
-  ProposalAmenityArgs,
-  ProposalChargeArgs,
-  ProposalConcessionArgs,
-  ProposalMealArgs,
-  ProposalNightArgs,
-  ProposalOfferedConcessionArgs,
-  ProposalSpaceArgs,
-  ProposalWriteArgs,
-} from "./core";
 
 // ProposalForm's FormData → the proposal cores' args. Plain module: the
 // hotels actions and the inbox (applying a proposal read from email) share it.
@@ -54,58 +43,3 @@ export function readNewHotel(formData: FormData): OfferHotel | null {
   if (formData.get("venueId") !== NEW_HOTEL) return null;
   return Object.fromEntries(NEW_HOTEL_KEYS.map((k) => [k, (formData.get(`newHotel.${k}`) as string) || null])) as OfferHotel;
 }
-
-export function readJson<T>(formData: FormData, key: string): T[] {
-  const raw = formData.get(key);
-  if (typeof raw !== "string" || !raw) return [];
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed)) throw new Error(`${key} must be a list`);
-  return parsed as T[];
-}
-
-export function readProposal(formData: FormData): ProposalWriteArgs {
-  const str = (k: string) => (formData.get(k) as string) || null;
-  const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
-  // Fields the form may leave out: absent leaves what the proposal has.
-  const optional = <T>(k: string, read: (k: string) => T) => (formData.has(k) ? read(k) : undefined);
-  return {
-    venueId: formData.get("venueId") as string,
-    status: formData.get("status") as string,
-    // "" not set, LEAD_SOURCE_DIRECT, or a lead-source vendor's id.
-    leadSourceDirect: formData.get("leadSource") === LEAD_SOURCE_DIRECT,
-    leadSourceVendorId: formData.get("leadSource") === LEAD_SOURCE_DIRECT ? null : str("leadSource"),
-    leadSourceContactId: str("leadSourceContactId"),
-    contractType: str("contractType"),
-    guestType: str("guestType"),
-    submittedOn: str("submittedOn"),
-    checkIn: str("checkIn"),
-    checkOut: str("checkOut"),
-    declinedReason: str("declinedReason"),
-    notes: str("notes"),
-    revision: formData.get("revision") ? parseInt(formData.get("revision") as string) : 1,
-    revisionSummary: str("revisionSummary"),
-    allowedAttrition: num("allowedAttrition"),
-    guaranteedRevenue: num("guaranteedRevenue"),
-    validUntil: str("validUntil"),
-    // "true" / "false"; blank = not stated.
-    taxIncluded: formData.get("taxIncluded") === "true" ? true : formData.get("taxIncluded") === "false" ? false : null,
-    amenities: readJson<ProposalAmenityArgs>(formData, "amenities"),
-    nights: readJson<ProposalNightArgs>(formData, "nights"),
-    charges: readJson<ProposalChargeArgs>(formData, "charges"),
-    meetingCharges: optional("meetingCharges", (k) => readJson<ProposalChargeArgs>(formData, k)),
-    spaces: optional("spaces", (k) => readJson<ProposalSpaceArgs>(formData, k)),
-    fbMinimum: optional("fbMinimum", num),
-    fbMinimumScope: optional("fbMinimumScope", (k) => (str(k) as HotelChargeScope | null)),
-    fbMinimumNote: optional("fbMinimumNote", str),
-    fbTaxRate: optional("fbTaxRate", num),
-    fbServiceCharge: optional("fbServiceCharge", num),
-    meals: optional("meals", (k) => readJson<ProposalMealArgs>(formData, k)),
-    // The form also posts the link it shows as saved: an untouched picker
-    // leaves the link alone, so a form loaded before a link made elsewhere
-    // can't undo it.
-    rfpBlockId: formData.has("rfpBlockId") && formData.get("rfpBlockId") !== formData.get("rfpBlockWas") ? str("rfpBlockId") : undefined,
-    concessions: formData.has("concessions") ? readJson<ProposalConcessionArgs>(formData, "concessions") : undefined,
-    offeredConcessions: formData.has("offeredConcessions") ? readJson<ProposalOfferedConcessionArgs>(formData, "offeredConcessions") : undefined,
-  };
-}
-

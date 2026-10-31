@@ -17,9 +17,12 @@ import {
   createNewHotelCore,
   deleteHotelProposalCore,
   linkHotelProposalCore,
+  ProposalChargeSchema,
   updateHotelProposalCore,
 } from "./core";
-import { readJson, readNewHotel, readProposal } from "./proposalArgs";
+import { readNewHotel } from "./proposalArgs";
+import { readProposal } from "./readProposal";
+import { readJsonList } from "@/lib/validation";
 import {
   clearFinalGuestListCore,
   clearPickupCore,
@@ -33,7 +36,7 @@ import {
   savePickupCountsCore,
   updateHotelBlockCore,
   updatePickupGuestCore,
-  type BlockNightArgs,
+  BlockNightSchema,
   type FinalGuestArgs,
   type PickupCountArgs,
   type PickupGuestArgs,
@@ -390,8 +393,8 @@ export async function updateHotelBlock(blockId: string, eventId: string, formDat
       compRatio: int("compRatio"),
       staffRooms: int("staffRooms"),
       notes: str("notes"),
-      nights: readJson<BlockNightArgs>(formData, "nights"),
-      charges: readJson<{ chargeType: string; amount: number | null; scope: HotelChargeScope | null }>(formData, "charges"),
+      nights: readJsonList(formData, "nights", BlockNightSchema),
+      charges: readJsonList(formData, "charges", ProposalChargeSchema),
     },
     session.user.id,
   );

@@ -1,5 +1,8 @@
 "use server";
 
+import { z } from "zod";
+import { readJsonList } from "@/lib/validation";
+
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import type { RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
@@ -33,6 +36,8 @@ import {
   updateRfpCore,
   updateRfpRecipientCore,
   type RfpBlockArgs,
+  RfpAlternateDatesSchema,
+  RfpBlockSchema,
   type RfpConcessionArgs,
   type RfpLineItemArgs,
   type RfpFillArgs,
@@ -346,14 +351,6 @@ export async function getRfpPatternFill(
   return { events: events.length, nights: nights.map((n) => ({ night: n.night, rooms: Math.round(n.rooms) })).filter((n) => n.rooms > 0) };
 }
 
-function readJson<T>(formData: FormData, key: string): T[] {
-  const raw = formData.get(key);
-  if (typeof raw !== "string" || !raw) return [];
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed)) throw new Error(`${key} must be a list`);
-  return parsed as T[];
-}
-
 function readRfp(formData: FormData): RfpWriteArgs {
   const str = (k: string) => (formData.get(k) as string) || null;
   // Selects post BLANK for "none".
@@ -379,7 +376,7 @@ function readRfp(formData: FormData): RfpWriteArgs {
     departureDate: str("departureDate"),
     datesFlexible: formData.get("datesFlexible") === "true",
     dateNotes: str("dateNotes"),
-    alternateDates: readJson<{ startDate: string; endDate: string }>(formData, "alternateDates"),
+    alternateDates: readJsonList(formData, "alternateDates", RfpAlternateDatesSchema, 50),
     peakRooms: formData.get("peakRooms") ? parseInt(formData.get("peakRooms") as string) : null,
     multiProperty: formData.get("multiProperty") === "true",
     historyMatching: formData.get("historyMatching") === "true",
@@ -400,8 +397,7 @@ function readRfp(formData: FormData): RfpWriteArgs {
 
 export async function createRfp(eventId: string, kind: RfpKind, formData: FormData) {
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const raw = formData.get("blocks");
-  const blocks = typeof raw === "string" && raw ? (JSON.parse(raw) as RfpBlockArgs[]) : [];
+  const blocks = readJsonList(formData, "blocks", RfpBlockSchema, 50);
   const rfp = await createRfpCore(eventId, kind, readRfp(formData), blocks, session.user.id);
   revalidateLists(eventId, kind);
   redirect(`${rfpPath(eventId, kind, rfp.id)}?success=RFP created`);
@@ -429,7 +425,8 @@ export async function deleteRfp(id: string, eventId: string) {
 export async function saveRfpBlocks(id: string, eventId: string, blocks: RfpBlockArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const ids = await saveRfpBlocksCore(id, eventId, blocks, session.user.id);
+  const parsed = z.array(RfpBlockSchema).max(50).parse(blocks);
+  const ids = await saveRfpBlocksCore(id, eventId, parsed, session.user.id);
   revalidatePath(rfpPath(eventId, kind, id));
   return ids;
 }

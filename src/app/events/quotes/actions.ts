@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { withUserErrors } from "@/lib/userErrors";
+import { readJsonList } from "@/lib/validation";
 import {
   awardVendorQuoteCore,
   clearRfpLineAwardsCore,
@@ -16,7 +17,7 @@ import {
   recordNoAwardCore,
   setVendorQuoteStatusCore,
   updateVendorQuoteCore,
-  type QuoteLineArgs,
+  QuoteLineSchema,
   type QuoteWriteArgs,
 } from "./core";
 
@@ -89,9 +90,7 @@ export async function getQuoteComparison(rfpId: string, eventId: string) {
 function readQuote(formData: FormData): QuoteWriteArgs {
   const str = (k: string) => (formData.get(k) as string) || null;
   const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
-  const raw = formData.get("lines");
-  const lines = typeof raw === "string" && raw ? (JSON.parse(raw) as QuoteLineArgs[]) : [];
-  if (!Array.isArray(lines)) throw new Error("lines must be a list");
+  const lines = readJsonList(formData, "lines", QuoteLineSchema);
   return {
     vendorId: formData.get("vendorId") as string,
     reference: str("reference"),

@@ -25,7 +25,9 @@ import {
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
-import { readNewHotel, readProposal } from "@/app/events/hotels/proposalArgs";
+import { readNewHotel } from "@/app/events/hotels/proposalArgs";
+import { readProposal } from "@/app/events/hotels/readProposal";
+import { readJsonList } from "@/lib/validation";
 import { getProposalFormChoices, getProposalRfpChoices } from "@/app/events/hotels/actions";
 import type { ConcessionAnswer, OfferedConcession, ProposalValues } from "@/app/events/hotels/ProposalForm";
 import { toProposalValues } from "@/app/events/hotels/core";
@@ -56,7 +58,7 @@ import {
 } from "./core";
 import { INBOX_VIEW_STATUSES, NEW_VENDOR, type InboxView } from "./views";
 import { CONTRACT_TARGETS, type ContractTarget } from "@/lib/inboundParse";
-import { quoteResource, type QuoteLineArgs } from "@/app/events/quotes/core";
+import { quoteResource, QuoteLineSchema, type QuoteLineArgs } from "@/app/events/quotes/core";
 import { formatDateKey, formatMoney } from "@/lib/hotels";
 
 const listSelect = {
@@ -718,8 +720,7 @@ export async function applyInboundQuote(id: string, eventId: string, formData: F
   const vendorId = formData.get("vendorId") as string;
   const newVendorName = vendorId === NEW_VENDOR ? (formData.get("newVendorName") as string) || null : null;
   if (vendorId === NEW_VENDOR && !newVendorName) throw new Error("The new vendor needs a name");
-  const raw = formData.get("lines");
-  const lines = typeof raw === "string" && raw ? (JSON.parse(raw) as QuoteLineArgs[]) : [];
+  const lines = readJsonList(formData, "lines", QuoteLineSchema);
   const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
   const str = (k: string) => (formData.get(k) as string) || null;
   const quoteId = await applyInboundQuoteCore(
