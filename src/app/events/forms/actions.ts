@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import type { FormType } from "@prisma/client";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { isEmailConfigured, sendFormLinkEmail } from "@/lib/email";
@@ -15,6 +15,7 @@ import {
   endOfDayInEvent,
   formLinkDisplay,
   listFormLinksCore,
+  isFormType,
   listFormSubmissionsCore,
   loadFormSubmissionReviewCore,
   rejectFormSubmissionCore,
@@ -70,7 +71,9 @@ export async function createFormLink(eventId: string, formData: FormData) {
     const expiresAt = await endOfDayInEvent(formData.get("expiresAt") as string, eventId);
     if (!expiresAt) throw new UserFacingError("Pick a close date");
     const maxRaw = formData.get("maxSubmissions") as string;
-    const formType = formData.get("formType") as FormType;
+    const formType = formData.get("formType");
+    // Checked before formModule() reads the form's own options.
+    if (!isFormType(formType)) throw new UserFacingError("Pick a form");
     // "anyone" links carry no recipient, whatever the hidden fields held.
     const specific = formData.get("audience") !== "anyone";
     const link = await createFormLinkCore(
@@ -88,12 +91,13 @@ export async function createFormLink(eventId: string, formData: FormData) {
         intro: (formData.get("intro") as string) || null,
         mediaUploadUrl: (formData.get("mediaUploadUrl") as string) || null,
         functionIds: formData.getAll("functionIds") as string[],
+        // Checked against FormType in the core.
         alsoFormTypes: formData.getAll("alsoFormTypes") as FormType[],
         options: formModule(formType).linkOptionsFromForm?.(formData) ?? null,
         workflowTemplateId: (formData.get("workflowTemplateId") as string) || null,
         dueAt: await endOfDayInEvent(formData.get("dueAt") as string, eventId),
         expiresAt,
-        maxSubmissions: maxRaw ? parseInt(maxRaw) : null,
+        maxSubmissions: maxRaw ? Number(maxRaw) : null,
       },
       session.user.id,
     );

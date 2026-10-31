@@ -28,6 +28,11 @@ export const ENTITY_TYPE_RESOURCE: Record<WorkflowEntityType, PermissionResource
   form_submission: "FORMS",
 };
 
+/** Whether a client-supplied string names a workflow entity type. */
+export function isWorkflowEntityType(v: unknown): v is WorkflowEntityType {
+  return typeof v === "string" && Object.hasOwn(ENTITY_TYPE_RESOURCE, v);
+}
+
 // Display labels, in the order the workflow editor offers them. A Record so a
 // new entity type can't ship without being offered for auto-assignment.
 export const WORKFLOW_ENTITY_LABELS: Record<WorkflowEntityType, string> = {

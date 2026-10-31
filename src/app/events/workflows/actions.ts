@@ -4,10 +4,11 @@ import { notFound } from "next/navigation";
 import { requirePermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import type { EntityStatus } from "@prisma/client";
+import { EntityStatus } from "@prisma/client";
+import { z } from "zod";
 import { instanceProgress, templateProgress, type WorkflowRowSummary } from "@/lib/workflowProgress";
 import { loadWorkflowChecks, withWorkflowChecks } from "@/lib/workflowCheckData";
-import { ENTITY_TYPE_RESOURCE } from "./entity-types";
+import { ENTITY_TYPE_RESOURCE, isWorkflowEntityType } from "./entity-types";
 import { WORKFLOW_ENTITY_DELEGATES } from "./entity-delegates";
 import {
   autoAssignDefaultWorkflowsCore,
@@ -26,6 +27,7 @@ async function assertEntityInEvent(
   entityId: string,
   eventId: string,
 ) {
+  if (!idSchema.safeParse(entityId).success) notFound();
   const found = await WORKFLOW_ENTITY_DELEGATES[entityType].find(entityId, eventId);
   if (!found) notFound();
 }
@@ -65,13 +67,22 @@ async function filterEntityIdsInEvent(
   return rows.map((r) => r.id);
 }
 
+// The first line of every action. entityType keys the resource and delegate
+// maps, so an unknown one (or "constructor") reads as not-found, as does an
+// event id that isn't a string.
 async function gateWorkflowAction(
   entityType: WorkflowEntityType,
   eventId: string,
   action: PermissionAction,
 ) {
+  if (!isWorkflowEntityType(entityType) || typeof eventId !== "string" || !eventId) notFound();
   return requirePermission(ENTITY_TYPE_RESOURCE[entityType], action, eventId);
 }
+
+const idSchema = z.string().min(1).max(100);
+// A status, or "" for none; a substatus is a CustomOption label.
+const StatusSchema = z.union([z.enum(EntityStatus), z.literal("")]).transform((s) => s || null);
+const SubstatusSchema = z.string().trim().max(200).transform((s) => s || null);
 
 function revalidateEntity(entityType: WorkflowEntityType, entityId: string, eventId: string) {
   revalidatePath(WORKFLOW_ENTITY_DELEGATES[entityType].path(eventId, entityId));
@@ -186,6 +197,7 @@ export async function getWorkflowBadgeSummaries(
   eventId: string
 ): Promise<Record<string, WorkflowRowSummary>> {
   await gateWorkflowAction(entityType, eventId, "VIEW");
+  entityIds = z.array(idSchema).max(5000).parse(entityIds);
   if (entityIds.length === 0) return {};
 
   // Restrict to ids that actually belong to this event; a caller could pass
@@ -289,8 +301,8 @@ export async function setEntityStatus(
 ) {
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
-  const status = (formData.get("status") as EntityStatus | null) || null;
-  const substatus = (formData.get("substatus") as string | null) || null;
+  const status = StatusSchema.parse(formData.get("status") ?? "");
+  const substatus = SubstatusSchema.parse(formData.get("substatus") ?? "");
   await updateEntityStatusCore(entityType, entityId, eventId, status, substatus);
   revalidateEntity(entityType, entityId, eventId);
 }
@@ -303,7 +315,7 @@ export async function cancelEntity(
 ) {
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
-  await updateEntityStatusCore(entityType, entityId, eventId, "CANCELLED", substatus);
+  await updateEntityStatusCore(entityType, entityId, eventId, "CANCELLED", SubstatusSchema.parse(substatus ?? ""));
   revalidateEntity(entityType, entityId, eventId);
 }
 

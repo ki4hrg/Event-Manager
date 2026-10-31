@@ -3,7 +3,8 @@
 // The public side lives in src/lib/forms/publicCore.ts.
 
 import { copyFileSync, mkdirSync } from "fs";
-import type { FormType, Prisma } from "@prisma/client";
+import { FormType, type Prisma } from "@prisma/client";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { generateShareToken } from "@/lib/shareLinks";
@@ -47,11 +48,52 @@ export type CreateFormLinkArgs = {
 
 const MAX_BUNDLE_LINKS = 50;
 
+// Shape checks on what both the form-link dialog and create_form_link send.
+// The ids, dates and limits are checked against the event below.
+const FormTypeSchema = z.enum(FormType);
+const text = (max: number) => z.string().trim().max(max).nullable().transform((s) => s || null);
+const CreateFormLinkShape = z.object({
+  formType: FormTypeSchema,
+  alsoFormTypes: z.array(FormTypeSchema).max(20).optional(),
+  functionIds: z.array(z.string().max(100)).max(200).optional(),
+  sections: z.array(z.string().max(100)).max(100),
+  label: text(200),
+  recipientName: text(200),
+  recipientEmail: z
+    .string()
+    .trim()
+    .max(254)
+    .nullable()
+    .transform((s) => s || null)
+    .refine((s) => s === null || z.email().safeParse(s).success, "Enter a valid recipient email"),
+  intro: text(5000),
+  mediaUploadUrl: text(2000),
+  maxSubmissions: z
+    .number({ error: "Responses allowed must be a whole number" })
+    .int("Responses allowed must be a whole number")
+    .nullable(),
+});
+
+/** Whether `v` names a form type; the dialog checks before reading the form's own options. */
+export function isFormType(v: unknown): v is FormType {
+  return FormTypeSchema.safeParse(v).success;
+}
+
 // One link, or a bundle when the args name several functions or several form
 // types for the same target: the parent carries the recipient and the email,
 // and each (form type, function) pair is its own child link.
-export async function createFormLinkCore(args: CreateFormLinkArgs, userId: string) {
-  await requirePermissionForUser(userId, "FORMS", "WRITE", args.eventId);
+export async function createFormLinkCore(input: CreateFormLinkArgs, userId: string) {
+  await requirePermissionForUser(userId, "FORMS", "WRITE", input.eventId);
+  const shape = CreateFormLinkShape.safeParse(input);
+  if (!shape.success) {
+    const issue = shape.error.issues[0];
+    // A custom message is one a person can act on; the rest only come from a
+    // tampered call or a malformed MCP request.
+    throw issue.code === "custom" || issue.path[0] === "maxSubmissions" || issue.path[0] === "recipientEmail"
+      ? new UserFacingError(issue.message)
+      : new UserFacingError(`Invalid ${String(issue.path[0] ?? "form link")}`);
+  }
+  const args = { ...input, ...shape.data };
   const tenantId = await requireEventTenantId(args.eventId);
 
   const formTypes = Array.from(new Set([args.formType, ...(args.alsoFormTypes ?? [])]));
