@@ -93,6 +93,11 @@ a contract. Each review only offers what the reviewer may write.
 
 ## Importing Hotel-Manager
 
+**Done: a one-time migration of the legacy Hotel-Manager system.** The runbook below is the record
+of how it ran. The app image no longer carries `scripts/` or `src/` (since the phase 2 runtime
+image), so running it again means building a one-off image from the repo, or running the script
+with `npx tsx` from a checkout with the database URLs below.
+
 `scripts/import-hotel-manager.ts` (header comment has the full mapping). Dry run by default; `--apply` commits and copies documents. Refuses to import twice into one tenant.
 
 Production (docker-peter), after this code is deployed:
