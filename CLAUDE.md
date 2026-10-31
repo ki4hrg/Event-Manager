@@ -2,14 +2,14 @@
 
 Internal tool for managing conferences and events: contracts, vendors, facility/room scheduling, speaker logistics, catering, and AV planning. Not attendee-facing — internal staff use only. Multi-tenant: every domain row belongs to a `Tenant` (an "organization"), users are global and hold a role per tenant membership. See § Multi-tenancy.
 
-**Stack**: Next.js 14 (App Router) · TypeScript · PostgreSQL · Prisma 6 · Tailwind v4 · NextAuth 5 (Credentials + JWT). CI (`.github/workflows/build.yml`) lints, builds and pushes `ghcr.io/ki4hrg/event-manager`, then triggers the deploy webhook; Docker Compose runs that prebuilt image (no local `build:`).
+**Stack**: Next.js 16 (App Router, Turbopack build) · React 19 · TypeScript · PostgreSQL · Prisma 6 · Tailwind v4 · NextAuth 5 (Credentials + JWT). CI (`.github/workflows/build.yml`) lints, builds and pushes `ghcr.io/ki4hrg/event-manager`, then triggers the deploy webhook; Docker Compose runs that prebuilt image (no local `build:`).
 
 ## Quick reference
 
 ```bash
 npm run dev         # Start development server
 npm run build       # Production build
-npm run lint        # next lint (ESLint)
+npm run lint        # ESLint (eslint src/)
 npm run db:migrate  # Create + apply a dev migration (schema changes ship as prisma/migrations)
 npm run db:deploy   # Apply pending migrations (what the Docker CMD runs)
 npm run db:push     # Throwaway dev databases only — never on a populated one
@@ -27,7 +27,7 @@ These are the load-bearing rules. Breaking one breaks the model the rest of the 
 - **App Router only.** Routes live under `src/app/`. Do not create a `pages/` directory.
 - **Server Actions are the mutation channel for the UI.** Route handlers (`route.ts`) are reserved for cases Server Actions can't express — the full list is in Archetype G. Do not add JSON CRUD route handlers.
 - **No repository / DAL.** Pages, Server Actions, and `src/lib/` helpers all call Prisma directly via the singleton from `@/lib/prisma`. Never `new PrismaClient()` at runtime (`prisma/seed.mjs` and `scripts/*.ts` are the only exceptions — they run outside the Next runtime).
-- **Auth is defense-in-depth.** Middleware (`src/middleware.ts`) gates every request except the public surfaces exempted in the `authorized` callback (`src/lib/auth.ts`): `/login`, `/api/auth/*`, `/share/*`, `/forgot-password`, `/reset-password/*`, `/mcp` (own bearer auth via `@/lib/mcpAuth`), `/api/oauth/*`, `/api/well-known/*` + `/.well-known/*` (OAuth discovery), and `/api/health` (container healthcheck). The matcher in `src/middleware.ts` deliberately has no dotted-path exclusion, so `/.well-known/*` reaches `authorized` — adding one would silently change that. Admin route segments (under the `src/app/(admin)/` route group) each add a `layout.tsx` that calls `requirePermission(<RESOURCE>, "VIEW")` (`requireSuperAdmin()` for `/tenants`). Every Server Action also self-protects with `await requirePermission(...)` as its first line — with a carve-out for readers reachable from public routes, documented in § Server Actions.
+- **Auth is defense-in-depth.** The proxy (`src/proxy.ts`, Next 16's renamed middleware) gates every request except the public surfaces exempted in the `authorized` callback (`src/lib/auth.ts`): `/login`, `/api/auth/*`, `/share/*`, `/forgot-password`, `/reset-password/*`, `/mcp` (own bearer auth via `@/lib/mcpAuth`), `/api/oauth/*`, `/api/well-known/*` + `/.well-known/*` (OAuth discovery), and `/api/health` (container healthcheck). The matcher in `src/proxy.ts` deliberately has no dotted-path exclusion, so `/.well-known/*` reaches `authorized` — adding one would silently change that. Admin route segments (under the `src/app/(admin)/` route group) each add a `layout.tsx` that calls `requirePermission(<RESOURCE>, "VIEW")` (`requireSuperAdmin()` for `/tenants`). Every Server Action also self-protects with `await requirePermission(...)` as its first line — with a carve-out for readers reachable from public routes, documented in § Server Actions.
 - **No global client state.** No Zustand / Jotai / Redux / SWR / React Query. Use React built-ins (`useState`, `useTransition`, `useRef`). Cross-request preferences go in the `UserSetting` table.
 - **Tenant-scoped data.** Every top-level domain model (Event, EventSeries, Venue, Contact, Vendor, CustomOption, Equipment, StorageLocation, InventoryItem, WorkflowTemplate) carries `tenantId`; event-scoped children inherit the tenant through the event. Every read on those models filters by tenant and every write sets or asserts it — see § Multi-tenancy. Users, Roles, API keys, and OAuth tables are global.
 
@@ -62,7 +62,7 @@ The current set, by reason:
 - OAuth 2.1 for the connector: `api/oauth/{register,authorize,token,revoke}`, `api/well-known/{oauth-authorization-server,oauth-protected-resource}` (rewritten from `/.well-known/*` in `next.config.mjs`). See `docs/oauth-mcp.md`.
 - Container healthcheck: `api/health`.
 
-Add one only when a Server Action can't satisfy the requirement (binary stream, multipart upload, framework callback, protocol endpoint). Authenticated handlers call `requirePermission(...)` first, like Server Actions (`api/events/[id]/esg/route.ts`). Follow Next 14 async-params (`params: Promise<...>`) as in pages.
+Add one only when a Server Action can't satisfy the requirement (binary stream, multipart upload, framework callback, protocol endpoint). Authenticated handlers call `requirePermission(...)` first, like Server Actions (`api/events/[id]/esg/route.ts`). Follow Next 16 async params (`params: Promise<...>`) as in pages.
 
 ## Conventions
 
@@ -170,10 +170,10 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 
 ## Security and validation
 
-- **Authentication** is enforced first at middleware (`src/middleware.ts` re-exports the NextAuth `auth` callback). The `authorized` callback in `src/lib/auth.ts` exempts the public surfaces listed in § Architecture invariants. Every other page can assume `session.user` exists.
+- **Authentication** is enforced first at the proxy (`src/proxy.ts` re-exports the NextAuth `auth` callback). The `authorized` callback in `src/lib/auth.ts` exempts the public surfaces listed in § Architecture invariants. Every other page can assume `session.user` exists.
 - **Server Actions self-protect** with `await requirePermission(...)` (see § Server Actions for the public-reader carve-out). Event-scoped writes also prove the row belongs to the event — see § Data layer, Event ownership. Reasoning: defense in depth, and a reviewer sees the protection at the top of the file without auditing middleware coverage.
 - **Admin authorization.** Admin-only route segments (`/settings`, `/users`, `/workflows`, `/system`, all under `src/app/(admin)/`) have a `layout.tsx` that calls `requirePermission(<RESOURCE>, "VIEW")` (`/users`: any of USERS / ROLES / API_KEYS); `/tenants` calls `requireSuperAdmin()`. The `(admin)` group layout only renders the nav and never gates. Pages inside don't re-check unless they edit under another resource (`/settings/lists/[category]`); Server Actions still gate themselves.
-- **Tenant isolation** is enforced in the data layer, not middleware: the permission layer picks the tenant (§ Multi-tenancy) and every query on a tenant-owned model carries it.
+- **Tenant isolation** is enforced in the data layer, not the proxy: the permission layer picks the tenant (§ Multi-tenancy) and every query on a tenant-owned model carries it.
 - **Input handling.** No runtime schema library (no zod / yup / valibot). Trust the TypeScript types for FormData shape. Use `throw new Error(...)` for runtime invariants (uniqueness preview, cross-field invariants — see `src/app/(admin)/users/actions.ts:46-55`, `src/app/account/actions.ts:11-13`). Empty strings normalize to `null` with `|| null`.
 - **Share links.** Tokens are validated by `getActiveShareLink` (`src/lib/shareLinks.ts:18-26`), which checks `revokedAt` and `expiresAt`. The share views (`src/app/share/[token]/`, `src/app/share/group/[token]/`) are the only public surfaces that read event data. They render reports only — the Office downloads (`api/events/[id]/esg`) are authenticated-only and `ReportDownloadLinks` is never passed on a share view.
 
