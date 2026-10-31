@@ -59,8 +59,11 @@ them, not ahead of time.
    (`src/lib/shareLinkFilters.ts`).
 4. MCP dispatch envelope: argument object check, batch cap (#278); then the generic
    tool-argument gate (#279, `src/lib/mcpTools/argGate.ts`).
-5. Workflows, status and form types (enum casts). Done: this PR.
-6. JSON-in-FormData: quotes, rfps, inbox, hotel proposals, and their MCP tools.
+5. Workflows, status and form types (enum casts). Done: #280.
+6. JSON-in-FormData: quotes, rfps, inbox, hotel proposals, and their MCP tools. JSON lists done:
+   this PR (`readJsonList` in `src/lib/validation.ts`, item schemas beside the cores; MCP tools
+   covered by #279). Next: the actions in the same files that take arrays or objects as
+   arguments (RFP line items, concessions, space, recipients; pickup counts, final guest list).
 7. Admin and account.
 8. Order types, one PR each (catering, AV, setup, print, supply, media deliverables) with their
    slice of `mcpTools/orders.ts`.
