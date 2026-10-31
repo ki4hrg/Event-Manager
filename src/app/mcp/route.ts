@@ -23,17 +23,27 @@ const plainObject = z.custom<Record<string, unknown>>(
 
 // The envelope every request must have. `jsonrpc` isn't checked: it carries
 // nothing, and refusing a client that omits it would gain no safety.
+const RequestIdSchema = z.union([z.string().max(200), z.number(), z.null()]);
+
+// `params: null` is accepted as absent, as it always was.
 const JsonRpcRequestSchema = z.object({
-  id: z.union([z.string().max(200), z.number(), z.null()]).optional(),
+  id: RequestIdSchema.optional(),
   method: z.string().min(1).max(200),
-  params: plainObject.optional(),
+  params: plainObject.nullish(),
 });
+
+// A response the client posts back (Streamable HTTP allows it): no method,
+// a result or an error. It gets no reply.
+function isClientResponse(item: unknown): boolean {
+  return plainObject.safeParse(item).success && !("method" in (item as object)) && ("result" in (item as object) || "error" in (item as object));
+}
 
 type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>;
 
 const ToolCallParamsSchema = z.object({
   name: z.string().min(1).max(200),
-  arguments: plainObject.optional(),
+  // `arguments: null` means none, as it always did.
+  arguments: plainObject.nullish(),
 });
 
 // Each request in a batch runs in turn, so a batch is bounded. The current MCP
@@ -132,7 +142,8 @@ async function dispatch(
       if (!params.success) {
         return err(req.id, ERROR_INVALID_PARAMS, "params needs a tool `name` and, if given, an `arguments` object");
       }
-      const { name, arguments: args = {} } = params.data;
+      const { name } = params.data;
+      const args = params.data.arguments ?? {};
       const tool = findMcpTool(name);
       if (!tool) return err(req.id, ERROR_METHOD_NOT_FOUND, `Unknown tool: ${name}`);
       // Which organization the call acts in. A key spans every tenant its user
@@ -195,8 +206,9 @@ async function dispatch(
 
 // The id to answer a malformed request with, when it has a usable one.
 function requestId(item: unknown): JsonRpcRequest["id"] {
-  const id = plainObject.safeParse(item).success ? (item as { id?: unknown }).id : null;
-  return typeof id === "string" || typeof id === "number" ? id : null;
+  if (!plainObject.safeParse(item).success) return null;
+  const id = RequestIdSchema.safeParse((item as { id?: unknown }).id);
+  return id.success ? id.data : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -219,6 +231,7 @@ export async function POST(request: NextRequest) {
     // Process each and return an array (skip notification responses).
     const responses: JsonRpcResponse[] = [];
     for (const item of body) {
+      if (isClientResponse(item)) continue;
       const parsed = JsonRpcRequestSchema.safeParse(item);
       if (!parsed.success) {
         responses.push(err(requestId(item), ERROR_INVALID_REQUEST, "Invalid request"));
@@ -234,6 +247,7 @@ export async function POST(request: NextRequest) {
     return Response.json(responses);
   }
 
+  if (isClientResponse(body)) return new Response(null, { status: 202 });
   const parsed = JsonRpcRequestSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(err(requestId(body), ERROR_INVALID_REQUEST, "Invalid request"), {

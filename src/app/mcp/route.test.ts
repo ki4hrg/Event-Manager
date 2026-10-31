@@ -41,10 +41,26 @@ describe("POST /mcp: the JSON-RPC envelope", () => {
     expect(json.result.isError).toBeUndefined();
   });
 
+  it("treats null tool arguments and null params as absent", async () => {
+    const key = await apiKey();
+    const tool = await call(key, rpc(5, "tools/call", { name: "list_tenants", arguments: null }));
+    expect(tool.json).toMatchObject({ id: 5, result: { content: [{ type: "text" }] } });
+    const list = await call(key, { jsonrpc: "2.0", id: 6, method: "ping", params: null });
+    expect(list.json).toMatchObject({ id: 6, result: {} });
+  });
+
+  it("gives no reply to a response the client posts back", async () => {
+    const key = await apiKey();
+    const alone = await call(key, { jsonrpc: "2.0", id: 9, result: {} });
+    expect(alone.status).toBe(202);
+    const batch = await call(key, [{ jsonrpc: "2.0", id: 9, result: {} }, rpc(1, "ping")]);
+    expect(batch.json).toEqual([expect.objectContaining({ id: 1, result: {} })]);
+  });
+
   it.each([
     ["an array", ["x"]],
     ["a string", "everything"],
-    ["null", null],
+    ["a number", 7],
   ])("refuses tool arguments that are %s", async (_label, args) => {
     const key = await apiKey();
     const { json } = await call(key, rpc(2, "tools/call", { name: "list_tenants", arguments: args }));
@@ -91,7 +107,8 @@ describe("POST /mcp: the JSON-RPC envelope", () => {
     expect(big.json).toMatchObject({ error: { code: -32600 } });
 
     const atCap = await call(key, Array.from({ length: 20 }, (_, i) => rpc(i, "ping")));
-    expect(atCap.json).toHaveLength(20);
+    expect(atCap.status).toBe(200);
+    expect(atCap.json).toEqual(Array.from({ length: 20 }, (_, i) => expect.objectContaining({ id: i, result: {} })));
   });
 
   it("refuses a request without a valid key before reading it", async () => {
