@@ -9,9 +9,10 @@ import { PASSWORD_RESET_PER_EMAIL, PASSWORD_RESET_PER_IP, clientIp, rateLimit } 
 // Auth-free by design — same carve-out as `/share/*` report readers.
 // Never reveal whether an email is registered. A throttled request skips the
 // send and answers exactly like any other.
-// An address no longer than the protocol allows; anything else is answered
-// like an unknown address (and never reaches the rate limiter's keys).
-const EmailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email());
+// Bounded before it's a rate-limit key or a lookup. No format check: the lookup
+// is exact, and stored addresses were never format-checked, so a stricter rule
+// here would silently stop some accounts from getting a link.
+const EmailSchema = z.string().trim().toLowerCase().min(1).max(254);
 
 export async function requestPasswordReset(formData: FormData): Promise<void> {
   const parsed = EmailSchema.safeParse(formData.get("email"));

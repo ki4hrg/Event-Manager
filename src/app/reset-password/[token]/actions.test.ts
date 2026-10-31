@@ -60,9 +60,13 @@ describe("setNewPassword", () => {
     expect(result).toEqual({ error: expect.stringContaining("no longer valid") });
   });
 
-  it("returns { error } when the token field is missing", async () => {
-    const result = await setNewPassword(form({ password: "correct horse", confirm: "correct horse" }));
-    expect(result).toHaveProperty("error");
+  it.each([
+    ["missing", {}],
+    ["empty", { token: "" }],
+    ["over-long", { token: "x".repeat(201) }],
+  ])("returns the expired-link error when the token is %s", async (_label, tokenField) => {
+    const result = await setNewPassword(form({ ...tokenField, password: "correct horse", confirm: "correct horse" }));
+    expect(result).toEqual({ error: expect.stringContaining("no longer valid") });
   });
 
   it("lets only one of two simultaneous submissions of a link set the password", async () => {

@@ -25,6 +25,13 @@ function form(email: unknown) {
 const SAME_ANSWER = { digest: expect.stringContaining("NEXT_REDIRECT") };
 
 describe("requestPasswordReset", () => {
+  it("mails a registered address that a strict format check would reject", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const user = await prisma.user.create({ data: { email: `ops-${Date.now()}@intranet` } });
+    await expect(requestPasswordReset(form(user.email))).rejects.toMatchObject(SAME_ANSWER);
+    expect(sent).toContain(user.email);
+  });
+
   it("mails a registered address, matched case-insensitively", async () => {
     const user = await makeUser();
     await expect(requestPasswordReset(form(`  ${user.email.toUpperCase()} `))).rejects.toMatchObject(SAME_ANSWER);
@@ -33,7 +40,6 @@ describe("requestPasswordReset", () => {
 
   it.each([
     ["an unregistered address", "nobody@example.test"],
-    ["something that isn't an address", "not an email"],
     ["an over-long address", `${"a".repeat(250)}@example.test`],
     ["an empty field", ""],
     ["a missing field", undefined],

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { consumePasswordResetToken } from "@/lib/email";
+import { findValidPasswordResetToken } from "@/lib/email";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export default async function ResetPasswordPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const valid = await consumePasswordResetToken(token);
+  const valid = await findValidPasswordResetToken(token);
   if (!valid) notFound();
 
   return (

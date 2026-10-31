@@ -23,16 +23,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(formData: FormData) {
-    const password = (formData.get("password") as string) || "";
-    const confirm = (formData.get("confirm") as string) || "";
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Passwords don't match.");
-      return;
-    }
+    // The server checks length, match and the link, and returns each refusal.
     setError(null);
     try {
       const result = await setNewPassword(formData);
