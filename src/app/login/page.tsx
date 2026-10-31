@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Toast } from "@/components/Toast";
 import { LoginForm } from "./LoginForm";
 
-// Unauthenticated, so no force-dynamic (see CLAUDE.md § Pages and routing). The
+// Unauthenticated, so no force-dynamic (see docs/ARCHITECTURE.md § Pages and routing). The
 // form is split out because it reads ?callbackUrl= via useSearchParams, which
 // has to sit under a Suspense boundary.
 export default function LoginPage() {

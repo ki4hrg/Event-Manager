@@ -1,3 +1,12 @@
+# CLAUDE.md candidates
+
+Rules an agent proposes while working. Not binding: John promotes, rewrites or rejects them. A new
+entry is one line: the date, the rule, why, and the PR or commit it came from. A candidate that
+applies to every project goes to the standards repo's `docs/open-questions.md` instead.
+
+Entries before 2026-10-31 were kept in `reviews/claudemd/candidates.md` in the older one-line
+`[area] rule (reference)` form; they stay as written.
+
 - [layout] Full-width rows built as `flex justify-between` put a record's actions ~980px from the label they act on (measured: /equipment 982px, /settings/* 958–988px, /storage-locations/types 1000px). Proposed rule, needs a decision: a row wider than ~600px either caps its content width or moves to a multi-column grid so actions stay near their label. (2026-08-24 Chrome design pass)
 - [layout] `max-w-*` is right on forms (line length) and wrong on card/list surfaces — still wrong on the `/events/[id]/settings` status table (`max-w-2xl` inside a 1216px container). `DESIGN.md:61` states the rule for Vendors/Files tabs only; generalize it there (with the form carve-out) rather than in CLAUDE.md. (2026-08-24 Chrome design pass)
 - [forms] A client `action={async (fd) => { await action(fd); setEditing(false); }}` wrapper never reaches `setEditing` when the action `redirect()`s — key the form on `updatedAt` instead (src/app/events/exhibits/BoothForm.tsx, exhibits detail pages)

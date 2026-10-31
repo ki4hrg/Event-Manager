@@ -78,7 +78,7 @@ Changes a user or operator can see that `tsc`, lint and the build don't catch.
   a throw going to the error boundary (`SupplyOrderItemPanel`'s item form, `PresentationForm`,
   `MediaDeliverableForm`, `WorkflowEditor`, the order forms). They never show a refusal in
   place, so the reset isn't seen. A new form that shows a refusal in place needs
-  `keepFormValues` too (parked in `reviews/claudemd/candidates.md`).
+  `keepFormValues` too (parked in `docs/claude-candidates.md`).
 - **Proxy body limit.** Next 16 buffers the body of a request passing through the proxy and
   cuts it off at 10MB (`experimental.proxyClientMaxBodySize`). The proxy matches every route,
   so uploads over 10MB arrived truncated. #248 raised the limit to `"100mb"`, which let any

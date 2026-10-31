@@ -4,7 +4,7 @@
 // the server resolves the actual levels.
 //
 // The server enforces every mutation on its own — see § Server Actions in
-// CLAUDE.md. This map exists so the UI stops OFFERING actions the server will
+// docs/ARCHITECTURE.md. This map exists so the UI stops OFFERING actions the server will
 // refuse; it is a display concern, never the access control itself.
 
 import type { PermissionLevel, PermissionResource } from "@prisma/client";

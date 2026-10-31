@@ -84,7 +84,7 @@ scheduleType, isPublic }, force, userId)` returning
 
 - `requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId)` first.
 - Parse times with `parseDateTimeInTimezone` (`src/lib/timezones.ts`) against the
-  event timezone — the canonical helper per `reviews/claudemd/candidates.md`.
+  event timezone — the canonical helper per `docs/claude-candidates.md`.
 - Reject `end <= start` the way `scheduleUnscheduledFunctionCore:441` does.
 - Unless `force`, run `checkRoomConflicts([roomId], start, end)`
   (`src/lib/conflicts.ts`) and return `{ success: false, conflicts }`.
@@ -98,7 +98,7 @@ The Server Action wrapper `revalidatePath`s the agenda and the new detail page a
 departure from "entities needing further setup redirect to the detail view": this
 is CLAUDE.md return-shape (b), a non-form mutation from a client list ending in
 `router.refresh()`, exactly like its three sibling grid mutations. Worth a line in
-`reviews/claudemd/candidates.md` when it lands.
+`docs/claude-candidates.md` when it lands.
 
 For (A), `new/page.tsx` gains `roomId` / `startTime` / `endTime` to its
 `searchParams` type and passes them into `FunctionForm`. `RoomSelector` already

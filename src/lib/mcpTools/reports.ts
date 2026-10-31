@@ -20,7 +20,7 @@ import { optionalStringArray, requireString } from "./types";
 
 // The underlying report actions are deliberately auth-free (reused by the
 // unauthenticated /share/[token] route per the carve-out documented in
-// CLAUDE.md). MCP callers always have a resolved user identity, so each
+// CLAUDE.md and docs/ARCHITECTURE.md). MCP callers always have a resolved user identity, so each
 // wrapper gates access with requirePermissionForUser(EVENTS, VIEW, eventId)
 // before delegating.
 async function gate(userId: string, eventId: string) {

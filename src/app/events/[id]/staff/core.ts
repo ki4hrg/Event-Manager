@@ -1,5 +1,5 @@
 // Pure cores for event staff mutations. NOT a "use server" file.
-// Colocated with the actions that wrap them (see CLAUDE.md § Project structure);
+// Colocated with the actions that wrap them (see docs/ARCHITECTURE.md § Project structure);
 // other features keep their core at the feature root because that's where their
 // actions.ts lives — staff's lives under [id]/.
 
