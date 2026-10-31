@@ -61,6 +61,16 @@ jobs:
       actions: write   # dispatches this workflow on main after merging
     uses: ki4hrg/standards/.github/workflows/merge-on-green.yml@v1
 
+  # GitHub doesn't close "Closes #n" issues when GITHUB_TOKEN merges, so this does
+  # (#251 stayed open after #261 merged).
+  close-issues:
+    needs: automerge
+    if: needs.automerge.outputs.merged == 'true'
+    permissions:
+      issues: write
+      pull-requests: read
+    uses: ki4hrg/standards/.github/workflows/close-linked-issues.yml@v1
+
   deploy:
     needs: image
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
