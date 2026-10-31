@@ -5,8 +5,12 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      # Read only when the volume is first created. An existing volume keeps the
+      # password it was created with, so set this to that value (docs/DEPLOYMENT.md).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: event_manager
+      # Recorded exception (docs/DECISIONS.md): the standard mounts PG18 at
+      # /var/lib/postgresql; this volume predates that.
       # PG18 moved the image default to /var/lib/postgresql/18/docker; pin it back
       # to the mounted path so the named volume is actually used (not silently ignored).
       PGDATA: /var/lib/postgresql/data
@@ -24,9 +28,14 @@ services:
     container_name: event-manager-app
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/event_manager?schema=public
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-this-to-a-secure-random-string}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      # The password travels beside the URL; docker-entrypoint.sh puts it in,
+      # percent-encoded (Prisma doesn't read PGPASSWORD itself).
+      DATABASE_URL: postgresql://postgres@db:5432/event_manager?schema=public
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      # No defaults: a missing secret or URL stops the deploy here, and
+      # src/lib/env.ts refuses a short or example secret at boot.
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?set NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?set NEXTAUTH_URL}
       AUTH_TRUST_HOST: "true"
       NEXTAUTH_TRUST_HOST: "true"
       PORT: ${PORT:-3000}
@@ -42,7 +51,7 @@ services:
     volumes:
       - uploads_data:/data/uploads
     healthcheck:
-      # node:24-alpine has node (global fetch) but no curl. The start command runs
+      # node:24-alpine has node (global fetch) but no curl. The entrypoint runs
       # baseline + migrate + seed before `next start`, hence the generous start_period.
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 15s

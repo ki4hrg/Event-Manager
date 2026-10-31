@@ -184,7 +184,7 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 
 ### Environment and config
 
-- Where env is read today (validated `src/lib/env.ts` arrives with phase 2): `@/lib/prisma`, `@/lib/auth` (`NEXTAUTH_SECRET` / `AUTH_SECRET`, `NEXTAUTH_URL`), `@/lib/uploads` (`UPLOAD_DIR`, `MAX_UPLOAD_BYTES`), `@/lib/email` (`MAILGUN_*`, `INBOUND_EMAIL_*`, `ANTHROPIC_API_KEY`); `scripts/import-hotel-manager.ts` reads its own `HM_*`. The full list with defaults is `.env.example`.
+- Every variable the app expects is listed in `src/lib/env.ts` (zod), checked once at server start from `src/instrumentation.ts`; add new ones there. The readers still use `process.env` (docs/DECISIONS.md): `@/lib/prisma`, `@/lib/auth` (`NEXTAUTH_SECRET` / `AUTH_SECRET`, `NEXTAUTH_URL`), `@/lib/uploads` (`UPLOAD_DIR`, `MAX_UPLOAD_BYTES`), `@/lib/email` (`MAILGUN_*`, `INBOUND_EMAIL_*`, `ANTHROPIC_API_KEY`); `scripts/import-hotel-manager.ts` reads its own `HM_*`. The full list with defaults is `.env.example`.
 - No `NEXT_PUBLIC_*` variables. No feature flag system.
 
 ## Reports

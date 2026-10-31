@@ -8,7 +8,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Prisma 6 on PostgreSQL · N
 JWT) · Tailwind v4 · npm. Follows https://github.com/ki4hrg/standards (Next.js app profile); the
 `standards` plugin is enabled in `.claude/settings.json` and its `ship` skill is how work lands.
 How it's built: `docs/ARCHITECTURE.md` (route guards, archetypes, conventions, reports, MCP) ·
-tenancy: `docs/multi-tenancy.md` · MCP OAuth: `docs/oauth-mcp.md` · hotels: `docs/hotels.md` ·
+deploy and env: `docs/DEPLOYMENT.md` · decisions: `docs/DECISIONS.md` · tenancy: `docs/multi-tenancy.md` · MCP OAuth: `docs/oauth-mcp.md` · hotels: `docs/hotels.md` ·
 checklists: `docs/checklists/` · sweep status: `docs/HANDOFF.md`.
 
 ## Commands
@@ -39,7 +39,8 @@ checklists: `docs/checklists/` · sweep status: `docs/HANDOFF.md`.
 - **Large-body routes** (the standards' body-limit rule): the ones that skip the proxy are listed
   in the route-guard table; each caps its body with `uploadBodyRefusal` (`src/lib/uploads.ts`).
 - **Anything reading `AUTH_SECRET` falls back to `NEXTAUTH_SECRET`**, the only secret the compose
-  files provision (`getOAuthSigningSecret` in `src/lib/auth.ts`).
+  files provision (`getOAuthSigningSecret` in `src/lib/auth.ts`). A new env variable goes in
+  `src/lib/env.ts` too, which checks the environment at boot.
 - **MCP tools and cores use `requirePermissionForUser(userId, resource, action, target)`**, which
   throws `PermissionError`; `target` is an event id or `{ tenantId }`, never omitted. MCP tools call
   `*Core` functions, never Server Actions (those read the session).
@@ -119,8 +120,8 @@ These differ from the standards on purpose or until a sweep phase lands (`docs/H
 - Stack (phase 6, out of scope): npm, Prisma, NextAuth, a hand-rolled MCP JSON-RPC endpoint.
 - No tests yet and no runtime input validation (phase 3).
 - Raw palette classes with `dark:` variants instead of design tokens (phase 5).
-- Postgres keeps `PGDATA=/var/lib/postgresql/data` on its existing volume: moving to the standard
-  mount means migrating production data (accepted 2026-10-31).
+- Postgres keeps `PGDATA=/var/lib/postgresql/data` on its existing volume, and the entrypoint puts
+  `PGPASSWORD` into `DATABASE_URL` because Prisma doesn't read it (both in `docs/DECISIONS.md`).
 
 ## Proposing rules
 

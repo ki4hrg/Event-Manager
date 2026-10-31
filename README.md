@@ -27,11 +27,11 @@ real.
 ## Deploy
 
 GitHub Actions builds `ghcr.io/ki4hrg/event-manager` on `main` and triggers the Dockhand webhook;
-`docker-compose.yml` only pulls that image. The image runs `prisma migrate deploy` and the seed on
-start.
+`docker-compose.yml` only pulls that image. Environment, volumes, rollback and the revision check:
+`docs/DEPLOYMENT.md`.
 
 ## Docs
 
 `CLAUDE.md` (rules for agents) · `docs/ARCHITECTURE.md` (how it's built) ·
 `docs/multi-tenancy.md` · `docs/oauth-mcp.md` · `docs/hotels.md` · `docs/forms.md` ·
-`docs/checklists/` · `docs/HANDOFF.md` (standards sweep status).
+`docs/checklists/` · `docs/DEPLOYMENT.md` · `docs/DECISIONS.md` · `docs/HANDOFF.md` (standards sweep status).
