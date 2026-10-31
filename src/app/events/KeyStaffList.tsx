@@ -141,10 +141,8 @@ export function KeyStaffList({
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
+    // Short queries render no results (see below) instead of clearing state here.
+    if (searchQuery.length < 2) return;
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
       try {
@@ -225,7 +223,7 @@ export function KeyStaffList({
               {isSearching && (
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Searching...</p>
               )}
-              {searchResults.length > 0 && (
+              {searchQuery.length >= 2 && searchResults.length > 0 && (
                 <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md max-h-40 overflow-y-auto">
                   {searchResults.map((contact) => (
                     <button
