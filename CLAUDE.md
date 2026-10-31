@@ -38,6 +38,8 @@ checklists: `docs/checklists/` · sweep status: `docs/HANDOFF.md`.
   modules, call no auth guard and take the tenant from the event, never the session.
 - **Large-body routes** (the standards' body-limit rule): the ones that skip the proxy are listed
   in the route-guard table; each caps its body with `uploadBodyRefusal` (`src/lib/uploads.ts`).
+- **Anything reading `AUTH_SECRET` falls back to `NEXTAUTH_SECRET`**, the only secret the compose
+  files provision (`getOAuthSigningSecret` in `src/lib/auth.ts`).
 - **MCP tools and cores use `requirePermissionForUser(userId, resource, action, target)`**, which
   throws `PermissionError`; `target` is an event id or `{ tenantId }`, never omitted. MCP tools call
   `*Core` functions, never Server Actions (those read the session).
@@ -66,8 +68,10 @@ checklists: `docs/checklists/` · sweep status: `docs/HANDOFF.md`.
 **UI**
 
 - **Refusals reach the person.** In production a thrown Server Action message becomes "Minified
-  React error #441" (#252). Cores throw `UserFacingError`; `useTransition` callers wrap the action
-  in `withUserErrors` and show `isUserError(result)` (`src/lib/userErrors.ts`).
+  React error #441" (#252). Cores throw `UserFacingError`; an action called from `useTransition`
+  wraps its own body (after the permission check) in `withUserErrors`, which returns `{ error }`,
+  and the client shows `isUserError(result)` (`src/lib/userErrors.ts`). Wrapping on the client
+  catches nothing: by then the message is gone.
 - **Never call a function exported from a `"use client"` module on the server**: it's a proxy there
   and throws at render. Shared pure helpers go in `src/lib/`.
 - **Reports** render a mobile card layout and a desktop/print table, print from their own `/print`
@@ -88,7 +92,9 @@ checklists: `docs/checklists/` · sweep status: `docs/HANDOFF.md`.
 - No `error.tsx`, `not-found.tsx` or `loading.tsx`: `notFound()` and Next's defaults.
 - Server Action returns: `void` after `redirect()` from a form (with `?success=` for the toast),
   `void` for bulk actions the client follows with `router.refresh()`, `{ error }` only through
-  `withUserErrors`. Redirect targets per entity are in `docs/ARCHITECTURE.md`.
+  `withUserErrors`. After create, thin entities (User, Event, Venue, Contact) redirect to their
+  list, ones that need setup (Vendor, orders, Presentation, Function) to the detail page;
+  duplicates go to the new copy, updates stay on the detail page.
 - Close every switch or if-chain over a union or enum with a `never` exhaustiveness check.
 
 ## Layout

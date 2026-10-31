@@ -20,7 +20,8 @@ Verified:
 - Conform audit at `861cad2` (2026-10-31).
 - #248 deployed and running at 7e3d0ac (revision label checked by John, 2026-10-31).
 - #254 deployed (Dockhand `success: true`, 2026-10-31 19:08Z).
-- #247 merged as fa076e2 (2026-10-31 19:24Z).
+- #247 merged as fa076e2 (2026-10-31 19:24Z) by merge-on-green; the dispatched `ci.yml` run on
+  `main` passed check, security and image, and its deploy job got Dockhand `success: true`.
 
 Not verified: what production sets for `NEXTAUTH_SECRET` / `NEXTAUTH_URL` (phase 2 adds the guards).
 

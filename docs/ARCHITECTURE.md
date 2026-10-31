@@ -8,8 +8,9 @@ reference behind them. Domain detail lives beside it: `docs/multi-tenancy.md`, `
 ## Route guards
 
 The proxy (`src/proxy.ts`, Next 16's renamed middleware) runs NextAuth's `authorized` callback
-(`src/lib/auth.ts`) on every request its matcher covers: signed-out requests to anything not listed
-below go to `/login` (pages) or get 401 (`/mcp`). The proxy is the first layer only; every Server
+(`src/lib/auth.ts`) on every request its matcher covers: a signed-out request to anything not
+listed below is redirected to `/login`, API routes included (NextAuth v5 redirects rather than
+answering 401). The proxy is the first layer only; every Server
 Action and route handler checks again itself.
 
 **Skipped by the matcher** (so the proxy's 10MB body limit doesn't cut them off; each caps its own
@@ -30,20 +31,21 @@ body with `uploadBodyRefusal` from `src/lib/uploads.ts` before reading it):
 | `/forgot-password`, `/reset-password/[token]` | Auth-free by design; the reset token is the access |
 | `/share/[token]`, `/share/group/[token]` | `getActiveShareLink` / `getActiveShareLinkGroup` (revoke, expiry); render reports only |
 | `/f/[token]` (public forms) | The form-link token; every action re-resolves it (`src/lib/forms/links.ts`) |
-| `/mcp` | Bearer: OAuth access token (`verifyMcpAccessToken`), else API key (`src/lib/mcpAuth.ts`) |
+| `/mcp`, `/mcp/*` | Bearer (the route answers 401 itself): OAuth access token (`verifyMcpAccessToken`), else API key (`src/lib/mcpAuth.ts`) |
 | `/api/oauth/{register,authorize,token,revoke}` | OAuth 2.1: anonymous DCR, own sign-in form, PKCE S256, token-bound revoke (`docs/oauth-mcp.md`) |
 | `/api/well-known/*`, `/.well-known/*` | Public discovery metadata. The matcher has no dotted-path exclusion, so `/.well-known/*` reaches `authorized`; adding one would silently change that |
 | `/api/health` | Container healthcheck; must stay unauthenticated |
 | `/api/inbound-email` | Also exempt here, though the matcher already skips it |
 
-Share views are the only public surfaces that read event data. They render reports only: the Office downloads (`api/events/[id]/esg`) are authenticated-only and `ReportDownloadLinks` is never passed on a share view.
+Share views and public forms are the only public surfaces that read event data. Share views render reports only: the Office downloads (`api/events/[id]/esg`) are authenticated-only and `ReportDownloadLinks` is never passed on a share view.
 
 **Signed in** (everything else): pages assume `session.user`. Admin segments under
 `src/app/(admin)/` gate in their `layout.tsx` (`requirePermission(<RESOURCE>, "VIEW")`; any of
 USERS / ROLES / API_KEYS for `/users`; `requireSuperAdmin()` for `/tenants`). The authenticated
-route handlers check permission first: `api/files/[fileId]` and `api/events/[id]/esg`
-(`requirePermission`), `api/events/[id]/rfps/[rfpId]` (its readers' `requirePermission`, VIEW on
-the event).
+route handlers check permission before returning anything: `api/events/[id]/esg`
+(`requirePermission` first), `api/files/[fileId]` (loads the file row, then `requirePermission`
+on its owner), `api/events/[id]/rfps/[rfpId]` (its readers load the RFP's kind, then
+`requirePermission` VIEW on that kind's resource).
 
 ## Route archetypes
 
@@ -82,6 +84,8 @@ Add one only when a Server Action can't satisfy the requirement (binary stream, 
 ## Conventions
 
 ### Project structure
+
+App Router only: no `pages/` directory. No structured logger yet: don't add `console.error` calls for logging; if observability is needed, introduce a logger project-wide.
 
 ```
 src/
@@ -235,7 +239,7 @@ A 2-column table may skip the mobile card only when both columns fit in 360 px �
 - Use Tailwind class strings from `src/lib/reportStyles.ts` — do not re-declare inline.
 
 ### Share-view integration
-Five surfaces to wire — see [docs/checklists/share-report-integration.md](./docs/checklists/share-report-integration.md). Missing one of the group surfaces throws `Unhandled report type: <X>` at runtime when a saved dashboard item references the new type.
+Five surfaces to wire — see [docs/checklists/share-report-integration.md](./checklists/share-report-integration.md). Missing one of the group surfaces throws `Unhandled report type: <X>` at runtime when a saved dashboard item references the new type.
 
 ### Shared components reference
 | Component | Location | Purpose |
@@ -249,7 +253,7 @@ Five surfaces to wire — see [docs/checklists/share-report-integration.md](./do
 
 ## Multi-tenancy
 
-Full reference: [docs/multi-tenancy.md](./docs/multi-tenancy.md). The load-bearing rules:
+Full reference: [docs/multi-tenancy.md](./multi-tenancy.md). The load-bearing rules:
 
 - **Model.** `Tenant { id, name, slug }`; `TenantMembership { tenantId, userId, roleId }` is the only source of a user's permissions inside a tenant. `User.isSuperAdmin` marks platform admins (every permission everywhere, `/tenants`, role definitions). Role definitions are global, so `createRole`/`updateRole`/`deleteRole`/`duplicateRole` call `requireSuperAdmin()`, not `requirePermission(ROLES, ...)`.
 - **Which tenant.** `src/lib/tenant.ts` owns it. The *active* tenant is a `UserSetting` (`active_tenant_id`) switched from the header (`TenantSwitcher` → `switchTenant`); `getTenantContext()` is the request-cached read, `requireActiveTenantId()` redirects to `/no-tenant` for accounts with no membership. Event-scoped checks ignore the active tenant and use the event's own (`getEventTenantId`, cached); the event layout re-points the active tenant to match and redirects once.
@@ -300,7 +304,7 @@ if (filters.status === "__blank__") {
 
 ## Adding a new entity / order type
 
-Full checklist at [docs/checklists/adding-entity.md](./docs/checklists/adding-entity.md). Covers schema, auth/permissions, routes, sidebar, overview, status/workflow, vendor model types, uploads, and the report integrations the new entity should flow through. Cross-reference SupplyOrder (commit a880f43 + the SupplyOrder UI alignment PR) as the most recent end-to-end reference.
+Full checklist at [docs/checklists/adding-entity.md](./checklists/adding-entity.md). Covers schema, auth/permissions, routes, sidebar, overview, status/workflow, vendor model types, uploads, and the report integrations the new entity should flow through. Cross-reference SupplyOrder (commit a880f43 + the SupplyOrder UI alignment PR) as the most recent end-to-end reference.
 
 ## Function and breakout session labels
 

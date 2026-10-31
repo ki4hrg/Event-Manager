@@ -18,11 +18,11 @@ Mark a surface ✗ if it's relevant to the new entity but not yet wired. Some li
 - Server Actions: every exported action starts with `await requirePermission(RESOURCE, ACTION, eventId?)`; global checks return `session.tenantId` for the `*Core` call, event-scoped checks derive the tenant from the event
 
 ## Routes
-- `src/app/events/<entity>/` — colocated `actions.ts` + list/form/panel components (Archetypes A–C in CLAUDE.md § Route archetypes)
+- `src/app/events/<entity>/` — colocated `actions.ts` + list/form/panel components (Archetypes A–C in docs/ARCHITECTURE.md § Route archetypes)
 - `src/app/events/[id]/<entity>/page.tsx` — list page (`force-dynamic`)
 - `src/app/events/[id]/<entity>/new/page.tsx` — create page
 - `src/app/events/[id]/<entity>/[entityId]/page.tsx` — detail page with `<Breadcrumbs>` and inline `"use server"` wrapper actions
-- Redirect convention: thin top-level entities → list view after create; entities needing further setup → detail view after create; duplicates and updates → detail view (see CLAUDE.md § Server Actions § Redirect target)
+- Redirect convention: thin top-level entities → list view after create; entities needing further setup → detail view after create; duplicates and updates → detail view (see docs/ARCHITECTURE.md § Server Actions § Redirect target)
 
 ## Sidebar / navigation
 - `src/components/EventSidebar.tsx` — `NAV` array entry under the right group (Schedule / Content / Orders / Resources / Reports / Configuration), `getActiveSection` `sections` array, icon (add a new one if no existing icon fits — don't reuse a semantically-different icon)
@@ -51,10 +51,10 @@ Mark a surface ✗ if it's relevant to the new entity but not yet wired. Some li
   - `getEquipmentResponsibilityData` — widen `modelType` unions and add a normalization loop if the entity carries equipment items
   - `getVendorHandoffData` — fetch the entity's records when the vendor is provider (order-level OR per-item); update `relevantModelTypes`; shape into the return payload
   - `getOrderAssignedVendors` — add the entity's vendor relation to the union
-- Each report's `*Report.tsx` body — render the new section (mobile cards + desktop table; see CLAUDE.md § Reports § Required: mobile-friendly tables)
+- Each report's `*Report.tsx` body — render the new section (mobile cards + desktop table; see docs/ARCHITECTURE.md § Reports § Required: mobile-friendly tables)
 
 ## Share-view integration (only if you add a NEW report for this entity)
 Five surfaces — see [share-report-integration.md](./share-report-integration.md).
 
 ## Bulk edit (only if the entity ships with bulk operations)
-Follow CLAUDE.md § Order list and bulk edit pattern — selection state, bulk panel (status / substatus / vendor / function link / presentation link), null sentinels.
+Follow docs/ARCHITECTURE.md § Order list and bulk edit pattern — selection state, bulk panel (status / substatus / vendor / function link / presentation link), null sentinels.
