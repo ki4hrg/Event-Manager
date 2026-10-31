@@ -10,6 +10,7 @@ import { formatFunctionLabel, matchesFunctionQuery } from "@/lib/functionNumbers
 import { CopyFormLink, DeleteFormLink, RevokeFormLink } from "./FormLinkActions";
 import { syncRangeEnd } from "@/lib/dateRange";
 import { isUserError, type UserError } from "@/lib/userErrors";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 const inputCls =
   "w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -197,6 +198,7 @@ export function FormLinkButton({
                 </div>
               ) : (
                 <form
+                  onReset={keepFormValues}
                   className="space-y-4"
                   action={(formData) =>
                     startTransition(async () => {

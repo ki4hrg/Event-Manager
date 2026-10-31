@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { mintApiKey } from "./actions";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type RevealedKey = {
   id: string;
@@ -68,6 +69,7 @@ export function ApiKeyForm() {
 
   return (
     <form
+      onReset={keepFormValues}
       action={onSubmit}
       className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4 mb-6"
     >

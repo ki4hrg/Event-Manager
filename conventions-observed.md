@@ -136,7 +136,7 @@ Auth is not enforced once at a route boundary — every server action that needs
 - `src/app/settings/actions.ts:37,64` — every settings mutation opens with `await requireAdmin()`
 - `src/app/events/share-links/actions.ts:19,38,51,60` — share-link actions open with `await requireAuth()`
 
-Middleware (`src/middleware.ts:1-5`) re-exports the NextAuth `auth` handler and additionally allows `/share/*` unauthenticated (`src/lib/auth.ts:75`). This is why CLAUDE.md insists report **data** actions do not call `requireAuth()` — they're hit by the share route.
+The proxy (`src/proxy.ts:1-5`, formerly `src/middleware.ts`) re-exports the NextAuth `auth` handler and additionally allows `/share/*` unauthenticated (`src/lib/auth.ts:75`). This is why CLAUDE.md insists report **data** actions do not call `requireAuth()` — they're hit by the share route.
 
 ### 3.3 Server-action wrappers are defined inline on the page and passed down to client components
 

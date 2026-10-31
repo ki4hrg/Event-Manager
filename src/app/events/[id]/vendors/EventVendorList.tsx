@@ -40,10 +40,8 @@ export function EventVendorList({
   const [pendingToggles, setPendingToggles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
+    // Short queries render no results (see below) instead of clearing state here.
+    if (searchQuery.length < 2) return;
 
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
@@ -115,10 +113,10 @@ export function EventVendorList({
             autoFocus
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           />
-          {isSearching && (
+          {searchQuery.length >= 2 && isSearching && (
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Searching...</p>
           )}
-          {searchResults.length > 0 && (
+          {searchQuery.length >= 2 && searchResults.length > 0 && (
             <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md max-h-48 overflow-y-auto">
               {searchResults.map((vendor) => (
                 <button

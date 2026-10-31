@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { setNewPassword } from "./actions";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -40,7 +41,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   }
 
   return (
-    <form action={handleSubmit} className="mt-8 space-y-6">
+    <form action={handleSubmit} onReset={keepFormValues} className="mt-8 space-y-6">
       {error && (
         <div className="bg-red-50 dark:bg-red-900/50 text-red-600 dark:text-red-400 p-3 rounded-md text-sm">
           {error}

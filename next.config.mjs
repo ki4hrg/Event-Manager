@@ -3,9 +3,14 @@ const nextConfig = {
   // No `output: "standalone"`: the image runs `next start` from the full build
   // because its CMD also needs the Prisma CLI for baseline + migrate + seed.
   // Server-only document renderers for the ESG / PER downloads (exceljs uses
-  // optional requires webpack shouldn't try to bundle).
+  // optional requires the bundler shouldn't try to bundle).
+  serverExternalPackages: ["exceljs", "docx"],
   experimental: {
-    serverComponentsExternalPackages: ["exceljs", "docx"],
+    // Every request passes through the auth proxy (src/proxy.ts), and Next 16
+    // cuts request bodies passing through it off at 10MB by default, which
+    // would truncate uploads. Match the default MAX_UPLOAD_BYTES
+    // (src/lib/uploads.ts); raise both together.
+    proxyClientMaxBodySize: "100mb",
   },
   // OAuth discovery documents must be served from the spec /.well-known/ paths,
   // but Next's App Router can't host a route segment whose folder starts with a

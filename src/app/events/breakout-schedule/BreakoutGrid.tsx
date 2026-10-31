@@ -37,6 +37,7 @@ import type {
   BreakoutGroupRoom,
   BreakoutSessionRoomOverride,
 } from "@prisma/client";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -302,6 +303,7 @@ function SessionManager({
       )}
       {!canWrite ? null : showAdd ? (
         <form
+          onReset={keepFormValues}
           action={(formData) => {
             startTransition(async () => {
               await createSession(group.id, formData);
@@ -1212,6 +1214,7 @@ function GroupPanel({
       <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
         {isRenaming && canWrite ? (
           <form
+            onReset={keepFormValues}
             action={(formData) => {
               startTransition(async () => {
                 await updateGroup(group.id, formData);
@@ -1377,6 +1380,7 @@ export function BreakoutGrid({
       <div className="mb-8">
         {!canWrite ? null : showAddGroup ? (
           <form
+            onReset={keepFormValues}
             action={(formData) => {
               startTransition(async () => {
                 await createGroup(formData);

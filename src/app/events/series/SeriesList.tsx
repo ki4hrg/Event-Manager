@@ -7,6 +7,7 @@ import { useFormStatus } from "react-dom";
 import { btnPrimary, btnOutlinedSm } from "@/lib/buttonStyles";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { isUserError, type UserError } from "@/lib/userErrors";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type SeriesEvent = { id: string; name: string; year: string };
 type Series = { id: string; name: string; totalEvents: number; events: SeriesEvent[] };
@@ -101,6 +102,7 @@ export function SeriesList({
       {canWrite &&
         (adding ? (
           <form
+            onReset={keepFormValues}
             action={handleCreate}
             className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex flex-col sm:flex-row gap-3 sm:items-end"
           >
@@ -153,6 +155,7 @@ export function SeriesList({
             <div key={s.id} className="p-4">
               {editingId === s.id ? (
                 <form
+                  onReset={keepFormValues}
                   action={(formData) => handleUpdate(s.id, formData)}
                   className="flex flex-col sm:flex-row gap-3 sm:items-end"
                 >

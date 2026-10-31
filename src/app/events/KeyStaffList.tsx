@@ -9,6 +9,7 @@ import { formatPhone } from "@/lib/format-phone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { OptionSelect } from "@/components/ui/OptionSelect";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type KeyStaffWithContact = EventKeyStaff & { contact: Contact };
 
@@ -141,10 +142,8 @@ export function KeyStaffList({
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
+    // Short queries render no results (see below) instead of clearing state here.
+    if (searchQuery.length < 2) return;
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
       try {
@@ -209,7 +208,7 @@ export function KeyStaffList({
       </div>
 
       {formView === "search" && (
-        <form action={handleAddFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
+        <form action={handleAddFormSubmit} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
           {!selectedContact ? (
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -222,10 +221,10 @@ export function KeyStaffList({
                 placeholder="Search by name, email, or organization..."
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
-              {isSearching && (
+              {searchQuery.length >= 2 && isSearching && (
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Searching...</p>
               )}
-              {searchResults.length > 0 && (
+              {searchQuery.length >= 2 && searchResults.length > 0 && (
                 <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md max-h-40 overflow-y-auto">
                   {searchResults.map((contact) => (
                     <button

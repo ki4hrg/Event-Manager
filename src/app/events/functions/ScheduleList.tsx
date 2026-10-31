@@ -11,6 +11,7 @@ import { ConflictWarning } from "@/components/ConflictWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { syncRangeEnd } from "@/lib/dateRange";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type ScheduleListProps = {
   schedules: FunctionSchedule[];
@@ -189,6 +190,9 @@ export function ScheduleList({
       {showAddForm && (
         <div className="mb-4">
           <form
+            onReset={keepFormValues}
+            // "Save anyway" saves the values that conflicted, so an edit withdraws it.
+            onChange={() => setPendingConflict(null)}
             action={async (formData) => {
               const result = await createSchedule(formData);
               if (result?.conflicts?.length) {
@@ -320,6 +324,8 @@ export function ScheduleList({
               {editingId === schedule.id ? (
                 <>
                   <form
+                    onReset={keepFormValues}
+                    onChange={() => setPendingConflict(null)}
                     action={async (formData) => {
                       const result = await updateSchedule(schedule.id, formData);
                       if (result?.conflicts?.length) {
