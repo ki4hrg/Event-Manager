@@ -54,10 +54,11 @@ them, not ahead of time.
 1. **OAuth dynamic registration** (unauthenticated; smallest). Done: #270.
 2. Public forms and password reset (`f/[token]` actions and upload, forgot/reset password),
    inbound-email headers. Mostly a port of the existing hand-written parsers. Password reset
-   done: #272.
-3. Share links and share-link groups: a filters schema per report type. Done: this PR
+   done: #272, #277.
+3. Share links and share-link groups: a filters schema per report type. Done: #276
    (`src/lib/shareLinkFilters.ts`).
-4. MCP dispatch envelope: argument object check, batch cap; then the generic tool-argument gate.
+4. MCP dispatch envelope: argument object check, batch cap (this PR); then the generic
+   tool-argument gate.
 5. Workflows, status and form types (enum casts).
 6. JSON-in-FormData: quotes, rfps, inbox, hotel proposals, and their MCP tools.
 7. Admin and account.

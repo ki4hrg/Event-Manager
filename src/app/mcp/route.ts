@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { resolveBearerToUserId } from "@/lib/mcpAuth";
 import { verifyMcpAccessToken, getRequestBaseUrl } from "@/lib/mcpOAuth";
 import { findMcpTool, classifiedTools, TENANT_ARG, TENANT_FREE_TOOLS } from "@/lib/mcpTools";
@@ -15,12 +16,39 @@ import { PermissionError } from "@/lib/permissions";
 const PROTOCOL_VERSION = "2025-06-18";
 const SERVER_INFO = { name: "event-manager-mcp", version: "1.0.0" };
 
-type JsonRpcRequest = {
-  jsonrpc: "2.0";
-  id?: string | number | null;
-  method: string;
-  params?: Record<string, unknown>;
-};
+// A JSON object, not an array or null: what params and tool arguments must be.
+const plainObject = z.custom<Record<string, unknown>>(
+  (v) => typeof v === "object" && v !== null && !Array.isArray(v),
+);
+
+// The envelope every request must have. `jsonrpc` isn't checked: it carries
+// nothing, and refusing a client that omits it would gain no safety.
+const RequestIdSchema = z.union([z.string().max(200), z.number(), z.null()]);
+
+// `params: null` is accepted as absent, as it always was.
+const JsonRpcRequestSchema = z.object({
+  id: RequestIdSchema.optional(),
+  method: z.string().min(1).max(200),
+  params: plainObject.nullish(),
+});
+
+// A response the client posts back (Streamable HTTP allows it): no method,
+// a result or an error. It gets no reply.
+function isClientResponse(item: unknown): boolean {
+  return plainObject.safeParse(item).success && !("method" in (item as object)) && ("result" in (item as object) || "error" in (item as object));
+}
+
+type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>;
+
+const ToolCallParamsSchema = z.object({
+  name: z.string().min(1).max(200),
+  // `arguments: null` means none, as it always did.
+  arguments: plainObject.nullish(),
+});
+
+// Each request in a batch runs in turn, so a batch is bounded. The current MCP
+// spec dropped batching; clients send one request per POST.
+const MAX_BATCH = 20;
 
 type JsonRpcResponse = {
   jsonrpc: "2.0";
@@ -110,11 +138,12 @@ async function dispatch(
       return ok(req.id, { tools: classifiedTools() });
     }
     case "tools/call": {
-      const params = req.params ?? {};
-      const name = typeof params.name === "string" ? params.name : null;
-      const args =
-        (params.arguments as Record<string, unknown> | undefined) ?? {};
-      if (!name) return err(req.id, ERROR_INVALID_PARAMS, "Missing tool name");
+      const params = ToolCallParamsSchema.safeParse(req.params ?? {});
+      if (!params.success) {
+        return err(req.id, ERROR_INVALID_PARAMS, "params needs a tool `name` and, if given, an `arguments` object");
+      }
+      const { name } = params.data;
+      const args = params.data.arguments ?? {};
       const tool = findMcpTool(name);
       if (!tool) return err(req.id, ERROR_METHOD_NOT_FOUND, `Unknown tool: ${name}`);
       // Which organization the call acts in. A key spans every tenant its user
@@ -175,6 +204,13 @@ async function dispatch(
   }
 }
 
+// The id to answer a malformed request with, when it has a usable one.
+function requestId(item: unknown): JsonRpcRequest["id"] {
+  if (!plainObject.safeParse(item).success) return null;
+  const id = RequestIdSchema.safeParse((item as { id?: unknown }).id);
+  return id.success ? id.data : null;
+}
+
 export async function POST(request: NextRequest) {
   const userId = await resolveMcpUserId(request.headers.get("authorization"));
   if (!userId) return unauthorized();
@@ -187,14 +223,21 @@ export async function POST(request: NextRequest) {
   }
 
   if (Array.isArray(body)) {
-    // Batched requests — process each and return an array (skip notification responses).
+    // JSON-RPC: an empty batch is one Invalid Request, not an empty reply.
+    if (body.length === 0 || body.length > MAX_BATCH) {
+      const message = body.length === 0 ? "Empty batch" : `Batch too large (at most ${MAX_BATCH} requests)`;
+      return Response.json(err(null, ERROR_INVALID_REQUEST, message), { status: 400 });
+    }
+    // Process each and return an array (skip notification responses).
     const responses: JsonRpcResponse[] = [];
     for (const item of body) {
-      if (!item || typeof item !== "object") {
-        responses.push(err(null, ERROR_INVALID_REQUEST, "Invalid request"));
+      if (isClientResponse(item)) continue;
+      const parsed = JsonRpcRequestSchema.safeParse(item);
+      if (!parsed.success) {
+        responses.push(err(requestId(item), ERROR_INVALID_REQUEST, "Invalid request"));
         continue;
       }
-      const resp = await dispatch(item as JsonRpcRequest, userId);
+      const resp = await dispatch(parsed.data, userId);
       if (resp) responses.push(resp);
     }
     // A batch of only notifications/responses produces no replies. Per the MCP
@@ -204,13 +247,15 @@ export async function POST(request: NextRequest) {
     return Response.json(responses);
   }
 
-  if (!body || typeof body !== "object") {
-    return Response.json(err(null, ERROR_INVALID_REQUEST, "Invalid request"), {
+  if (isClientResponse(body)) return new Response(null, { status: 202 });
+  const parsed = JsonRpcRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json(err(requestId(body), ERROR_INVALID_REQUEST, "Invalid request"), {
       status: 400,
     });
   }
 
-  const resp = await dispatch(body as JsonRpcRequest, userId);
+  const resp = await dispatch(parsed.data, userId);
   // No reply means the input was a notification (e.g. notifications/initialized,
   // sent right after initialize). The MCP Streamable HTTP spec requires 202
   // Accepted with no body here; claude.ai's connector rejects a 204 and reports

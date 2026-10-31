@@ -11,7 +11,7 @@ advisory forces)
 | — Advisory | done | #248, #254 | Next 16 + React 19 for GHSA-2464-fhr4-w9xw; #254 put the proxy body limit back to 10MB and moved large-body routes out of the proxy (#253) |
 | 1 Pipeline | done | #247 | `ci.yml` on PRs, merge-on-green, audit, Dependabot, deploy `success: true` check; audit fix, mailparser 3.14, tiptap 3.32, overrides for `deepmerge-ts` / `brace-expansion` |
 | 2 Runtime | done | #268 | deployed and verified live; Dockhand Force redeploy and Re-pull images on (#273) |
-| 3 Boundaries | in progress | #269, #270, #272, this PR | Vitest + Testcontainers, OAuth registration, password reset, share links; order in docs/plans/phase3-boundaries.md, then #252 |
+| 3 Boundaries | in progress | #269, #270, #272, #276, #277, this PR | Vitest + Testcontainers, OAuth registration, password reset, share links, MCP envelope; order in docs/plans/phase3-boundaries.md, then #252 |
 | 4 Agent docs | done | #261 | CLAUDE.md 404 → ~120 lines; docs/ARCHITECTURE.md with the route-guard table (#251) |
 | 5 Design/copy | later | | |
 | 6 Stack | out | | |
@@ -34,7 +34,7 @@ Open decisions for John: none. The PGDATA mount exception is accepted and record
 phase 2 also records it in docs/DECISIONS.md.
 
 Follow-ups: #250 (type-ahead searches), #252 (error #441, phase 3), #271 (hash password reset
-tokens). Dependabot ignores runtime
+tokens), #275 (boot env check vs readers). Dependabot ignores runtime
 majors (#264); Dependabot PRs are merged by hand once CI is green.
 
-Resume at: phase 3, step 4 of docs/plans/phase3-boundaries.md (MCP dispatch envelope).
+Resume at: phase 3, step 4 of docs/plans/phase3-boundaries.md, the generic MCP tool-argument gate.
