@@ -40,6 +40,21 @@ Checked against the official Next 15 and 16 upgrade guides and this codebase.
 | tiptap 3, dnd-kit | Peer ranges allow React 19 | None |
 | Node ≥ 20.9 | Image is `node:24-alpine` | None |
 
+Found while upgrading (not in the guides' headline list):
+
+| Change | Here | Action |
+|---|---|---|
+| `next/dynamic` with `ssr: false` not allowed in Server Components (15) | Agenda page | Moved into a small Client Component, `AgendaGridNoSsr.tsx` |
+| Bodies of requests passing through the proxy are cut off at 10MB by default (`experimental.proxyClientMaxBodySize`) | The proxy matches every route, uploads allow 100MB | Set `proxyClientMaxBodySize: "100mb"` to match `MAX_UPLOAD_BYTES` |
+| `eslint-plugin-react-hooks` 7.1 `set-state-in-effect` | 7 hand-rolled type-ahead searches cleared results inside the effect | Derive "no results" from the query length instead, as `useDebouncedSearch` does |
+| `next build` rewrites `tsconfig.json` (`jsx: react-jsx`, `target`, `.next/dev/types`) | | Committed as written |
+| React 19 resets a `<form action={fn}>`'s uncontrolled fields after the action returns | Forms that show a validation or caught server error lose what the user typed | Not changed here: see Follow-ups |
+
+## Follow-ups
+
+- React 19 form reset: forms whose action handler returns early or catches an error (`SetupTableList`, `UserForm`, `RoleForm`, `TenantForm`, `SupplyOrderItemPanel`, `ResetPasswordForm`, the contact/speaker add forms) now clear their uncontrolled fields when they show the error. Fix per form (controlled inputs or `onSubmit`), with the UI exercised.
+- Move the 7 hand-rolled type-ahead searches onto `useDebouncedSearch`, as CLAUDE.md asks.
+
 ## Steps
 
 1. `npm install next@16.4.3 react@^19 react-dom@^19 eslint-config-next@16.4.3`.
