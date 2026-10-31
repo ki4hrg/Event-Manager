@@ -76,6 +76,17 @@ Changes a user or operator can see that `tsc`, lint and the build don't catch.
   so uploads over 10MB arrived truncated. `next.config.mjs` sets it to `"100mb"`, matching
   `MAX_UPLOAD_BYTES`.
 
+- **Caching.** GET route handlers and `fetch` are no longer cached by default, and the client
+  router cache keeps dynamic pages for 0 s (Next 15). Every page here is `force-dynamic` and
+  the handlers do auth or I/O, so pages can only get fresher: no change.
+- **Middleware → proxy.** `src/proxy.ts` runs on the Node runtime where middleware ran on
+  edge. Same matcher and the same NextAuth check (signed-out page → `/login`, `/mcp` → 401).
+- **Server error messages.** A plain `Error` thrown by a Server Action reaches the client as
+  React's minified "error #441" text in production (Next 14 showed an English "omitted in
+  production" sentence). The forms that print `e.message` (`UserForm`, `RoleForm`,
+  `TenantForm`, `ResetPasswordForm`) now show that text for a refusal. Not fixed here: tracked
+  as a follow-up issue.
+
 ## Follow-ups
 
 - Move the 7 hand-rolled type-ahead searches onto `useDebouncedSearch`, as CLAUDE.md asks.
