@@ -1,36 +1,21 @@
 import { z } from "zod";
+import { redirectUriProblem } from "@/lib/mcpOAuth";
 import { prisma } from "@/lib/prisma";
 import { OAUTH_REGISTER_PER_IP, clientIpFrom, rateLimit } from "@/lib/rateLimit";
 
-// A redirect URI this server will send authorization codes to (OAuth 2.1
-// §2.3.1 and §8.4.2): https anywhere, or http on a loopback host for a native
-// client. No fragment. Other schemes (javascript:, data:, custom) are refused.
-const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
-
-function redirectUriProblem(raw: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    return "is not a URL";
-  }
-  if (url.hash) return "has a fragment";
-  if (url.protocol === "https:") return null;
-  if (url.protocol === "http:" && LOOPBACK.has(url.hostname)) return null;
-  return "must be https, or http on localhost";
-}
-
 const RegistrationSchema = z.object({
-  client_name: z.string().trim().max(200).optional(),
+  // Some client libraries send null for unset fields.
+  client_name: z.string().trim().max(200).nullish(),
   redirect_uris: z
     .array(z.string().max(2000))
     .min(1, "At least one redirect_uri is required.")
     .max(10, "At most 10 redirect_uris.")
     .superRefine((uris, ctx) => {
-      for (const uri of uris) {
+      uris.forEach((uri, i) => {
+        // The index, not the text: error_description shouldn't echo client input.
         const problem = redirectUriProblem(uri);
-        if (problem) ctx.addIssue({ code: "custom", message: `redirect_uri ${problem}: ${uri.slice(0, 200)}` });
-      }
+        if (problem) ctx.addIssue({ code: "custom", message: `redirect_uris[${i}] ${problem}` });
+      });
     }),
 });
 

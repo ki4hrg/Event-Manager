@@ -122,6 +122,47 @@ export type AuthorizationRequest = {
   scope: string;
 };
 
+// A redirect URI this server sends authorization codes to (OAuth 2.1 §2.3.1,
+// §8.4.2): https, or http on a loopback host for a native client; no fragment,
+// no userinfo. Checked at registration and again at authorize, so a client
+// registered before the rule existed can't use a URI it breaks.
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+export function redirectUriProblem(raw: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return "is not a URL";
+  }
+  if (url.hash) return "has a fragment";
+  if (url.username || url.password) return "has a user name or password";
+  if (url.protocol === "https:") return null;
+  if (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) return null;
+  return "must be https, or http on localhost";
+}
+
+// Exact match, except that a loopback redirect may use any port (OAuth 2.1
+// §8.4.2: native clients bind an ephemeral port at request time).
+export function redirectUriMatches(registered: string, requested: string): boolean {
+  if (registered === requested) return true;
+  let a: URL, b: URL;
+  try {
+    a = new URL(registered);
+    b = new URL(requested);
+  } catch {
+    return false;
+  }
+  if (a.protocol !== "http:" || !LOOPBACK_HOSTS.has(a.hostname)) return false;
+  return (
+    b.protocol === a.protocol &&
+    b.hostname === a.hostname &&
+    b.pathname === a.pathname &&
+    b.search === a.search &&
+    !b.username && !b.password && !b.hash
+  );
+}
+
 // On failure, `redirectUri` is non-null only when it was checked against the
 // client's registered list. RFC 6749 §4.1.2.1: an error may be reported back to
 // the client only through a redirect_uri already known to belong to it —
@@ -171,7 +212,8 @@ export async function validateAuthorizationRequest(
   if (!redirectUri) {
     return fail("invalid_request", "Missing required parameter: redirect_uri.");
   }
-  if (!client.redirectUris.includes(redirectUri)) {
+  const registered = client.redirectUris.find((uri) => redirectUriMatches(uri, redirectUri));
+  if (!registered || redirectUriProblem(registered) || redirectUriProblem(redirectUri)) {
     return fail(
       "invalid_request",
       "redirect_uri is not registered for this client.",

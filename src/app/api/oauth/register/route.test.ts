@@ -68,3 +68,17 @@ describe("POST /api/oauth/register", () => {
     expect(await prisma.oAuthClient.count()).toBe(before);
   });
 });
+
+describe("registration edge cases", () => {
+  it("accepts client_name: null (some libraries send it for unset fields)", async () => {
+    expect((await register({ client_name: null, redirect_uris: ["https://e.example/cb"] })).status).toBe(201);
+  });
+
+  it("refuses a redirect_uri with a user name, and doesn't echo it", async () => {
+    const res = await register({ redirect_uris: ["https://ok.example/cb", "https://claude.ai@evil.example/cb"] });
+    expect(res.status).toBe(400);
+    const { error_description } = await res.json();
+    expect(error_description).toContain("redirect_uris[1]");
+    expect(error_description).not.toContain("evil.example");
+  });
+});
