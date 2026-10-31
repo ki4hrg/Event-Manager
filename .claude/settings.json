@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "ki4hrg-standards": {
+      "source": { "source": "github", "repo": "ki4hrg/standards" }
+    }
+  },
+  "enabledPlugins": {
+    "standards@ki4hrg-standards": true
+  }
+}

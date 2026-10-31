@@ -46,7 +46,7 @@ render "Timeline" sections (`FunctionDetailReport.tsx:982`,
 to catering vendors on the handoff report and means "when the food moves". Adding
 `cueNumber`, `avNotes`, `lightingNotes`, `contactId`, `offsetMinutes` puts five
 permanently-null columns on every catering row and makes the handoff timeline
-ambiguous about what it shows. Same test `reviews/claudemd/candidates.md` applied
+ambiguous about what it shows. Same test `docs/claude-candidates.md` applied
 to `Equipment` vs `InventoryItem`: does one row need to exist in more than one
 context at once? A plenary cue and a catering timeline entry never coexist on the
 same record. If the owner would rather have one vocabulary, (A) is a legitimate
@@ -74,7 +74,7 @@ moving the function on the agenda silently invalidates every row; storing
 the whole run for free. Display time is `anchor.startTime + offsetMinutes`,
 computed in `src/lib/runOfShow.ts` — which must be a plain module, not
 `"use client"`, per the client-reference-proxy footgun recorded in
-`reviews/claudemd/candidates.md`.
+`docs/claude-candidates.md`.
 
 **Who.** Reuse the existing person vocabulary rather than free text: `contactId`
 resolved from `FunctionContact` on this function plus the speakers of any linked

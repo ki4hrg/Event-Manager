@@ -71,7 +71,7 @@ the outward-facing text (its internal sibling is `internalNotes`);
 Label resolution goes in a new plain module `src/lib/publicLabels.ts`
 (`publicLabel(row)`, `publicTitle(row)`) — same shape as `formatBreakoutSessionName`
 and `partyLabel`. It **must** live in `src/lib/`, not a `"use client"` module:
-`reviews/claudemd/candidates.md` records a runtime `TypeError` from exactly this
+`docs/claude-candidates.md` records a runtime `TypeError` from exactly this
 mistake when `partyLabel` was imported from `party-field.tsx` into a server
 component.
 

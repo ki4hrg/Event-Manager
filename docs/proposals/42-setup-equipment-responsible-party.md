@@ -57,7 +57,7 @@ from the vendor identity it already has.
 **Recommended: (A).** (B) stores the same fact twice — a row whose provider is the
 `venueVendor` and whose enum says `RENTAL` is a contradiction the database will
 happily accept, and someone has to reconcile it forever. The `Equipment` /
-`InventoryItem` decision in `reviews/claudemd/candidates.md` made the same call:
+`InventoryItem` decision in `docs/claude-candidates.md` made the same call:
 model the thing once and derive the label.
 
 ## Proposed model

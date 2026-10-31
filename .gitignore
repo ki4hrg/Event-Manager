@@ -27,6 +27,9 @@ yarn-error.log*
 .env
 .env*.local
 
+# Local uploads (UPLOAD_DIR in .env.example)
+.uploads/
+
 # Vercel
 .vercel
 

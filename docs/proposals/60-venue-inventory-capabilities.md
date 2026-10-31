@@ -20,7 +20,7 @@ The codebase has already drawn the right distinction one level over.
 `MonitorMix`, `MonitorOutput`, `SupplyOrderItem` and `InventoryItem`.
 **`InventoryItem`** (`schema.prisma:269-309`) is an *instance at a place we own* —
 required `equipmentId`, required `locationId` into the `StorageLocation` tree,
-`Restrict` on both. `reviews/claudemd/candidates.md` records why: a `locationId`
+`Restrict` on both. `docs/claude-candidates.md` records why: a `locationId`
 on `Equipment` cannot express twelve easels across three pallets without catalog
 rows named "Easel (Pallet A)" polluting every picker. **Venue stock is the same
 shape one step out: instances at a place we do not own.**
@@ -83,7 +83,7 @@ by room, with a "House-wide" group for `roomId: null`; equipment picker from
 `getEquipment()`; quantity, chargeable, notes. The inline "＋ New equipment"
 affordance must be gated on `EQUIPMENT` WRITE and **absent**, not disabled, for
 non-admins — `EQUIPMENT` is admin-only in the seed while venue editing is not, and
-`reviews/claudemd/candidates.md` records this split biting the inventory work.
+`docs/claude-candidates.md` records this split biting the inventory work.
 
 **Where it pays off — order forms.** The models are scaffolding; this is the feature.
 

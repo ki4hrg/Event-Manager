@@ -32,7 +32,7 @@ split along a clean seam.
 **(B) Split by lifetime** — durable person facts on `Contact`; per-event
 engagement facts on a new `SpeakerProfile` keyed `(eventId, contactId)`.
 
-**Recommended: (B).** The test is the one `reviews/claudemd/candidates.md` used to
+**Recommended: (B).** The test is the one `docs/claude-candidates.md` used to
 justify `InventoryItem` over a `locationId` on `Equipment`: does one row need to
 exist in more than one place at once? A returning speaker's bio does not change
 between the 2025 and 2026 editions; their flight, hotel, honorarium and rehearsal
@@ -94,7 +94,7 @@ presentations, and there is no data yet to justify maintaining it.
 
 **Permissions.** No new `PermissionResource`: durable fields ride `CONTACTS`
 (GLOBAL), `SpeakerProfile` rides `PRESENTATIONS` (event-scoped). Note the trap in
-`reviews/claudemd/candidates.md` — resolving a GLOBAL-only resource *with* an
+`docs/claude-candidates.md` — resolving a GLOBAL-only resource *with* an
 `eventId` yields ASSIGNED → no row → NONE, so the two halves must be gated at
 their own scopes, not in one call.
 
