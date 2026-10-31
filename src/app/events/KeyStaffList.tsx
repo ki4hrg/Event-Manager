@@ -9,6 +9,7 @@ import { formatPhone } from "@/lib/format-phone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { OptionSelect } from "@/components/ui/OptionSelect";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type KeyStaffWithContact = EventKeyStaff & { contact: Contact };
 
@@ -207,7 +208,7 @@ export function KeyStaffList({
       </div>
 
       {formView === "search" && (
-        <form action={handleAddFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
+        <form action={handleAddFormSubmit} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
           {!selectedContact ? (
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">

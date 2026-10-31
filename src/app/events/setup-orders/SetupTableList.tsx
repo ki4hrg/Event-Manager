@@ -8,6 +8,7 @@ import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import { aggregateSetupTables } from "./utils";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type TableRow = SetupTable & { providerVendor: { id: string; name: string } | null };
 
@@ -132,7 +133,7 @@ function RowForm({
   };
 
   return (
-    <form action={handleSubmit} className="space-y-3">
+    <form action={handleSubmit} onReset={keepFormValues} className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Qty *</label>

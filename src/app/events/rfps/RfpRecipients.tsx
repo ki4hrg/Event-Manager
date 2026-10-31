@@ -13,6 +13,7 @@ import type { RfpRecipientArgs } from "./core";
 import type { OfferHotel } from "@/lib/inboundParse";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { NEW_HOTEL, NEW_HOTEL_FIELDS, readNewHotel } from "@/app/events/hotels/proposalArgs";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 export type RecipientRow = {
   id: string;
@@ -203,6 +204,7 @@ export function RfpRecipients({
       )}
       {adding && addNew && (
         <form
+          onReset={keepFormValues}
           action={(formData) =>
             run(async () => {
               const hotel = readNewHotel(formData);

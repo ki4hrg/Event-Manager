@@ -7,6 +7,7 @@ import type { VenueContact, Contact } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { OptionSelect } from "@/components/ui/OptionSelect";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type VenueContactWithContact = VenueContact & { contact: Contact };
 
@@ -121,7 +122,7 @@ export function ContactList({
       </div>
 
       {formView === "search" && (
-        <form action={handleAddFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        <form action={handleAddFormSubmit} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="space-y-4">
             {!selectedContact ? (
               <div>

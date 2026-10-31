@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import type { PresentationContact, Contact, CustomOption } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type SpeakerWithContact = PresentationContact & { contact: Contact };
 
@@ -146,7 +147,7 @@ export function SpeakerList({
       </div>
 
       {formView === "search" && (
-        <form action={handleAddFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        <form action={handleAddFormSubmit} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="space-y-4">
             {!selectedContact ? (
               <div>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { isUserError, type UserError } from "@/lib/userErrors";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type Props = {
   action: (formData: FormData) => Promise<void | UserError>;
@@ -33,7 +34,7 @@ export function SendTestEmailForm({ action, defaultTo, disabled }: Props) {
   }
 
   return (
-    <form action={handleSubmit} className="space-y-3">
+    <form action={handleSubmit} onReset={keepFormValues} className="space-y-3">
       <div>
         <label htmlFor="to" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           Recipient

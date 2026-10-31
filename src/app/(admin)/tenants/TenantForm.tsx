@@ -6,6 +6,7 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { OrgProfileFields, OrgProfileView } from "@/components/OrgProfileFields";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import type { OrgProfile } from "@/lib/orgProfile";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 function SubmitButton({ isCreate }: { isCreate: boolean }) {
   const { pending } = useFormStatus();
@@ -76,7 +77,7 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
           {error}
         </div>
       )}
-      <form action={handleSubmit} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
+      <form action={handleSubmit} onReset={keepFormValues} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Name *

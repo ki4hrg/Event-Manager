@@ -10,6 +10,7 @@ import { LocationSelect, type LocationOption } from "@/components/ui/LocationSel
 import type { SupplyOrderTarget } from "../../actions";
 import type { AddInventoryResult } from "@/app/events/supply-orders/core";
 import { isUserError, type UserError } from "@/lib/userErrors";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type ItemWithEquipment = InventoryItem & {
   equipment: { id: string; name: string; category: string };
@@ -307,16 +308,24 @@ function AddItemForm({
   const detailRef = useRef<HTMLInputElement>(null);
   const [equipmentId, setEquipmentId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Clears after an add, for the next item; keeps what was typed after a
+  // refusal (see keepFormValues).
+  const refused = useRef(false);
   const router = useRouter();
 
   return (
     <form
       ref={formRef}
+      onReset={(e) => {
+        if (refused.current) keepFormValues(e);
+      }}
       action={async (formData) => {
         setError(null);
+        refused.current = false;
         try {
           const result = await createItem(formData);
           if (isUserError(result)) {
+            refused.current = true;
             setError(result.error);
             return;
           }
@@ -324,6 +333,7 @@ function AddItemForm({
           detailRef.current?.focus();
           router.refresh();
         } catch (e) {
+          refused.current = true;
           setError(e instanceof Error ? e.message : "Couldn't add that item.");
         }
       }}
@@ -357,6 +367,7 @@ function EditItemForm({
 
   return (
     <form
+      onReset={keepFormValues}
       action={async (formData) => {
         setError(null);
         try {

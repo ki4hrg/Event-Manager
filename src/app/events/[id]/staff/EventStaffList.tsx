@@ -8,6 +8,7 @@ import { AccessLevelSelect } from "@/components/AccessLevelSelect";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { useDebouncedSearch } from "@/lib/useDebouncedSearch";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 type StaffEntry = {
   id: string;
@@ -89,6 +90,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
 
       {showAdd && (
         <form
+          onReset={keepFormValues}
           action={handleSubmit}
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3"
         >

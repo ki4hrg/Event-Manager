@@ -48,11 +48,36 @@ Found while upgrading (not in the guides' headline list):
 | Bodies of requests passing through the proxy are cut off at 10MB by default (`experimental.proxyClientMaxBodySize`) | The proxy matches every route, uploads allow 100MB | Set `proxyClientMaxBodySize: "100mb"` to match `MAX_UPLOAD_BYTES` |
 | `eslint-plugin-react-hooks` 7.1 `set-state-in-effect` | 7 hand-rolled type-ahead searches cleared results inside the effect | Derive "no results" from the query length instead, as `useDebouncedSearch` does |
 | `next build` rewrites `tsconfig.json` (`jsx: react-jsx`, `target`, `.next/dev/types`) | | Committed as written |
-| React 19 resets a `<form action={fn}>`'s uncontrolled fields after the action returns | Forms that show a validation or caught server error lose what the user typed | Not changed here: see Follow-ups |
+| React 19 resets a `<form action={fn}>`'s uncontrolled fields after the action returns | Forms that show a validation or caught server error lose what the user typed | `onReset={keepFormValues}`: see Runtime behaviour changes |
+
+## Runtime behaviour changes
+
+Changes a user or operator can see that `tsc`, lint and the build don't catch.
+
+- **Form reset.** React 19 resets a `<form action={fn}>` after the action returns,
+  whatever it returned. A form that stays on screen after the server (or a client check)
+  refuses the input lost what the user typed, against the rule that forms keep what was typed
+  when the server refuses. Fix: `onReset={keepFormValues}` (`src/lib/keepFormValues.ts`).
+  React resets through the native `form.reset()`, whose `reset` event is cancelable, so
+  cancelling it keeps the values, and the form keeps `<form action>` and `useFormStatus` as
+  CLAUDE.md asks. Rejected: `onSubmit` + `useTransition` (drops `useFormStatus`, a pending prop
+  per form, a larger diff against the Forms convention) and controlled inputs (state for every
+  field). Applied to every form whose handler returns early, shows `isUserError`, catches a
+  throw or raises a conflict prompt while staying put: `UserForm`, `RoleForm`, `TenantForm`,
+  `SendTestEmailForm`, `ResetPasswordForm`, `ApiKeyForm`, `OptionList` (add, edit),
+  `SetupTableList`, `ScheduleList` (add, edit), `KeyStaffList`, `EventStaffList`, the
+  function/venue/vendor contact and speaker add forms, `FormLinkButton`, `PickupGuests`,
+  `RfpRecipients` (add hotel), `SeriesList` (create, rename) and `LocationContents` (add, edit
+  item). `LocationContents`' add form clears itself after a success for the next item, so it
+  cancels the reset only after a refusal. Forms that redirect, close or remount on success and
+  let a throw reach the error boundary are unchanged: the reset there is invisible.
+- **Proxy body limit.** Next 16 buffers the body of a request passing through the proxy and
+  cuts it off at 10MB (`experimental.proxyClientMaxBodySize`). The proxy matches every route,
+  so uploads over 10MB arrived truncated. `next.config.mjs` sets it to `"100mb"`, matching
+  `MAX_UPLOAD_BYTES`.
 
 ## Follow-ups
 
-- React 19 form reset: forms whose action handler returns early or catches an error (`SetupTableList`, `UserForm`, `RoleForm`, `TenantForm`, `SupplyOrderItemPanel`, `ResetPasswordForm`, the contact/speaker add forms) now clear their uncontrolled fields when they show the error. Fix per form (controlled inputs or `onSubmit`), with the UI exercised.
 - Move the 7 hand-rolled type-ahead searches onto `useDebouncedSearch`, as CLAUDE.md asks.
 
 ## Steps

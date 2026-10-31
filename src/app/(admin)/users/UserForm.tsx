@@ -6,6 +6,7 @@ import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
 import { roleBadgeClass } from "@/lib/roleStyles";
 import { DEFAULT_ROLE_NAME } from "@/app/(admin)/users/roles/resources";
+import { keepFormValues } from "@/lib/keepFormValues";
 
 function SubmitButton({ isCreate }: { isCreate: boolean }) {
   const { pending } = useFormStatus();
@@ -141,7 +142,7 @@ export function UserForm({
           {error}
         </div>
       )}
-      <form action={handleSubmit} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
+      <form action={handleSubmit} onReset={keepFormValues} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Name
