@@ -67,6 +67,7 @@ jobs:
     needs: automerge
     if: needs.automerge.outputs.merged == 'true'
     permissions:
+      contents: read   # the called workflow declares it; a callee can't ask for more than this job grants
       issues: write
       pull-requests: read
     uses: ki4hrg/standards/.github/workflows/close-linked-issues.yml@v1
