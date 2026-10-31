@@ -97,7 +97,7 @@ export async function createFormLink(eventId: string, formData: FormData) {
         workflowTemplateId: (formData.get("workflowTemplateId") as string) || null,
         dueAt: await endOfDayInEvent(formData.get("dueAt") as string, eventId),
         expiresAt,
-        maxSubmissions: maxRaw ? Number(maxRaw) : null,
+        maxSubmissions: maxRaw?.trim() ? Number(maxRaw) : null,
       },
       session.user.id,
     );

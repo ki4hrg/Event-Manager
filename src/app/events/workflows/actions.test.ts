@@ -36,8 +36,9 @@ beforeEach(() => vi.mocked(auth).mockReset());
 describe("workflow actions: what a status change may store", () => {
   it("sets a known status and substatus, and clears both with empty values", async () => {
     const { eventId, functionId } = await setup();
-    await setEntityStatus("function", functionId, eventId, form({ status: "IN_PROGRESS", substatus: "  Signed  " }));
-    expect(await stored(functionId)).toEqual({ status: "IN_PROGRESS", substatus: "Signed" });
+    await setEntityStatus("function", functionId, eventId, form({ status: "IN_PROGRESS", substatus: "Signed " }));
+    // Stored as sent: an option label with a trailing space must still match its option.
+    expect(await stored(functionId)).toEqual({ status: "IN_PROGRESS", substatus: "Signed " });
     await setEntityStatus("function", functionId, eventId, form({ status: "", substatus: "" }));
     expect(await stored(functionId)).toEqual({ status: null, substatus: null });
   });
@@ -46,9 +47,9 @@ describe("workflow actions: what a status change may store", () => {
     const { eventId, functionId } = await setup();
     await expect(setEntityStatus("function", functionId, eventId, form({ status: "SHIPPED" }))).rejects.toBeInstanceOf(ZodError);
     await expect(
-      setEntityStatus("function", functionId, eventId, form({ status: "IN_PROGRESS", substatus: "x".repeat(201) })),
+      setEntityStatus("function", functionId, eventId, form({ status: "IN_PROGRESS", substatus: "x".repeat(1001) })),
     ).rejects.toBeInstanceOf(ZodError);
-    await expect(cancelEntity("function", functionId, "x".repeat(201), eventId)).rejects.toBeInstanceOf(ZodError);
+    await expect(cancelEntity("function", functionId, "x".repeat(1001), eventId)).rejects.toBeInstanceOf(ZodError);
     expect(await stored(functionId)).toEqual({ status: null, substatus: null });
   });
 
@@ -57,14 +58,23 @@ describe("workflow actions: what a status change may store", () => {
     await expect(setEntityStatus(entityType as never, functionId, eventId, form({ status: "IN_PROGRESS" }))).rejects.toMatchObject(NOT_FOUND);
   });
 
-  it("treats a malformed entity id as not found", async () => {
-    const { eventId } = await setup();
+  it("treats a malformed entity or event id as not found", async () => {
+    const { eventId, functionId } = await setup();
     await expect(setEntityStatus("function", { id: 1 } as never, eventId, form({ status: "IN_PROGRESS" }))).rejects.toMatchObject(NOT_FOUND);
+    await expect(setEntityStatus("function", functionId, { tenantId: "x" } as never, form({ status: "IN_PROGRESS" }))).rejects.toMatchObject(NOT_FOUND);
   });
 
   it("refuses badge ids that aren't a list of ids", async () => {
     const { eventId, functionId } = await setup();
     await expect(getWorkflowBadgeSummaries("function", "abc" as never, eventId)).rejects.toBeInstanceOf(ZodError);
     await expect(getWorkflowBadgeSummaries("function", [functionId], eventId)).resolves.toEqual({});
+  });
+});
+
+describe("requirePermission: an event id from the client", () => {
+  it("treats a non-string event id as not found instead of a tenant-wide check", async () => {
+    const { requirePermission } = await import("@/lib/permissions");
+    await setup();
+    await expect(requirePermission("FUNCTIONS", "VIEW", { tenantId: "x" } as never)).rejects.toMatchObject(NOT_FOUND);
   });
 });

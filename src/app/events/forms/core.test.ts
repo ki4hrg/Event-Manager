@@ -52,7 +52,8 @@ describe("createFormLinkCore: what a form link may store", () => {
     ["a malformed recipient email", { recipientEmail: "not an email" }, "Enter a valid recipient email"],
     ["a non-numeric response limit", { maxSubmissions: Number("lots") }, "Responses allowed must be a whole number"],
     ["a fractional response limit", { maxSubmissions: 2.5 }, "Responses allowed must be a whole number"],
-    ["an over-long intro", { intro: "x".repeat(5001) }, "Invalid intro"],
+    ["an over-long intro", { intro: "x".repeat(5001) }, "Intro must be at most 5000 characters"],
+    ["a malformed target id", { contactId: { not: "" } }, "Invalid contactId"],
   ])("refuses %s with a message the person can read", async (_label, over, message) => {
     const { userId, eventId } = await setup();
     const result = createFormLinkCore(args(eventId, over), userId);

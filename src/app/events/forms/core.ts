@@ -51,14 +51,22 @@ const MAX_BUNDLE_LINKS = 50;
 // Shape checks on what both the form-link dialog and create_form_link send.
 // The ids, dates and limits are checked against the event below.
 const FormTypeSchema = z.enum(FormType);
-const text = (max: number) => z.string().trim().max(max).nullable().transform((s) => s || null);
+const text = (max: number, name: string) =>
+  z.string().trim().max(max, `${name} must be at most ${max} characters`).nullable().transform((s) => s || null);
+const id = z.string().min(1).max(100);
 const CreateFormLinkShape = z.object({
+  eventId: id,
   formType: FormTypeSchema,
   alsoFormTypes: z.array(FormTypeSchema).max(20).optional(),
-  functionIds: z.array(z.string().max(100)).max(200).optional(),
+  functionId: id.nullable(),
+  functionIds: z.array(id).max(200).optional(),
+  contactId: id.nullable(),
+  presentationId: id.nullable(),
+  boothGroupId: id.nullable(),
+  workflowTemplateId: id.nullable(),
   sections: z.array(z.string().max(100)).max(100),
-  label: text(200),
-  recipientName: text(200),
+  label: text(200, "Label"),
+  recipientName: text(200, "Recipient name"),
   recipientEmail: z
     .string()
     .trim()
@@ -66,8 +74,10 @@ const CreateFormLinkShape = z.object({
     .nullable()
     .transform((s) => s || null)
     .refine((s) => s === null || z.email().safeParse(s).success, "Enter a valid recipient email"),
-  intro: text(5000),
-  mediaUploadUrl: text(2000),
+  intro: text(5000, "Intro"),
+  mediaUploadUrl: text(2000, "Upload link"),
+  dueAt: z.date().nullable(),
+  expiresAt: z.date(),
   maxSubmissions: z
     .number({ error: "Responses allowed must be a whole number" })
     .int("Responses allowed must be a whole number")
@@ -86,14 +96,14 @@ export async function createFormLinkCore(input: CreateFormLinkArgs, userId: stri
   await requirePermissionForUser(userId, "FORMS", "WRITE", input.eventId);
   const shape = CreateFormLinkShape.safeParse(input);
   if (!shape.success) {
+    // Messages written for a person are passed on; zod's own defaults (a
+    // wrong type, an unknown form type) only come from a malformed call.
     const issue = shape.error.issues[0];
-    // A custom message is one a person can act on; the rest only come from a
-    // tampered call or a malformed MCP request.
-    throw issue.code === "custom" || issue.path[0] === "maxSubmissions" || issue.path[0] === "recipientEmail"
-      ? new UserFacingError(issue.message)
-      : new UserFacingError(`Invalid ${String(issue.path[0] ?? "form link")}`);
+    const field = String(issue.path[0] ?? "form link");
+    throw new UserFacingError(issue.message.startsWith("Invalid") ? `Invalid ${field}` : issue.message);
   }
-  const args = { ...input, ...shape.data };
+  // `options` is the form type's own settings, checked by its module below.
+  const args = { ...shape.data, options: input.options };
   const tenantId = await requireEventTenantId(args.eventId);
 
   const formTypes = Array.from(new Set([args.formType, ...(args.alsoFormTypes ?? [])]));

@@ -40,6 +40,7 @@ async function assertInstanceMatches(
   entityType: WorkflowEntityType,
   entityId: string,
 ) {
+  if (!idSchema.safeParse(instanceId).success) notFound();
   const inst = await prisma.workflowInstance.findUnique({
     where: { id: instanceId },
     select: { entityType: true, entityId: true },
@@ -50,6 +51,7 @@ async function assertInstanceMatches(
 // Confirms a step / checklist item belongs to the instance's own template, so
 // a completion can't be recorded against (or cascade from) a foreign step.
 async function assertInInstanceTemplate(instanceId: string, ref: { stepId: string } | { itemId: string }) {
+  if (!idSchema.safeParse("stepId" in ref ? ref.stepId : ref.itemId).success) notFound();
   const onInstance = { template: { instances: { some: { id: instanceId } } } };
   const found =
     "stepId" in ref
@@ -57,6 +59,8 @@ async function assertInInstanceTemplate(instanceId: string, ref: { stepId: strin
       : await prisma.workflowChecklistItem.findFirst({ where: { id: ref.itemId, step: onInstance }, select: { id: true } });
   if (!found) notFound();
 }
+
+const idSchema = z.string().min(1).max(100);
 
 async function filterEntityIdsInEvent(
   entityType: WorkflowEntityType,
@@ -79,10 +83,10 @@ async function gateWorkflowAction(
   return requirePermission(ENTITY_TYPE_RESOURCE[entityType], action, eventId);
 }
 
-const idSchema = z.string().min(1).max(100);
-// A status, or "" for none; a substatus is a CustomOption label.
+// A status, or "" for none. A substatus is a CustomOption label, stored as
+// sent (trimming could stop it matching its option); only bounded here.
 const StatusSchema = z.union([z.enum(EntityStatus), z.literal("")]).transform((s) => s || null);
-const SubstatusSchema = z.string().trim().max(200).transform((s) => s || null);
+const SubstatusSchema = z.string().max(1000).transform((s) => s || null);
 
 function revalidateEntity(entityType: WorkflowEntityType, entityId: string, eventId: string) {
   revalidatePath(WORKFLOW_ENTITY_DELEGATES[entityType].path(eventId, entityId));
@@ -120,6 +124,7 @@ export async function assignWorkflow(
 ) {
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
+  if (!idSchema.safeParse(templateId).success) notFound();
   // The template must be the event's tenant's own; a foreign id would attach
   // (and then render) another organization's workflow.
   const template = await prisma.workflowTemplate.findFirst({
@@ -197,7 +202,8 @@ export async function getWorkflowBadgeSummaries(
   eventId: string
 ): Promise<Record<string, WorkflowRowSummary>> {
   await gateWorkflowAction(entityType, eventId, "VIEW");
-  entityIds = z.array(idSchema).max(5000).parse(entityIds);
+  // No length cap: list pages pass every row's id.
+  entityIds = z.array(idSchema).parse(entityIds);
   if (entityIds.length === 0) return {};
 
   // Restrict to ids that actually belong to this event; a caller could pass
