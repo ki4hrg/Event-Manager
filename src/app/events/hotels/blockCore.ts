@@ -7,6 +7,8 @@
 // N days out.
 
 import type { HotelAttritionBasis, HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
+import { z } from "zod";
+import { dateKeySchema, idSchema, nullableNumber, text } from "@/lib/validation";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { MAX_STAY_NIGHTS, addDays, dateFromKey, dateKey, isAttritionBasis, labelKey, nightKeys } from "@/lib/hotels";
@@ -126,15 +128,19 @@ export async function createHotelBlockCore(proposalId: string, eventId: string, 
   return created;
 }
 
-export type BlockNightArgs = {
-  id: string | null; // null = a new night
-  roomType: string | null;
-  night: string;
-  rate: number | null;
-  contractedRooms: number | null;
-  rooms: number;
-  otherReservations: number;
-};
+// One night of a block's grid as the block form posts it (JSON in "nights").
+// No lower bound: the autosaving block form posts what was typed.
+const roomCount = z.number().int().max(100_000);
+export const BlockNightSchema = z.object({
+  id: idSchema.nullable(), // null = a new night
+  roomType: text(200).nullable(),
+  night: dateKeySchema,
+  rate: nullableNumber,
+  contractedRooms: roomCount.nullable(),
+  rooms: roomCount,
+  otherReservations: roomCount,
+});
+export type BlockNightArgs = z.infer<typeof BlockNightSchema>;
 
 export type BlockWriteArgs = {
   contractType: string | null; // hotel_contract_type option label

@@ -9,6 +9,8 @@
 import { randomUUID } from "crypto";
 import { mkdirSync, writeFileSync } from "fs";
 import type { Prisma, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
+import { z } from "zod";
+import { dateKeySchema, idSchema, nullableNumber, text } from "@/lib/validation";
 import { prisma } from "@/lib/prisma";
 import { hasPermissionForUser, PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
 import { addDays, blockTypeLabel, contractKindOf, dateFromKey, dateKey, stageOf, toContractTypeOption } from "@/lib/hotels";
@@ -81,15 +83,22 @@ export type RfpSpaceArgs = {
   room: string | null;
 };
 
-export type RfpBlockArgs = {
-  id?: string | null; // an existing block keeps its id (and its proposals' links)
-  contractType: string; // hotel_contract_type option label
-  guestType: string | null; // hotel_guest_type option label
-  targetRate: number | null;
-  targetRateRequired?: boolean; // a ceiling, not a target
-  notes: string | null;
-  nights: { roomType: string | null; night: string; rooms: number }[];
-};
+// A requested hotel block as the new-RFP page posts it (JSON in "blocks").
+export const RfpBlockSchema = z.object({
+  id: idSchema.nullish(), // an existing block keeps its id (and its proposals' links)
+  contractType: text(200), // hotel_contract_type option label
+  guestType: text(200).nullable(), // hotel_guest_type option label
+  targetRate: nullableNumber,
+  targetRateRequired: z.boolean().optional(), // a ceiling, not a target
+  notes: text().nullable(),
+  nights: z.array(z.object({ roomType: text(200).nullable(), night: dateKeySchema, rooms: z.number().int().max(100_000) })).max(2_000),
+});
+export type RfpBlockArgs = z.infer<typeof RfpBlockSchema>;
+
+// An alternate date range the RFP form posts (JSON in "alternateDates");
+// either end may be blank while the row is being filled in.
+const dateOrBlank = dateKeySchema.or(z.literal(""));
+export const RfpAlternateDatesSchema = z.object({ startDate: dateOrBlank, endDate: dateOrBlank });
 
 // Fill from history: which past blocks to draw on (null = any).
 export type RfpFillArgs = {

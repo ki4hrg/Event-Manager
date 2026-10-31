@@ -16,16 +16,20 @@ import { rangeTouched } from "@/lib/dateRange";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { buildQuoteComparison } from "@/lib/rfp/compareQuotes";
 import { UserFacingError } from "@/lib/userErrors";
+import { z } from "zod";
+import { idSchema, nullableNumber, text } from "@/lib/validation";
 
-export type QuoteLineArgs = {
-  id?: string | null;
-  rfpLineItemId: string | null;
-  description: string;
-  quantity: number | null;
-  unitPrice: number | null;
-  amount: number | null; // as quoted; blank = quantity × unit price
-  notes: string | null;
-};
+// One quote line as the quote form and inbox apply post it (JSON in "lines").
+export const QuoteLineSchema = z.object({
+  id: idSchema.nullish(),
+  rfpLineItemId: idSchema.nullable(),
+  description: text(20_000),
+  quantity: nullableNumber,
+  unitPrice: nullableNumber,
+  amount: nullableNumber, // as quoted; blank = quantity × unit price
+  notes: text().nullable(),
+});
+export type QuoteLineArgs = z.infer<typeof QuoteLineSchema>;
 
 export type QuoteWriteArgs = {
   vendorId: string;

@@ -7,7 +7,9 @@
 // refreshes the HotelProposalVersion row for the current revision, so earlier
 // revisions stay frozen and the current one always matches the proposal.
 
-import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope, HotelWaiverType, Prisma } from "@prisma/client";
+import { AmenityStatus, ConcessionMet, HotelChargeScope, HotelWaiverType, type HotelChargeKind, type Prisma } from "@prisma/client";
+import { z } from "zod";
+import { dateKeySchema, idSchema, nullableNumber, text } from "@/lib/validation";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { addDays, AMENITY_STATUS_LABELS, blockTypeLabel, coveredByProfile, dateFromKey, dateKey, labelKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
@@ -17,32 +19,55 @@ import { offerOutcomes, type InboundProposal, type OfferHotel } from "@/lib/inbo
 import { spaceSummary } from "@/lib/rfp/proposalSpace";
 import { createAndAddVenueContactCore, createVenueCore } from "@/app/venues/core";
 
-export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
-export type ProposalChargeArgs = { chargeType: string; amount: number | null; scope: HotelChargeScope | null };
-export type ProposalConcessionArgs = { concessionId: string; offered: string | null; met: ConcessionMet | null };
+// The lists a proposal form posts as JSON fields, one schema per entry; the
+// arg types are derived from them so a schema can't miss a field the core reads.
+// Bounds are generous: an offer read from email pre-fills these, and a person
+// can't shorten text the page never shows as too long.
+const label = text(500);
+const scope = z.enum(HotelChargeScope).nullable();
+// No lower bound: the autosaving forms post what was typed, and the cores
+// always took it.
+const rooms = z.number().int().max(100_000);
+
+export const ProposalNightSchema = z.object({ roomType: label.nullable(), night: dateKeySchema, rate: nullableNumber, rooms: rooms.nullable() });
+export type ProposalNightArgs = z.infer<typeof ProposalNightSchema>;
+
+export const ProposalChargeSchema = z.object({ chargeType: label, amount: nullableNumber, scope });
+export type ProposalChargeArgs = z.infer<typeof ProposalChargeSchema>;
+
+export const ProposalConcessionSchema = z.object({ concessionId: idSchema, offered: text(20_000).nullable(), met: z.enum(ConcessionMet).nullable() });
+export type ProposalConcessionArgs = z.infer<typeof ProposalConcessionSchema>;
+
 // A concession the hotel offered without the RFP asking (or with no RFP).
-export type ProposalOfferedConcessionArgs = { label: string; offered: string | null };
+export const ProposalOfferedConcessionSchema = z.object({ label, offered: text(20_000).nullable() });
+export type ProposalOfferedConcessionArgs = z.infer<typeof ProposalOfferedConcessionSchema>;
+
 // An amenity the offer confirms or says is unavailable (hotel_amenity label).
-export type ProposalAmenityArgs = { label: string; status: AmenityStatus; note: string | null };
+export const ProposalAmenitySchema = z.object({ label, status: z.enum(AmenityStatus), note: text(20_000).nullable() });
+export type ProposalAmenityArgs = z.infer<typeof ProposalAmenitySchema>;
+
 // A room offered for one of the RFP's meeting space requests, or unasked
 // (spaceRequestId null; name is then the room or function it's for).
-export type ProposalSpaceArgs = {
-  spaceRequestId: string | null;
-  name: string;
-  room: string | null;
-  capacity: number | null;
-  hold24: boolean | null;
-  rental: number | null;
-  rentalScope: HotelChargeScope | null;
+export const ProposalSpaceSchema = z.object({
+  spaceRequestId: idSchema.nullable(),
+  name: label,
+  room: label.nullable(),
+  capacity: z.number().int().max(1_000_000).nullable(),
+  hold24: z.boolean().nullable(),
+  rental: nullableNumber,
+  rentalScope: scope,
   // What the rental is waived with: F&B spend, room nights or other, how
   // much, and per day / night / stay.
-  waiverType?: HotelWaiverType | null;
-  waiverAmount?: number | null;
-  waiverScope?: HotelChargeScope | null;
-  note: string | null;
-};
+  waiverType: z.enum(HotelWaiverType).nullish(),
+  waiverAmount: nullableNumber.optional(),
+  waiverScope: scope.optional(),
+  note: text(20_000).nullable(),
+});
+export type ProposalSpaceArgs = z.infer<typeof ProposalSpaceSchema>;
+
 // Average per-person price for a meal type.
-export type ProposalMealArgs = { mealType: string; price: number | null };
+export const ProposalMealSchema = z.object({ mealType: label, price: nullableNumber });
+export type ProposalMealArgs = z.infer<typeof ProposalMealSchema>;
 
 export type ProposalWriteArgs = {
   venueId: string;
