@@ -58,8 +58,8 @@ them, not ahead of time.
 3. Share links and share-link groups: a filters schema per report type. Done: #276
    (`src/lib/shareLinkFilters.ts`).
 4. MCP dispatch envelope: argument object check, batch cap (#278); then the generic
-   tool-argument gate (this PR, `src/lib/mcpTools/argGate.ts`).
-5. Workflows, status and form types (enum casts).
+   tool-argument gate (#279, `src/lib/mcpTools/argGate.ts`).
+5. Workflows, status and form types (enum casts). Done: this PR.
 6. JSON-in-FormData: quotes, rfps, inbox, hotel proposals, and their MCP tools.
 7. Admin and account.
 8. Order types, one PR each (catering, AV, setup, print, supply, media deliverables) with their
