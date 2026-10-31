@@ -5,6 +5,13 @@ import { requirePermission } from "@/lib/permissions";
 import { generateShareToken } from "@/lib/shareLinks";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import {
+  shareLinkExpirySchema,
+  shareLinkFiltersSchema,
+  shareLinkLabelSchema,
+  shareReportTypeSchema,
+} from "@/lib/shareLinkFilters";
 
 export type CreateShareLinkInput = {
   eventId: string;
@@ -15,22 +22,37 @@ export type CreateShareLinkInput = {
   expiresAt?: string | null;
 };
 
+const idSchema = z.string().min(1).max(100);
+
+const CreateShareLinkSchema = z.object({
+  eventId: idSchema,
+  reportType: shareReportTypeSchema,
+  filters: z.unknown(),
+  filtersLocked: z.boolean(),
+  label: shareLinkLabelSchema,
+  expiresAt: shareLinkExpirySchema,
+});
+
+// The UI never sends a bad value, so a refusal here is a tampered call: it
+// throws, and the share dialog shows its generic error.
 export async function createShareLink(input: CreateShareLinkInput) {
-  const session = await requirePermission("SHARE_LINKS", "WRITE", input.eventId);
+  const parsed = CreateShareLinkSchema.parse(input);
+  const session = await requirePermission("SHARE_LINKS", "WRITE", parsed.eventId);
+  const filters = shareLinkFiltersSchema(parsed.reportType).parse(parsed.filters ?? {});
   const token = generateShareToken();
   const link = await prisma.shareLink.create({
     data: {
       token,
-      eventId: input.eventId,
-      reportType: input.reportType,
-      filters: input.filters,
-      filtersLocked: input.filtersLocked,
-      label: input.label || null,
+      eventId: parsed.eventId,
+      reportType: parsed.reportType,
+      filters,
+      filtersLocked: parsed.filtersLocked,
+      label: parsed.label,
       createdById: session.user.id,
-      expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+      expiresAt: parsed.expiresAt,
     },
   });
-  revalidatePath(`/events/${input.eventId}/share-links`);
+  revalidatePath(`/events/${parsed.eventId}/share-links`);
   return link;
 }
 
