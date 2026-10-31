@@ -160,7 +160,7 @@ export function SpeakerList({
                   placeholder="Search by name, email, or organization..."
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 />
-                {isSearching && (
+                {searchQuery.length >= 2 && isSearching && (
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Searching...</p>
                 )}
                 {searchQuery.length >= 2 && searchResults.length > 0 && (

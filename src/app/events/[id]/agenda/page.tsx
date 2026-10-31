@@ -8,7 +8,7 @@ import { getEventRooms } from "@/lib/eventVenues";
 import { getOptions } from "@/app/(admin)/settings/actions";
 import { requirePermission } from "@/lib/permissions";
 import { getAgendaViewSettings, getAgendaRoomPrefs } from "@/lib/userSettings";
-import { AgendaGrid } from "./AgendaGridNoSsr";
+import { AgendaGridClientOnly } from "./AgendaGridNoSsr";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +80,7 @@ export default async function AgendaPage({
         </div>
       </div>
 
-      <AgendaGrid
+      <AgendaGridClientOnly
         eventId={eventId}
         agendaData={serializeAgendaData(agendaData)}
         timezone={timezone}
