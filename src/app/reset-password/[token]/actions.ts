@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { findValidPasswordResetToken } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { UserFacingError, withUserErrors, type UserError } from "@/lib/userErrors";
 
@@ -36,6 +37,10 @@ export async function setNewPassword(formData: FormData): Promise<void | UserErr
     if (!token.success) throw expired;
     const parsed = PasswordSchema.safeParse({ password: field(formData, "password"), confirm: field(formData, "confirm") });
     if (!parsed.success) throw new UserFacingError(parsed.error.issues[0].message);
+
+    // A cheap read first: a dead or made-up link never costs a bcrypt hash
+    // (this action is public). It doesn't decide; the claim below does.
+    if (!(await findValidPasswordResetToken(token.data))) throw expired;
 
     const hashed = await bcrypt.hash(parsed.data.password, 10);
     // One atomic claim decides: unused and unexpired at the moment of the

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { makeUser } from "../../../../test/fixtures";
 import { setNewPassword } from "./actions";
@@ -83,5 +83,21 @@ describe("setNewPassword", () => {
     const first = await bcrypt.compare("first one!", after.password!);
     const second = await bcrypt.compare("second one", after.password!);
     expect(first !== second).toBe(true);
+  });
+
+  it.each([
+    ["an unknown link", async () => randomUUID()],
+    ["an expired link", async () => (await resetToken({ expiresInMs: -1000 })).token],
+    ["a spent link", async () => (await resetToken({ used: true })).token],
+  ])("refuses %s without hashing the password", async (_, makeToken) => {
+    const token = await makeToken();
+    const hash = vi.spyOn(bcrypt, "hash");
+    try {
+      const result = await setNewPassword(form({ token, password: "correct horse", confirm: "correct horse" }));
+      expect(result).toMatchObject({ error: expect.stringContaining("no longer valid") });
+      expect(hash).not.toHaveBeenCalled();
+    } finally {
+      hash.mockRestore();
+    }
   });
 });
