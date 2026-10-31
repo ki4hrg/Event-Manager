@@ -33,6 +33,9 @@ const FILTER_SCHEMAS = {
   HOTEL_INFO: z.object({ guestTypes: list }),
 } satisfies Record<ShareReportType, z.ZodObject>;
 
+// Event, dashboard and item ids as a client sends them.
+export const shareLinkIdSchema = z.string().min(1).max(100);
+
 export const shareReportTypeSchema = z.enum(SHARE_REPORT_TYPES);
 
 /** The report's filters with every key optional, unknown keys dropped. */

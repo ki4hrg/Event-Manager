@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   shareLinkExpirySchema,
   shareLinkFiltersSchema,
+  shareLinkIdSchema,
   shareLinkLabelSchema,
   shareReportTypeSchema,
 } from "@/lib/shareLinkFilters";
@@ -22,10 +23,8 @@ export type CreateShareLinkInput = {
   expiresAt?: string | null;
 };
 
-const idSchema = z.string().min(1).max(100);
-
 const CreateShareLinkSchema = z.object({
-  eventId: idSchema,
+  eventId: shareLinkIdSchema,
   reportType: shareReportTypeSchema,
   filters: z.unknown(),
   filtersLocked: z.boolean(),
@@ -36,8 +35,8 @@ const CreateShareLinkSchema = z.object({
 // The UI never sends a bad value, so a refusal here is a tampered call: it
 // throws, and the share dialog shows its generic error.
 export async function createShareLink(input: CreateShareLinkInput) {
+  const session = await requirePermission("SHARE_LINKS", "WRITE", input.eventId);
   const parsed = CreateShareLinkSchema.parse(input);
-  const session = await requirePermission("SHARE_LINKS", "WRITE", parsed.eventId);
   const filters = shareLinkFiltersSchema(parsed.reportType).parse(parsed.filters ?? {});
   const token = generateShareToken();
   const link = await prisma.shareLink.create({

@@ -10,13 +10,14 @@ import { z } from "zod";
 import {
   shareLinkExpirySchema,
   shareLinkFiltersSchema,
+  shareLinkIdSchema,
   shareLinkLabelSchema,
   shareReportTypeSchema,
 } from "@/lib/shareLinkFilters";
 
 // The UI never sends a bad value, so a refusal here is a tampered call: it
 // throws, and the dashboard editor or share dialog shows its generic error.
-const idSchema = z.string().min(1).max(100);
+const idSchema = shareLinkIdSchema;
 
 const CreateGroupSchema = z.object({
   eventId: idSchema,
@@ -49,8 +50,8 @@ export type CreateShareLinkGroupInput = {
 };
 
 export async function createShareLinkGroup(input: CreateShareLinkGroupInput) {
+  const session = await requirePermission("SHARE_LINKS", "WRITE", input.eventId);
   const parsed = CreateGroupSchema.parse(input);
-  const session = await requirePermission("SHARE_LINKS", "WRITE", parsed.eventId);
   const token = generateShareToken();
   const group = await prisma.shareLinkGroup.create({
     data: {
