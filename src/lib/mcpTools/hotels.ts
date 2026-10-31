@@ -188,9 +188,9 @@ const proposalProps = {
   amenities: {
     type: "array",
     description:
-      "Amenities this offer states, against the hotel's profile (get_venue): CONFIRMED when the offer commits to one, UNAVAILABLE when it says it won't be available for the event, with the offer's wording or dates as note. label is a hotel_amenity option label. Leave out amenities the offer doesn't mention. Replaces the list.",
+      "Amenities this offer states, against the hotel's profile (get_venue): CONFIRMED when the offer commits to one, UNAVAILABLE when it says it won't be available for the event, with the offer's wording or dates as note. label is a hotel_amenity option label; a bare label string means CONFIRMED. Leave out amenities the offer doesn't mention. Replaces the list.",
     items: {
-      type: "object",
+      type: ["object", "string"],
       properties: {
         label: { type: "string" },
         status: { type: "string", enum: ["CONFIRMED", "UNAVAILABLE"] },

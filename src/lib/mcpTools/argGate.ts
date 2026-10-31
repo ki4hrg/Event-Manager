@@ -6,16 +6,20 @@ import type { McpToolDefinition } from "./types";
 // items, properties, required, additionalProperties); this builds a zod schema
 // from it with the leniency the handlers already rely on:
 //
-// - `null` is allowed anywhere: the partial helpers read it as "clear".
-// - `""` is allowed for strings and numbers, read as "clear" the same way.
-// - A numeric string ("12", "4.5") is accepted for a number and converted.
+// - An optional property may be `null`, or `""` unless it's a boolean: the
+//   partial helpers read both as "clear". A required property or a list entry
+//   may be null only when its type says so.
+// - A numeric string ("12", ".5") is accepted for a number and converted.
+// - An integer isn't refused for a fraction (handlers truncate), only for being
+//   outside a 32-bit column's range.
 // - Keys the schema doesn't name are dropped, not refused: handlers never read
 //   them, and refusing would break callers that send a stray field.
-// - Every string, list and object has a size bound.
+// - Strings and lists are bounded only loosely: the 10MB request limit is the
+//   real bound, and inbox attachments arrive as long base64 strings.
 //
 // What it refuses: a missing required key, a value of the wrong type, a value
-// outside an enum, an over-long string or list. The handler still checks the
-// meaning of each value (ids, permissions, dates).
+// outside an enum, an out-of-range integer. The handler still checks the
+// meaning of each value (ids, dates, permissions).
 
 type JsonSchema = {
   type?: string | string[];
@@ -26,12 +30,16 @@ type JsonSchema = {
   additionalProperties?: boolean;
 };
 
-const MAX_STRING = 100_000;
-const MAX_ITEMS = 1_000;
-const MAX_KEYS = 200;
+const MAX_STRING = 10_000_000;
+const MAX_ITEMS = 10_000;
+const MAX_KEYS = 500;
+const INT_RANGE = 2_147_483_647;
 
-const NUMERIC = /^\s*-?\d+(\.\d+)?\s*$/;
-const toNumber = (v: unknown) => (typeof v === "string" && NUMERIC.test(v) ? Number(v) : v);
+const toNumber = (v: unknown) => {
+  if (typeof v !== "string" || v.trim() === "") return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+};
 
 function forType(type: string, schema: JsonSchema): z.ZodType {
   switch (type) {
@@ -39,42 +47,42 @@ function forType(type: string, schema: JsonSchema): z.ZodType {
       const s = z.string().max(MAX_STRING);
       const values = schema.enum?.filter((v): v is string => typeof v === "string");
       if (!values?.length) return s;
-      return s.refine((v) => v === "" || values.includes(v), { message: `must be one of: ${values.join(", ")}` });
+      return s.refine((v) => values.includes(v), { message: `must be one of: ${values.join(", ")}` });
     }
     case "number":
       return z.preprocess(toNumber, z.number().finite());
     case "integer":
-      return z.preprocess(toNumber, z.number().int());
+      return z.preprocess(toNumber, z.number().min(-INT_RANGE).max(INT_RANGE));
     case "boolean":
       return z.boolean();
     case "array":
-      return z.array(schema.items ? forSchema(schema.items) : z.unknown()).max(MAX_ITEMS);
+      return z.array(schema.items ? forSchema(schema.items, false) : z.unknown()).max(MAX_ITEMS);
     case "object":
-      return schema.properties ? objectFor(schema) : z.record(z.string(), z.unknown()).refine((o) => Object.keys(o).length <= MAX_KEYS, { message: "too many keys" });
-    case "null":
-      return z.null();
+      return schema.properties
+        ? objectFor(schema)
+        : z.record(z.string(), z.unknown()).refine((o) => Object.keys(o).length <= MAX_KEYS, { message: "too many keys" });
     default:
       return z.unknown();
   }
 }
 
-function forSchema(schema: JsonSchema): z.ZodType {
+// `clearable`: an optional property, where null and "" mean "clear".
+function forSchema(schema: JsonSchema, clearable: boolean): z.ZodType {
   const types = schema.type === undefined ? [] : Array.isArray(schema.type) ? schema.type : [schema.type];
   const typed = types.filter((t) => t !== "null").map((t) => forType(t, schema));
-  // `null` means "clear" to the handlers whatever the declared type, and so
-  // does `""` except for booleans (partialBoolean refuses it).
-  const onlyBoolean = types.every((t) => t === "boolean" || t === "null");
-  const clear = onlyBoolean ? z.null() : z.union([z.null(), z.literal("")]);
-  if (typed.length === 0) return types.includes("null") ? clear : z.unknown();
-  return z.union([clear, ...typed]);
+  if (typed.length === 0) return types.includes("null") ? z.null() : z.unknown();
+  const extra: z.ZodType[] = [];
+  if (clearable || types.includes("null")) extra.push(z.null());
+  if (clearable && !types.every((t) => t === "boolean" || t === "null")) extra.push(z.literal(""));
+  const all = [...extra, ...typed];
+  return all.length === 1 ? all[0] : z.union(all as [z.ZodType, z.ZodType, ...z.ZodType[]]);
 }
 
 function objectFor(schema: JsonSchema) {
   const required = new Set(schema.required ?? []);
   const shape: Record<string, z.ZodType> = {};
   for (const [key, prop] of Object.entries(schema.properties ?? {})) {
-    const value = forSchema(prop);
-    shape[key] = required.has(key) ? value : value.optional();
+    shape[key] = required.has(key) ? forSchema(prop, false) : forSchema(prop, true).optional();
   }
   // z.object drops unknown keys.
   return z.object(shape);
@@ -119,6 +127,7 @@ function valueAt(root: unknown, path: PropertyKey[]): unknown {
 // got furthest so the message names the argument that's actually wrong.
 function explain(issue: z.core.$ZodIssue, base: PropertyKey[]): { path: PropertyKey[]; message: string } {
   const path = [...base, ...issue.path];
+  if (issue.code === "invalid_type") return { path, message: "wrong type" };
   if (issue.code !== "invalid_union") return { path, message: issue.message };
   let best: { path: PropertyKey[]; message: string } | null = null;
   for (const branch of issue.errors) {

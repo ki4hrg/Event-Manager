@@ -152,6 +152,12 @@ async function dispatch(
       // name. Unknown or off-limits handles read the same as an absent one, so
       // a caller can't probe which slugs exist.
       const { [TENANT_ARG]: tenantArg, ...toolArgs } = args;
+      // The tool's inputSchema, checked before the handler runs. A refusal is a
+      // tool error, so the model sees which argument to fix and retries.
+      const checked = checkToolArgs(tool, toolArgs);
+      if (!checked.ok) {
+        return ok(req.id, { isError: true, content: [{ type: "text", text: checked.message }] });
+      }
       let tenantId = "";
       if (!TENANT_FREE_TOOLS.has(name)) {
         if (typeof tenantArg === "string" && tenantArg.length > 0) {
@@ -173,12 +179,6 @@ async function dispatch(
           }
           tenantId = tenants[0].id;
         }
-      }
-      // The tool's inputSchema, checked before the handler runs. A refusal is a
-      // tool error, so the model sees which argument to fix and retries.
-      const checked = checkToolArgs(tool, toolArgs);
-      if (!checked.ok) {
-        return ok(req.id, { isError: true, content: [{ type: "text", text: checked.message }] });
       }
       try {
         const result = await tool.handler(checked.args, { userId, tenantId });
