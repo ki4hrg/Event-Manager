@@ -6,6 +6,42 @@ import { generateShareToken } from "@/lib/shareLinks";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import {
+  shareLinkExpirySchema,
+  shareLinkFiltersSchema,
+  shareLinkIdSchema,
+  shareLinkLabelSchema,
+  shareReportTypeSchema,
+} from "@/lib/shareLinkFilters";
+
+// The UI never sends a bad value, so a refusal here is a tampered call: it
+// throws, and the dashboard editor or share dialog shows its generic error.
+const idSchema = shareLinkIdSchema;
+
+const CreateGroupSchema = z.object({
+  eventId: idSchema,
+  label: shareLinkLabelSchema,
+  expiresAt: shareLinkExpirySchema,
+});
+
+const GroupPatchSchema = z.object({
+  label: shareLinkLabelSchema.optional(),
+  expiresAt: shareLinkExpirySchema.optional(),
+});
+
+const AddItemSchema = z.object({
+  reportType: shareReportTypeSchema,
+  filters: z.unknown(),
+  filtersLocked: z.boolean(),
+  label: shareLinkLabelSchema,
+});
+
+const ItemPatchSchema = z.object({
+  label: shareLinkLabelSchema.optional(),
+  filtersLocked: z.boolean().optional(),
+  filters: z.unknown().optional(),
+});
 
 export type CreateShareLinkGroupInput = {
   eventId: string;
@@ -15,17 +51,18 @@ export type CreateShareLinkGroupInput = {
 
 export async function createShareLinkGroup(input: CreateShareLinkGroupInput) {
   const session = await requirePermission("SHARE_LINKS", "WRITE", input.eventId);
+  const parsed = CreateGroupSchema.parse(input);
   const token = generateShareToken();
   const group = await prisma.shareLinkGroup.create({
     data: {
       token,
-      eventId: input.eventId,
-      label: input.label || null,
+      eventId: parsed.eventId,
+      label: parsed.label,
       createdById: session.user.id,
-      expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+      expiresAt: parsed.expiresAt,
     },
   });
-  revalidatePath(`/events/${input.eventId}/share-links`);
+  revalidatePath(`/events/${parsed.eventId}/share-links`);
   return group;
 }
 
@@ -34,17 +71,16 @@ export async function updateShareLinkGroup(
   patch: { label?: string | null; expiresAt?: string | null },
 ) {
   const existing = await prisma.shareLinkGroup.findUniqueOrThrow({
-    where: { id },
+    where: { id: idSchema.parse(id) },
     select: { eventId: true },
   });
   await requirePermission("SHARE_LINKS", "WRITE", existing.eventId);
+  const parsed = GroupPatchSchema.parse(patch);
   await prisma.shareLinkGroup.update({
     where: { id, eventId: existing.eventId },
     data: {
-      ...(patch.label !== undefined ? { label: patch.label || null } : {}),
-      ...(patch.expiresAt !== undefined
-        ? { expiresAt: patch.expiresAt ? new Date(patch.expiresAt) : null }
-        : {}),
+      ...(parsed.label !== undefined ? { label: parsed.label } : {}),
+      ...(parsed.expiresAt !== undefined ? { expiresAt: parsed.expiresAt } : {}),
     },
   });
   revalidatePath(`/events/${existing.eventId}/share-links`);
@@ -131,10 +167,12 @@ export async function addShareLinkGroupItem(
   input: AddShareLinkGroupItemInput,
 ) {
   const group = await prisma.shareLinkGroup.findUniqueOrThrow({
-    where: { id: groupId },
+    where: { id: idSchema.parse(groupId) },
     select: { eventId: true },
   });
   await requirePermission("SHARE_LINKS", "WRITE", group.eventId);
+  const parsed = AddItemSchema.parse(input);
+  const filters = shareLinkFiltersSchema(parsed.reportType).parse(parsed.filters ?? {});
   const last = await prisma.shareLinkGroupItem.findFirst({
     where: { groupId },
     orderBy: { sortOrder: "desc" },
@@ -144,10 +182,10 @@ export async function addShareLinkGroupItem(
   const item = await prisma.shareLinkGroupItem.create({
     data: {
       groupId,
-      reportType: input.reportType,
-      filters: input.filters,
-      filtersLocked: input.filtersLocked,
-      label: input.label || null,
+      reportType: parsed.reportType,
+      filters,
+      filtersLocked: parsed.filtersLocked,
+      label: parsed.label,
       sortOrder: nextSort,
     },
   });
@@ -164,18 +202,24 @@ export async function updateShareLinkGroupItem(
   },
 ) {
   const item = await prisma.shareLinkGroupItem.findUniqueOrThrow({
-    where: { id: itemId },
-    select: { groupId: true, group: { select: { eventId: true } } },
+    where: { id: idSchema.parse(itemId) },
+    select: { groupId: true, reportType: true, group: { select: { eventId: true } } },
   });
   await requirePermission("SHARE_LINKS", "WRITE", item.group.eventId);
+  const parsed = ItemPatchSchema.parse(patch);
+  // Filters are checked against the report the item already shows.
+  const filters =
+    parsed.filters === undefined
+      ? undefined
+      : shareLinkFiltersSchema(shareReportTypeSchema.parse(item.reportType)).parse(parsed.filters ?? {});
   await prisma.shareLinkGroupItem.update({
     where: { id: itemId, group: { eventId: item.group.eventId } },
     data: {
-      ...(patch.label !== undefined ? { label: patch.label || null } : {}),
-      ...(patch.filtersLocked !== undefined
-        ? { filtersLocked: patch.filtersLocked }
+      ...(parsed.label !== undefined ? { label: parsed.label } : {}),
+      ...(parsed.filtersLocked !== undefined
+        ? { filtersLocked: parsed.filtersLocked }
         : {}),
-      ...(patch.filters !== undefined ? { filters: patch.filters } : {}),
+      ...(filters !== undefined ? { filters } : {}),
     },
   });
   revalidatePath(
@@ -200,12 +244,13 @@ export async function reorderShareLinkGroupItems(
   orderedIds: string[],
 ) {
   const group = await prisma.shareLinkGroup.findUniqueOrThrow({
-    where: { id: groupId },
+    where: { id: idSchema.parse(groupId) },
     select: { eventId: true },
   });
   await requirePermission("SHARE_LINKS", "WRITE", group.eventId);
+  const ids = z.array(idSchema).max(500).parse(orderedIds);
   await prisma.$transaction(
-    orderedIds.map((id, idx) =>
+    ids.map((id, idx) =>
       prisma.shareLinkGroupItem.update({
         where: { id, groupId },
         data: { sortOrder: (idx + 1) * 10 },
