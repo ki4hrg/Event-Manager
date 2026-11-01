@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
 import { requirePermission } from "@/lib/permissions";
@@ -13,7 +14,7 @@ export default async function NewWorkflowPage() {
 
   const createAction = async (formData: FormData) => {
     "use server";
-    await createWorkflowTemplate(formData);
+    return createWorkflowTemplate(formData);
   };
 
   return (
@@ -31,7 +32,7 @@ export default async function NewWorkflowPage() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 max-w-lg">
-        <form action={createAction} className="space-y-4">
+        <ActionForm action={createAction} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Name
@@ -56,6 +57,7 @@ export default async function NewWorkflowPage() {
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             />
           </div>
+          <ActionFormError />
           <div className="flex gap-3 pt-1">
             <button
               type="submit"
@@ -70,7 +72,7 @@ export default async function NewWorkflowPage() {
               Cancel
             </Link>
           </div>
-        </form>
+        </ActionForm>
       </div>
     </>
   );

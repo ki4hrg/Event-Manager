@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import { OrgProfileFields, OrgProfileView } from "@/components/OrgProfileFields";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
@@ -21,7 +23,7 @@ export function OrganizationForm({
   saveAction,
 }: {
   org: { name: string } & OrgProfile;
-  saveAction: (formData: FormData) => Promise<void>;
+  saveAction: (formData: FormData) => Promise<void | UserError>;
 }) {
   const canWrite = useCanWrite("SETTINGS");
   const [editing, setEditing] = useState(false);
@@ -37,15 +39,16 @@ export function OrganizationForm({
         )}
       </div>
       {editing && canWrite ? (
-        <form action={saveAction} className="space-y-4">
+        <ActionForm action={saveAction} className="space-y-4">
           <OrgProfileFields profile={org} />
+          <ActionFormError />
           <div className="flex gap-3 pt-2">
             <SubmitButton />
             <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       ) : (
         <OrgProfileView profile={org} />
       )}

@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type {
   WorkflowTemplate,
   WorkflowStep,
@@ -28,14 +30,14 @@ type TemplateWithSteps = WorkflowTemplate & {
 type WorkflowEditorProps = {
   template: TemplateWithSteps;
   substatuses: CustomOption[];
-  updateTemplate: (formData: FormData) => Promise<void>;
-  deleteTemplate: () => Promise<void>;
-  createStep: (formData: FormData) => Promise<void>;
-  updateStep: (id: string, formData: FormData) => Promise<void>;
+  updateTemplate: (formData: FormData) => Promise<void | UserError>;
+  deleteTemplate: () => Promise<void | UserError>;
+  createStep: (formData: FormData) => Promise<void | UserError>;
+  updateStep: (id: string, formData: FormData) => Promise<void | UserError>;
   previewStep: (id: string, formData: FormData) => Promise<{ records: number }>;
   deleteStep: (id: string) => Promise<void>;
-  createItem: (stepId: string, formData: FormData) => Promise<void>;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  createItem: (stepId: string, formData: FormData) => Promise<void | UserError>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteItem: (id: string) => Promise<void>;
 };
 
@@ -69,18 +71,16 @@ function ChecklistItemRow({
   deleteItem,
 }: {
   item: WorkflowChecklistItem;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteItem: (id: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
 
   if (editing) {
     return (
-      <form
-        action={async (fd) => {
-          await updateItem(item.id, fd);
-          setEditing(false);
-        }}
+      <ActionForm
+        action={(fd) => updateItem(item.id, fd)}
+        onDone={() => setEditing(false)}
         className="flex items-center gap-2 pl-4"
       >
         <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>
@@ -91,6 +91,7 @@ function ChecklistItemRow({
           required
           className="flex-1 min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
         />
+        <ActionFormError className="w-full" />
         <SubmitButton label="Save" />
         <button
           type="button"
@@ -99,7 +100,7 @@ function ChecklistItemRow({
         >
           Cancel
         </button>
-      </form>
+      </ActionForm>
     );
   }
 
@@ -110,7 +111,7 @@ function ChecklistItemRow({
         <span className="text-sm text-gray-700 dark:text-gray-300 break-words min-w-0">{item.label}</span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <form action={(fd) => updateItem(item.id, fd)}>
+        <ActionForm action={(fd) => updateItem(item.id, fd)} className="inline-flex flex-wrap items-center gap-1">
           <input type="hidden" name="label" value={item.label} />
           <input type="hidden" name="required" value={item.required ? "false" : "true"} />
           <button
@@ -124,7 +125,8 @@ function ChecklistItemRow({
           >
             {item.required ? "Required" : "Optional"}
           </button>
-        </form>
+          <ActionFormError className="w-full text-xs" />
+        </ActionForm>
         <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
           Edit
         </button>
@@ -155,11 +157,11 @@ function StepRow({
   index: number;
   checks: WorkflowCheckKey[];
   substatuses: CustomOption[];
-  updateStep: (id: string, formData: FormData) => Promise<void>;
+  updateStep: (id: string, formData: FormData) => Promise<void | UserError>;
   previewStep: (id: string, formData: FormData) => Promise<{ records: number }>;
   deleteStep: (id: string) => Promise<void>;
-  createItem: (stepId: string, formData: FormData) => Promise<void>;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  createItem: (stepId: string, formData: FormData) => Promise<void | UserError>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteItem: (id: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -196,11 +198,9 @@ function StepRow({
   return (
     <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2">
       {editing ? (
-        <form
-          action={async (fd) => {
-            await updateStep(step.id, fd);
-            setEditing(false);
-          }}
+        <ActionForm
+          action={(fd) => updateStep(step.id, fd)}
+          onDone={() => setEditing(false)}
           className="space-y-2"
         >
           <div className="flex items-center gap-2">
@@ -218,6 +218,7 @@ function StepRow({
           {/* Preserve current status when saving label */}
           <input type="hidden" name="pendingStatusValue" value={editPendingStatus} />
           <input type="hidden" name="pendingSubstatusValue" value={step.pendingSubstatusValue ?? ""} />
+          <ActionFormError />
           <div className="flex items-center gap-2 pl-6">
             <SubmitButton label="Save" />
             <button
@@ -228,7 +229,7 @@ function StepRow({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -271,10 +272,8 @@ function StepRow({
           </div>
 
           {/* Always-visible inline status form */}
-          <form
-            action={async (fd) => {
-              await updateStep(step.id, fd);
-            }}
+          <ActionForm
+            action={(fd) => updateStep(step.id, fd)}
             className="grid grid-cols-1 gap-2 pl-6 sm:flex sm:items-center"
           >
             <input type="hidden" name="label" value={step.label} />
@@ -312,12 +311,11 @@ function StepRow({
                 ))}
               </select>
             )}
-          </form>
-          <form
+            <ActionFormError className="w-full sm:basis-full" />
+          </ActionForm>
+          <ActionForm
             ref={completionForm}
-            action={async (fd) => {
-              await updateStep(step.id, fd);
-            }}
+            action={(fd) => updateStep(step.id, fd)}
             className="grid grid-cols-1 gap-2 pl-6 sm:flex sm:flex-wrap sm:items-center"
           >
             <input type="hidden" name="label" value={step.label} />
@@ -374,7 +372,8 @@ function StepRow({
                 </button>
               </div>
             )}
-          </form>
+            <ActionFormError className="w-full sm:basis-full" />
+          </ActionForm>
         </>
       )}
 
@@ -388,11 +387,9 @@ function StepRow({
       ))}
 
       {addingItem && (
-        <form
-          action={async (fd) => {
-            await createItem(step.id, fd);
-            setAddingItem(false);
-          }}
+        <ActionForm
+          action={(fd) => createItem(step.id, fd)}
+          onDone={() => setAddingItem(false)}
           className="flex items-center gap-2 pl-4"
         >
           <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>
@@ -404,6 +401,7 @@ function StepRow({
             autoFocus
             className="flex-1 min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           />
+          <ActionFormError className="w-full" />
           <SubmitButton label="Add" />
           <button
             type="button"
@@ -412,7 +410,7 @@ function StepRow({
           >
             Cancel
           </button>
-        </form>
+        </ActionForm>
       )}
     </div>
   );
@@ -446,11 +444,9 @@ export function WorkflowEditor({
       {/* Template header */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
         {editingName ? (
-          <form
-            action={async (fd) => {
-              await updateTemplate(fd);
-              setEditingName(false);
-            }}
+          <ActionForm
+            action={updateTemplate}
+            onDone={() => setEditingName(false)}
             className="space-y-4"
           >
             <input
@@ -558,6 +554,7 @@ export function WorkflowEditor({
                 )}
               </div>
             </div>
+            <ActionFormError />
             <div className="flex gap-2">
               <SubmitButton label="Save" />
               <button
@@ -572,7 +569,7 @@ export function WorkflowEditor({
                 Cancel
               </button>
             </div>
-          </form>
+          </ActionForm>
         ) : (
           <div className="flex justify-between items-start gap-3">
             <div className="min-w-0">
@@ -678,9 +675,9 @@ export function WorkflowEditor({
         </div>
 
         {addingStep && (
-          <form
-            action={async (fd) => {
-              await createStep(fd);
+          <ActionForm
+            action={createStep}
+            onDone={() => {
               setAddingStep(false);
               setAddStepPendingStatus("");
             }}
@@ -731,6 +728,7 @@ export function WorkflowEditor({
                 </select>
               )}
             </div>
+            <ActionFormError />
             <div className="flex items-center gap-2 pl-6">
               <SubmitButton label="Add" />
               <button
@@ -744,7 +742,7 @@ export function WorkflowEditor({
                 Cancel
               </button>
             </div>
-          </form>
+          </ActionForm>
         )}
       </div>
     </div>

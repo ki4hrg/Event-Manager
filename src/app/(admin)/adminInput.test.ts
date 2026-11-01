@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PermissionLevel, PermissionResource } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { UserFacingError } from "@/lib/userErrors";
 import { makeMember, makeTenant } from "../../../test/fixtures";
 import { createWorkflowStep, createWorkflowTemplate, updateWorkflowTemplate } from "./workflows/actions";
 import { createOption } from "./settings/actions";
@@ -41,15 +40,15 @@ describe("admin workflow templates: checked, not cast", () => {
     ["an unknown record type", { name: "A", defaultForEntityTypes: ["constructor"] }, "Pick record types from the list"],
   ])("refuses %s", async (_label, fields, message) => {
     const { tenantId } = await admin({ [PermissionResource.WORKFLOWS]: PermissionLevel.WRITE });
-    await expect(createWorkflowTemplate(form(fields))).rejects.toThrow(message);
+    await expect(createWorkflowTemplate(form(fields))).resolves.toEqual({ error: expect.stringContaining(message) });
     expect(await prisma.workflowTemplate.count({ where: { tenantId } })).toBe(0);
   });
 
   it("refuses a status that isn't one, on the template and on a step", async () => {
     const { tenantId } = await admin({ [PermissionResource.WORKFLOWS]: PermissionLevel.WRITE });
     const t = await prisma.workflowTemplate.create({ data: { tenantId, name: "T" } });
-    await expect(updateWorkflowTemplate(t.id, form({ name: "T", pendingStatusValue: "SHIPPED" }))).rejects.toBeInstanceOf(UserFacingError);
-    await expect(createWorkflowStep(t.id, form({ label: "Step", pendingStatusValue: "SHIPPED" }))).rejects.toBeInstanceOf(UserFacingError);
+    await expect(updateWorkflowTemplate(t.id, form({ name: "T", pendingStatusValue: "SHIPPED" }))).resolves.toHaveProperty("error");
+    await expect(createWorkflowStep(t.id, form({ label: "Step", pendingStatusValue: "SHIPPED" }))).resolves.toHaveProperty("error");
     expect(await prisma.workflowStep.count({ where: { templateId: t.id } })).toBe(0);
   });
 });
@@ -60,7 +59,7 @@ describe("settings options: checked, not cast", () => {
     ["an over-long label", { label: "x".repeat(1_001) }, "Label must be at most 1000 characters"],
   ])("refuses %s", async (_label, fields, message) => {
     await admin({ [PermissionResource.SETTINGS]: PermissionLevel.WRITE });
-    await expect(createOption("function_type", form(fields))).rejects.toThrow(message);
+    await expect(createOption("function_type", form(fields))).resolves.toEqual({ error: expect.stringContaining(message) });
   });
 });
 

@@ -30,6 +30,7 @@ import { GroupedOptionItems } from "./GroupedOptionItems";
 import { createOption, deleteOption, mergeOption, reorderOptions, updateOption } from "./actions";
 import { duplicateLabelError, inUseError, labelFormError } from "./optionLabels";
 import { keepFormValues } from "@/lib/keepFormValues";
+import { actionErrorMessage, isUserError } from "@/lib/userErrors";
 
 const errorClass = "text-sm text-red-600 dark:text-red-400";
 
@@ -288,7 +289,8 @@ function SortableOptionRow({
   // A split list's own group is fixed; others pick one.
   const pickGroup = groupOptions && !fixedGroup;
   const merge = async (intoId: string) => {
-    await mergeOption(category, option.id, intoId);
+    const result = await mergeOption(category, option.id, intoId);
+    if (isUserError(result)) return setError(result.error);
     setEditingId(null);
     router.refresh();
   };
@@ -312,7 +314,13 @@ function SortableOptionRow({
             const duplicate = labelFormError(category, formData.get("label") as string) ?? duplicateLabelError(formData.get("label") as string, others, !!mergeable);
             setError(duplicate);
             if (duplicate) return;
-            await updateOption(category, option.id, formData);
+            // A server refusal (e.g. the label was taken meanwhile) shows in the same slot.
+            try {
+              const result = await updateOption(category, option.id, formData);
+              if (isUserError(result)) return setError(result.error);
+            } catch (e) {
+              return setError(actionErrorMessage(e, "Couldn't save. Try again."));
+            }
             setEditingId(null);
             router.refresh();
           }}
@@ -424,7 +432,8 @@ function SortableOptionRow({
                 {!option.isSystem && uses === 0 && (
                   <InlineDeleteButton
                     action={async () => {
-                      await deleteOption(category, option.id);
+                      const result = await deleteOption(category, option.id);
+                      if (isUserError(result)) return result;
                       router.refresh();
                     }}
                     hiddenInputs={{}}
@@ -561,7 +570,12 @@ export function OptionList({
             const duplicate = labelFormError(category, formData.get("label") as string) ?? duplicateLabelError(formData.get("label") as string, localOptions, mergeable);
             setAddError(duplicate);
             if (duplicate) return;
-            await createOption(category, formData);
+            try {
+              const result = await createOption(category, formData);
+              if (isUserError(result)) return setAddError(result.error);
+            } catch (e) {
+              return setAddError(actionErrorMessage(e, "Couldn't save. Try again."));
+            }
             setShowAddForm(false);
             router.refresh();
           }}

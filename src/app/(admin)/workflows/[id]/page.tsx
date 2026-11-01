@@ -52,22 +52,22 @@ export default async function WorkflowDetailPage({
 
   const updateTemplateAction = async (formData: FormData) => {
     "use server";
-    await updateWorkflowTemplate(id, formData);
+    return updateWorkflowTemplate(id, formData);
   };
 
   const deleteTemplateAction = async () => {
     "use server";
-    await deleteWorkflowTemplate(id);
+    return deleteWorkflowTemplate(id);
   };
 
   const createStepAction = async (formData: FormData) => {
     "use server";
-    await createWorkflowStep(id, formData);
+    return createWorkflowStep(id, formData);
   };
 
   const updateStepAction = async (stepId: string, formData: FormData) => {
     "use server";
-    await updateWorkflowStep(stepId, id, formData);
+    return updateWorkflowStep(stepId, id, formData);
   };
 
   const previewStepAction = async (stepId: string, formData: FormData) => {
@@ -82,12 +82,12 @@ export default async function WorkflowDetailPage({
 
   const createItemAction = async (stepId: string, formData: FormData) => {
     "use server";
-    await createChecklistItem(stepId, id, formData);
+    return createChecklistItem(stepId, id, formData);
   };
 
   const updateItemAction = async (itemId: string, formData: FormData) => {
     "use server";
-    await updateChecklistItem(itemId, id, formData);
+    return updateChecklistItem(itemId, id, formData);
   };
 
   const deleteItemAction = async (itemId: string) => {
