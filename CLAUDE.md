@@ -57,6 +57,12 @@ checklists: `docs/checklists/` · sweep status: `docs/HANDOFF.md`.
   foreign id is proven against the event or its tenant first (`assertEventRefs` / `partyRefs` in
   `src/lib/eventRefs.ts`), and bulk actions narrow `ids` to the event's rows. Any list that returns
   events ANDs in `eventScopeWhere(userId, tenantId)`, or it leaks events the caller can't open.
+- **Action arguments are untrusted shapes.** A Server Action's arguments arrive unchecked: an
+  object where an id belongs is a Prisma filter (`{ not: "" }` in a `deleteMany` matches every
+  row). Ids go through `assertIds` (`src/lib/validation.ts`; the `assert…In(Event|Tenant|Venue)`
+  helpers call it) before reaching a `where`, and a client object is never spread into Prisma
+  `data`: parse it (`parseArgs`, a `z.strictObject`) and write named fields. Form fields use the
+  `form*` readers there, not `formData.get(k) as string`.
 - **Helpers that use the global `prisma`** (`autoAssignDefaultWorkflowsCore`,
   `resolveCreateStatus`, `refreshWorkflowStatus`) can't join a `$transaction`: call them before or
   after it.
