@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dateKeySchema } from "@/lib/validation";
 import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicApiKey } from "@/lib/email";
 import type { HotelChargeScope } from "@prisma/client";
@@ -791,32 +792,39 @@ async function callJson(
   } catch {
     throw new ParseError("Claude's proposal wasn't valid JSON");
   }
-  // The output is constrained to the schema, but a fallback model may run, and
-  // this text was written while reading an untrusted email: check its shape
-  // before anything reads it. Ids and dates are checked against the event
-  // afterwards (checkProposal).
-  if (!shapeOf(schema).safeParse(data).success) throw new ParseError("Claude's proposal didn't match the expected shape");
-  return { data: data as Record<string, unknown>, model: message.model };
+  return { data: checkModelOutput(schema, data), model: message.model };
 }
 
-// The response schemas as zod, built once from the same JSON Schemas sent to
-// the API, so the check can't drift from what the model was asked for.
-const shapes = new WeakMap<Record<string, unknown>, z.ZodType>();
-function shapeOf(schema: Record<string, unknown>): z.ZodType {
-  let shape = shapes.get(schema);
-  if (!shape) {
-    shape = z.fromJSONSchema(schema as never);
-    shapes.set(schema, shape);
-  }
-  return shape;
-}
-
-/** Every response schema, for the test that each converts and checks. */
+/** Every response schema, by the call that uses it. */
 export const INBOUND_RESPONSE_SCHEMAS: Record<string, Record<string, unknown>> = {
   classify: CLASSIFY_SCHEMA,
   space: SPACE_SCHEMA,
   ...DETAIL_SCHEMAS,
 };
+
+// The same schemas as zod, built at load from the JSON Schemas sent to the API
+// (so the check can't drift from what the model was asked for, and a schema
+// that stops converting fails at startup, not on the first email).
+const SHAPES = new Map(
+  Object.entries(INBOUND_RESPONSE_SCHEMAS).map(([name, schema]) => [schema, { name, shape: z.fromJSONSchema(schema as never) }]),
+);
+
+/**
+ * The model's output checked against the schema its call asked for. It is
+ * constrained to that schema, but a fallback model may answer, and the text
+ * was written while reading an untrusted email: nothing reads it before this.
+ * Ids and dates are checked against the event afterwards (checkProposal).
+ */
+export function checkModelOutput(schema: Record<string, unknown>, data: unknown): Record<string, unknown> {
+  const entry = SHAPES.get(schema);
+  if (!entry) throw new ParseError("Unknown response schema");
+  const result = entry.shape.safeParse(data);
+  if (!result.success) {
+    const at = result.error.issues[0]?.path.join(".") || "the top level";
+    throw new ParseError(`Claude's ${entry.name} reply didn't match the expected shape (at ${at})`);
+  }
+  return result.data as Record<string, unknown>;
+}
 
 export async function parseInboundMessage(input: ParseInput): Promise<{ proposal: InboundProposal; model: string }> {
   const apiKey = getAnthropicApiKey();
@@ -841,16 +849,17 @@ export async function parseInboundMessage(input: ParseInput): Promise<{ proposal
   const offers = kind === "RFP_PROPOSAL" && Array.isArray(detail.offers) ? (detail.offers as Record<string, unknown>[]) : [];
   if (classified.data.eventSpace === true && offers.length) {
     const listed = offers.map((o, i) => `${i}: ${(o.hotel as OfferHotel | undefined)?.name || `offer ${i + 1}`}${o.rfpBlockId ? ` (answers block ${o.rfpBlockId})` : ""}`);
+    // Optional: if this reply is malformed, the offers read above still stand.
     const third = await callJson(
       client,
       [...content, { type: "text", text: `This message is RFP_PROPOSAL with these offers:\n${listed.join("\n")}\nNow fill in their function space and F&B.` }],
       SPACE_SCHEMA,
-    );
-    for (const s of (third.data.offers as Record<string, unknown>[] | undefined) ?? []) {
+    ).catch((e) => (e instanceof ParseError ? null : Promise.reject(e)));
+    for (const s of (third?.data.offers as Record<string, unknown>[] | undefined) ?? []) {
       const { offer, ...rest } = s;
       if (typeof offer === "number" && offers[offer]) Object.assign(offers[offer], rest);
     }
-    model = third.model;
+    if (third) model = third.model;
   }
   const { eventSpace: _eventSpace, ...classifiedFields } = classified.data;
   const raw = fromWire({ ...EMPTY_WIRE, ...classifiedFields, ...detail, kind });
@@ -873,8 +882,22 @@ function checkProposal(p: InboundProposal, input: ParseInput): InboundProposal {
     summary: p.summary,
     notes: p.notes,
     sheet,
-    guests: p.kind === "PICKUP_GUESTS" && !sheet ? (p.guests ?? []) : null,
-    counts: p.kind === "PICKUP_COUNTS" ? (p.counts ?? []).filter((c) => Number.isInteger(c.rooms) && c.rooms >= 0) : null,
+    // Dates the model couldn't read as a day are dropped (a count without a
+    // night is dropped whole), and counts are bounded, as a person's form is.
+    guests:
+      p.kind === "PICKUP_GUESTS" && !sheet
+        ? (p.guests ?? []).map((g) => ({
+            ...g,
+            checkIn: dateOrNull(g.checkIn),
+            checkOut: dateOrNull(g.checkOut),
+            bookedOn: dateOrNull(g.bookedOn ?? null),
+            cancelledOn: dateOrNull(g.cancelledOn ?? null),
+          }))
+        : null,
+    counts:
+      p.kind === "PICKUP_COUNTS"
+        ? (p.counts ?? []).filter((c) => Number.isInteger(c.rooms) && c.rooms >= 0 && c.rooms <= 100_000 && dateOrNull(c.night) !== null)
+        : null,
     roomTypes: p.kind === "PICKUP_GUESTS" ? (p.roomTypes ?? []).filter((r) => r.raw) : [],
     offers: p.kind === "RFP_PROPOSAL" ? (p.offers ?? []).map((o) => checkOffer(o, input)) : null,
     decline: p.decline ? checkDecline(p.decline, input) : null,
@@ -926,7 +949,8 @@ function checkContract(c: ContractRead, input: ParseInput): ContractRead {
 }
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
-const dateOrNull = (v: string | null) => (v && DATE_KEY.test(v) ? v : null);
+// A real YYYY-MM-DD day, else null (2026-13-45 has the shape but no day).
+const dateOrNull = (v: string | null) => (v && dateKeySchema.safeParse(v).success ? v : null);
 
 function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
   const hotels = new Set(input.hotels.map((h) => h.id));

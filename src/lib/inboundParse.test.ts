@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { INBOUND_RESPONSE_SCHEMAS } from "./inboundParse";
+import { INBOUND_RESPONSE_SCHEMAS, ParseError, checkModelOutput } from "./inboundParse";
 
 describe("inbound parse: the model's output is checked against its schema", () => {
   it("builds a checker from every response schema", () => {
@@ -33,5 +33,12 @@ describe("inbound parse: the model's output is checked against its schema", () =
       const result = z.fromJSONSchema(schema as never).safeParse(sample(schema as Schema));
       expect(result.success, `${name}: ${result.success ? "" : JSON.stringify(result.error.issues[0])}`).toBe(true);
     }
+  });
+
+  it("refuses a malformed reply as a ParseError naming the call and field, and returns a good one", () => {
+    const schema = INBOUND_RESPONSE_SCHEMAS.classify;
+    expect(() => checkModelOutput(schema, { kind: "OTHER", summary: 1, notes: "", eventSpace: false })).toThrow(ParseError);
+    expect(() => checkModelOutput(schema, { kind: "OTHER", summary: 1, notes: "", eventSpace: false })).toThrow(/classify reply .*at summary/);
+    expect(checkModelOutput(schema, { kind: "OTHER", summary: "s", notes: "", eventSpace: false })).toMatchObject({ kind: "OTHER" });
   });
 });
