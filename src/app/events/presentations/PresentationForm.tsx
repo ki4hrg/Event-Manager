@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type {
   Presentation,
   PresentationTrack,
@@ -38,7 +40,7 @@ type PresentationFormProps = {
   tracks: PresentationTrack[];
   presenterRoles: CustomOption[];
   presentationTypes: CustomOption[];
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   searchContacts: (query: string) => Promise<Contact[]>;
   advancerOptions?: AdvancerPartyOptions;
   noCard?: boolean;
@@ -257,7 +259,7 @@ export function PresentationForm({
     if (primary) {
       formData.set("primarySpeakerId", primary.contact.id);
     }
-    await action(formData);
+    return action(formData);
   };
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
@@ -300,11 +302,9 @@ export function PresentationForm({
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Presentation Details
         </h2>
-        <form
-          action={async (formData) => {
-            await action(formData);
-            setEditing(false);
-          }}
+        <ActionForm
+          action={action}
+          onDone={() => setEditing(false)}
           className="space-y-4"
         >
           <PresentationFields
@@ -313,6 +313,7 @@ export function PresentationForm({
             presentationTypes={presentationTypes}
             advancerOptions={advancerOptions}
           />
+          <ActionFormError />
           <div className="flex gap-4">
             <SubmitButton isEdit={true} />
             <button
@@ -323,13 +324,13 @@ export function PresentationForm({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       </div>
     );
   }
 
   return (
-    <form action={handleSubmit} className="space-y-6 max-w-2xl">
+    <ActionForm action={handleSubmit} className="space-y-6 max-w-2xl">
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Presentation Details
@@ -441,6 +442,7 @@ export function PresentationForm({
         )}
       </div>
 
+      <ActionFormError />
       <div className="flex gap-4">
         <SubmitButton isEdit={false} />
         <a
@@ -450,6 +452,6 @@ export function PresentationForm({
           Cancel
         </a>
       </div>
-    </form>
+    </ActionForm>
   );
 }

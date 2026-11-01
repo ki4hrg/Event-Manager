@@ -6,7 +6,8 @@ import { useFormStatus } from "react-dom";
 import type { PresentationContact, Contact, CustomOption } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 
 type SpeakerWithContact = PresentationContact & { contact: Contact };
 
@@ -14,11 +15,11 @@ type SpeakerListProps = {
   speakers: SpeakerWithContact[];
   presenterRoles: CustomOption[];
   presentationId: string;
-  addSpeaker: (formData: FormData) => Promise<void>;
-  updateSpeaker: (speakerId: string, formData: FormData) => Promise<void>;
+  addSpeaker: (formData: FormData) => Promise<void | UserError>;
+  updateSpeaker: (speakerId: string, formData: FormData) => Promise<void | UserError>;
   removeSpeaker: (speakerId: string) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
-  createContact?: (formData: FormData) => Promise<void>;
+  createContact?: (formData: FormData) => Promise<void | UserError>;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -111,21 +112,14 @@ export function SpeakerList({
   };
 
   const handleAddFormSubmit = async (formData: FormData) => {
-    if (!selectedContact) return;
+    if (!selectedContact) return { error: "Pick a contact" };
     formData.set("contactId", selectedContact.id);
-    await addSpeaker(formData);
-    closeAddForm();
+    return addSpeaker(formData);
   };
 
   const handleCreateFormSubmit = async (formData: FormData) => {
-    if (!createContact) return;
-    await createContact(formData);
-    closeAddForm();
-  };
-
-  const handleUpdateSubmit = async (speakerId: string, formData: FormData) => {
-    await updateSpeaker(speakerId, formData);
-    setEditingId(null);
+    if (!createContact) return { error: "Contacts can't be created here" };
+    return createContact(formData);
   };
 
   return (
@@ -147,7 +141,7 @@ export function SpeakerList({
       </div>
 
       {formView === "search" && (
-        <form action={handleAddFormSubmit} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        <ActionForm action={handleAddFormSubmit} onDone={closeAddForm} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="space-y-4">
             {!selectedContact ? (
               <div>
@@ -258,6 +252,7 @@ export function SpeakerList({
             </div>
           </div>
 
+          <ActionFormError className="mt-4" />
           <div className="mt-4 flex gap-2">
             <SubmitButton label="Add Speaker" />
             <button
@@ -268,11 +263,11 @@ export function SpeakerList({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       {formView === "create" && (
-        <form action={handleCreateFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        <ActionForm action={handleCreateFormSubmit} onDone={closeAddForm} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -340,6 +335,7 @@ export function SpeakerList({
             </div>
           </div>
 
+          <ActionFormError className="mt-4" />
           <div className="mt-4 flex gap-2">
             <SubmitButton label="Create & Add" />
             <button
@@ -357,7 +353,7 @@ export function SpeakerList({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       {speakers.length === 0 ? (
@@ -369,8 +365,9 @@ export function SpeakerList({
           {speakers.map((speaker) => (
             <div key={speaker.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === speaker.id ? (
-                <form
-                  action={(formData) => handleUpdateSubmit(speaker.id, formData)}
+                <ActionForm
+                  action={(formData) => updateSpeaker(speaker.id, formData)}
+                  onDone={() => setEditingId(null)}
                   className="space-y-4"
                 >
                   <div className="text-gray-900 dark:text-white font-medium">
@@ -409,6 +406,7 @@ export function SpeakerList({
                     </div>
                   </div>
 
+                  <ActionFormError />
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
                     <button
@@ -419,7 +417,7 @@ export function SpeakerList({
                       Cancel
                     </button>
                   </div>
-                </form>
+                </ActionForm>
               ) : (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0 flex-wrap">

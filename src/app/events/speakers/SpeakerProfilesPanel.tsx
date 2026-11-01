@@ -2,6 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { syncRangeEnd } from "@/lib/dateRange";
@@ -38,8 +41,8 @@ type Props = {
   dietaryNeeds: string[];
   // The event's hotel blocks, labelled hotel · block type.
   hotelBlocks: { id: string; label: string }[];
-  saveContact: (contactId: string, formData: FormData) => Promise<void>;
-  saveProfile: (contactId: string, formData: FormData) => Promise<void>;
+  saveContact: (contactId: string, formData: FormData) => Promise<void | UserError>;
+  saveProfile: (contactId: string, formData: FormData) => Promise<void | UserError>;
   removeHeadshot: (contactId: string) => Promise<void>;
 };
 
@@ -55,6 +58,15 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 
 const show = (local: string) => (local ? local.replace("T", " ") : null);
 
+function SaveSubmit({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending} className={`${btnPrimary} text-sm disabled:opacity-50`}>
+      {label}
+    </button>
+  );
+}
+
 function Speaker({ s, dietaryNeeds, hotelBlocks, saveContact, saveProfile, removeHeadshot }: { s: SpeakerProfileView } & Omit<Props, "speakers">) {
   const canWriteContact = useCanWrite("CONTACTS");
   const canWriteProfile = useCanWrite("PRESENTATIONS");
@@ -64,12 +76,10 @@ function Speaker({ s, dietaryNeeds, hotelBlocks, saveContact, saveProfile, remov
   const p = s.profile;
   const block = p?.hotelBlockId ? hotelBlocks.find((b) => b.id === p.hotelBlockId)?.label : null;
 
-  const submit = (action: (formData: FormData) => Promise<void>) => (formData: FormData) =>
-    startTransition(async () => {
-      await action(formData);
-      setEditing(false);
-      router.refresh();
-    });
+  const saved = () => {
+    setEditing(false);
+    router.refresh();
+  };
 
   return (
     <div className="py-4 first:pt-0 last:pb-0 space-y-3">
@@ -110,7 +120,7 @@ function Speaker({ s, dietaryNeeds, hotelBlocks, saveContact, saveProfile, remov
       ) : (
         <div className="space-y-4">
           {canWriteContact && (
-            <form key={`c-${s.updatedAt}`} action={submit((fd) => saveContact(s.contactId, fd))} className="space-y-3">
+            <ActionForm key={`c-${s.updatedAt}`} action={(fd) => saveContact(s.contactId, fd)} onDone={saved} className="space-y-3">
               <div>
                 <label className={labelCls}>Bio</label>
                 <textarea name="bio" rows={4} defaultValue={s.contact.bio ?? ""} className={inputCls} />
@@ -120,8 +130,9 @@ function Speaker({ s, dietaryNeeds, hotelBlocks, saveContact, saveProfile, remov
                 <div><label className={labelCls}>Pronouns</label><input name="pronouns" defaultValue={s.contact.pronouns ?? ""} className={inputCls} /></div>
                 <div><label className={labelCls}>Website</label><input name="website" defaultValue={s.contact.website ?? ""} className={inputCls} /></div>
               </div>
+              <ActionFormError />
               <div className="flex flex-wrap items-center gap-3">
-                <button type="submit" disabled={isPending} className={`${btnPrimary} text-sm disabled:opacity-50`}>Save profile</button>
+                <SaveSubmit label="Save profile" />
                 {s.contact.headshotFileId && (
                   <button
                     type="button"
@@ -133,10 +144,10 @@ function Speaker({ s, dietaryNeeds, hotelBlocks, saveContact, saveProfile, remov
                   </button>
                 )}
               </div>
-            </form>
+            </ActionForm>
           )}
           {canWriteProfile && (
-            <form key={`p-${s.updatedAt}`} action={submit((fd) => saveProfile(s.contactId, fd))} className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
+            <ActionForm key={`p-${s.updatedAt}`} action={(fd) => saveProfile(s.contactId, fd)} onDone={saved} className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className={labelCls}>Arrives</label><input type="datetime-local" name="arrivalAt" defaultValue={p?.arrivalAt ?? ""} onChange={(e) => syncRangeEnd(e.currentTarget, "departureAt", { fillEmpty: false })} className={inputCls} /></div>
                 <div><label className={labelCls}>Departs</label><input type="datetime-local" name="departureAt" min={p?.arrivalAt || undefined} defaultValue={p?.departureAt ?? ""} className={inputCls} /></div>
@@ -164,8 +175,9 @@ function Speaker({ s, dietaryNeeds, hotelBlocks, saveContact, saveProfile, remov
                 <div className="sm:col-span-2"><label className={labelCls}>Notes</label><textarea name="notes" rows={2} defaultValue={p?.notes ?? ""} className={inputCls} /></div>
                 <div className="sm:col-span-2"><label className={labelCls}>Internal notes</label><textarea name="internalNotes" rows={2} defaultValue={p?.internalNotes ?? ""} className={inputCls} /></div>
               </div>
-              <button type="submit" disabled={isPending} className={`${btnPrimary} text-sm disabled:opacity-50`}>Save event details</button>
-            </form>
+              <ActionFormError />
+              <SaveSubmit label="Save event details" />
+            </ActionForm>
           )}
           <button type="button" onClick={() => setEditing(false)} className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
             Done

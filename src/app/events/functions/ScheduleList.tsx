@@ -11,7 +11,8 @@ import { ConflictWarning } from "@/components/ConflictWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { syncRangeEnd } from "@/lib/dateRange";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError, FormError } from "@/components/FormError";
+import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 
 type ScheduleListProps = {
   schedules: FunctionSchedule[];
@@ -24,10 +25,16 @@ type ScheduleListProps = {
   // YYYY-MM-DD portion is read — no timezone conversion needed.
   eventStartDate: Date;
   eventEndDate: Date;
-  createSchedule: (formData: FormData) => Promise<{ conflicts: RoomConflict[] } | undefined>;
-  updateSchedule: (scheduleId: string, formData: FormData) => Promise<{ conflicts: RoomConflict[] } | undefined>;
+  createSchedule: (formData: FormData) => Promise<ScheduleResult>;
+  updateSchedule: (scheduleId: string, formData: FormData) => Promise<ScheduleResult>;
   deleteSchedule: (scheduleId: string) => Promise<void>;
 };
+
+// Room conflicts to confirm, a refusal, or saved (undefined).
+type ScheduleResult = { conflicts: RoomConflict[] } | UserError | undefined;
+
+const hasConflicts = (result: ScheduleResult | undefined): result is { conflicts: RoomConflict[] } =>
+  !!result && "conflicts" in result && result.conflicts.length > 0;
 
 type ConflictFields = {
   type: string;
@@ -104,6 +111,7 @@ export function ScheduleList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [pendingConflict, setPendingConflict] = useState<PendingConflict | null>(null);
+  const [forceError, setForceError] = useState<string | null>(null);
 
   // Bound the datetime-local inputs to the event's own days, and default a new
   // time slot to the event's first day rather than an empty/today's-date field.
@@ -138,22 +146,33 @@ export function ScheduleList({
     return fd;
   }
 
+  const conflictFields = (formData: FormData): ConflictFields => ({
+    type: formData.get("type") as string,
+    startTime: formData.get("startTime") as string,
+    endTime: formData.get("endTime") as string,
+    notes: (formData.get("notes") as string) || "",
+    isPublic: formData.get("isPublic") === "true",
+  });
+
   async function handleForce() {
     if (!pendingConflict) return;
     const forcedFd = buildForcedFormData(pendingConflict.fields);
 
-    if (pendingConflict.mode === "create") {
-      const result = await createSchedule(forcedFd);
-      if (!result?.conflicts?.length) {
-        setPendingConflict(null);
-        setShowAddForm(false);
-      }
-    } else if (pendingConflict.mode === "update" && pendingConflict.scheduleId) {
-      const result = await updateSchedule(pendingConflict.scheduleId, forcedFd);
-      if (!result?.conflicts?.length) {
-        setPendingConflict(null);
-        setEditingId(null);
-      }
+    setForceError(null);
+    try {
+      const result =
+        pendingConflict.mode === "create"
+          ? await createSchedule(forcedFd)
+          : pendingConflict.scheduleId
+            ? await updateSchedule(pendingConflict.scheduleId, forcedFd)
+            : undefined;
+      if (isUserError(result)) return setForceError(result.error);
+      if (hasConflicts(result)) return;
+      setPendingConflict(null);
+      if (pendingConflict.mode === "create") setShowAddForm(false);
+      else setEditingId(null);
+    } catch (e) {
+      setForceError(actionErrorMessage(e, "Couldn't save. Try again."));
     }
   }
 
@@ -189,28 +208,22 @@ export function ScheduleList({
 
       {showAddForm && (
         <div className="mb-4">
-          <form
-            onReset={keepFormValues}
+          <ActionForm
             // "Save anyway" saves the values that conflicted, so an edit withdraws it.
             onChange={() => setPendingConflict(null)}
+            keepValues="always"
             action={async (formData) => {
               const result = await createSchedule(formData);
-              if (result?.conflicts?.length) {
-                setPendingConflict({
-                  conflicts: result.conflicts,
-                  fields: {
-                    type: formData.get("type") as string,
-                    startTime: formData.get("startTime") as string,
-                    endTime: formData.get("endTime") as string,
-                    notes: (formData.get("notes") as string) || "",
-                    isPublic: formData.get("isPublic") === "true",
-                  },
-                  mode: "create",
-                });
-              } else {
-                setShowAddForm(false);
-                setPendingConflict(null);
+              if (hasConflicts(result)) {
+                setForceError(null);
+                setPendingConflict({ conflicts: result.conflicts, fields: conflictFields(formData), mode: "create" });
               }
+              return result;
+            }}
+            onDone={(result) => {
+              if (hasConflicts(result)) return;
+              setShowAddForm(false);
+              setPendingConflict(null);
             }}
             className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg"
           >
@@ -286,6 +299,7 @@ export function ScheduleList({
                 <span className="text-sm text-gray-700 dark:text-gray-300">Public</span>
               </label>
             </div>
+            <ActionFormError />
             <div className="mt-4 flex gap-2">
               <SubmitButton label="Add" />
               <button
@@ -296,7 +310,7 @@ export function ScheduleList({
                 Cancel
               </button>
             </div>
-          </form>
+          </ActionForm>
           {pendingConflict?.mode === "create" && (
             <div className="mt-3">
               <ConflictWarning
@@ -305,6 +319,7 @@ export function ScheduleList({
                 onCancel={() => setPendingConflict(null)}
                 onConfirm={handleForce}
               />
+              <FormError error={forceError} className="mt-2" />
             </div>
           )}
         </div>
@@ -323,28 +338,21 @@ export function ScheduleList({
             >
               {editingId === schedule.id ? (
                 <>
-                  <form
-                    onReset={keepFormValues}
+                  <ActionForm
                     onChange={() => setPendingConflict(null)}
+                    keepValues="always"
                     action={async (formData) => {
                       const result = await updateSchedule(schedule.id, formData);
-                      if (result?.conflicts?.length) {
-                        setPendingConflict({
-                          conflicts: result.conflicts,
-                          fields: {
-                            type: formData.get("type") as string,
-                            startTime: formData.get("startTime") as string,
-                            endTime: formData.get("endTime") as string,
-                            notes: (formData.get("notes") as string) || "",
-                            isPublic: formData.get("isPublic") === "true",
-                          },
-                          mode: "update",
-                          scheduleId: schedule.id,
-                        });
-                      } else {
-                        setEditingId(null);
-                        setPendingConflict(null);
+                      if (hasConflicts(result)) {
+                        setForceError(null);
+                        setPendingConflict({ conflicts: result.conflicts, fields: conflictFields(formData), mode: "update", scheduleId: schedule.id });
                       }
+                      return result;
+                    }}
+                    onDone={(result) => {
+                      if (hasConflicts(result)) return;
+                      setEditingId(null);
+                      setPendingConflict(null);
                     }}
                     className="space-y-4"
                   >
@@ -421,6 +429,7 @@ export function ScheduleList({
                       />
                       <span className="text-sm text-gray-700 dark:text-gray-300">Public</span>
                     </label>
+                    <ActionFormError />
                     <div className="flex gap-2">
                       <SubmitButton label="Save" />
                       <button
@@ -431,7 +440,7 @@ export function ScheduleList({
                         Cancel
                       </button>
                     </div>
-                  </form>
+                  </ActionForm>
                   {pendingConflict?.mode === "update" && pendingConflict.scheduleId === schedule.id && (
                     <div className="mt-3">
                       <ConflictWarning
@@ -440,6 +449,7 @@ export function ScheduleList({
                         onCancel={() => setPendingConflict(null)}
                         onConfirm={handleForce}
                       />
+                      <FormError error={forceError} className="mt-2" />
                     </div>
                   )}
                 </>

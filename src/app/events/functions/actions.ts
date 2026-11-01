@@ -1,7 +1,7 @@
 "use server";
 
 
-import { withUserErrors } from "@/lib/userErrors";
+import { withUserErrors, type UserError } from "@/lib/userErrors";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
@@ -28,7 +28,7 @@ import {
   renumberFunctionsCore,
   type BulkFunctionUpdates,
 } from "./core";
-import { formId, formIds, formInt, formName, formNote, formRequiredId, formValue, idList, parseArgs } from "@/lib/validation";
+import { formDateTimeKey, formId, formIds, formInt, formName, formNote, formRequiredId, formValue, idList, parseArgs } from "@/lib/validation";
 
 export async function getFunctions(eventId: string) {
   await requirePermission("FUNCTIONS", "VIEW", eventId);
@@ -164,81 +164,87 @@ export async function getFunction(id: string) {
 
 export async function createFunction(eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const type = formValue(formData, "type");
-  const fn = await createFunctionCore(
-    eventId,
-    {
-      name: formName(formData, "name"),
-      description: formNote(formData, "description"),
-      type,
-      notes: formNote(formData, "notes"),
-      offSiteLocation: formNote(formData, "offSiteLocation"),
-      roomIds: formIds(formData, "roomIds"),
-      breakoutGroupId: formId(formData, "breakoutGroupId"),
-      startTime: formNote(formData, "startTime"),
-      endTime: formNote(formData, "endTime"),
-    },
-    session.user.id,
-  );
+  return withUserErrors(async () => {
+    const type = formValue(formData, "type");
+    const fn = await createFunctionCore(
+      eventId,
+      {
+        name: formName(formData, "name"),
+        description: formNote(formData, "description"),
+        type,
+        notes: formNote(formData, "notes"),
+        offSiteLocation: formNote(formData, "offSiteLocation"),
+        roomIds: formIds(formData, "roomIds"),
+        breakoutGroupId: formId(formData, "breakoutGroupId"),
+        startTime: formDateTimeKey(formData, "startTime", "Start time"),
+        endTime: formDateTimeKey(formData, "endTime", "End time"),
+      },
+      session.user.id,
+    );
 
-  revalidatePath(`/events/${eventId}`);
-  revalidatePath(`/events/${eventId}/breakout-schedule`);
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/breakout-schedule`);
 
-  if (type === "BREAKOUT_BLOCK") {
-    redirect(`/events/${eventId}/breakout-schedule`);
-  }
-  redirect(`/events/${eventId}/functions/${fn.id}`);
+    if (type === "BREAKOUT_BLOCK") {
+      redirect(`/events/${eventId}/breakout-schedule`);
+    }
+    redirect(`/events/${eventId}/functions/${fn.id}`);
+  });
 }
 
 export async function updateFunction(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await updateFunctionCore(
-    id,
-    eventId,
-    {
-      name: formName(formData, "name"),
-      description: formNote(formData, "description"),
-      type: formValue(formData, "type"),
-      notes: formNote(formData, "notes"),
-      offSiteLocation: formNote(formData, "offSiteLocation"),
-      roomIds: formIds(formData, "roomIds"),
-      breakoutGroupId: formId(formData, "breakoutGroupId"),
-    },
-    session.user.id,
-  );
+  return withUserErrors(async () => {
+    await updateFunctionCore(
+      id,
+      eventId,
+      {
+        name: formName(formData, "name"),
+        description: formNote(formData, "description"),
+        type: formValue(formData, "type"),
+        notes: formNote(formData, "notes"),
+        offSiteLocation: formNote(formData, "offSiteLocation"),
+        roomIds: formIds(formData, "roomIds"),
+        breakoutGroupId: formId(formData, "breakoutGroupId"),
+      },
+      session.user.id,
+    );
 
-  revalidatePath(`/events/${eventId}`);
-  revalidatePath(`/events/${eventId}/functions/${id}`);
-  revalidatePath(`/events/${eventId}/agenda`);
-  redirect(`/events/${eventId}/functions/${id}?success=Function updated`);
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/functions/${id}`);
+    revalidatePath(`/events/${eventId}/agenda`);
+    redirect(`/events/${eventId}/functions/${id}?success=Function updated`);
+  });
 }
 
 export async function updateFunctionEsg(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const post = formValue(formData, "postToReaderBoard");
-  const intOrNull = (field: string) => formInt(formData, field, { min: 0 }); // ESG counts
-  await updateFunctionEsgCore(
-    id,
-    eventId,
-    {
-      functionNumber: formNote(formData, "functionNumber"),
-      postToReaderBoard: post === "true" ? true : post === "false" ? false : null,
-      readerBoardText: formNote(formData, "readerBoardText"),
-      hold24Hour: formData.get("hold24Hour") === "true",
-      defaultSetup: formNote(formData, "defaultSetup"),
-      expectedAttendance: intOrNull("expectedAttendance"),
-      setForCount: intOrNull("setForCount"),
-      actualAttendance: intOrNull("actualAttendance"),
-      decorNotes: formNote(formData, "decorNotes"),
-      securityNotes: formNote(formData, "securityNotes"),
-      signageNotes: formNote(formData, "signageNotes"),
-      billingNotes: formNote(formData, "billingNotes"),
-      costCenter: formNote(formData, "costCenter"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/functions`);
-  revalidatePath(`/events/${eventId}/functions/${id}`);
+  return withUserErrors(async () => {
+    const post = formValue(formData, "postToReaderBoard");
+    const intOrNull = (field: string) => formInt(formData, field, { min: 0 }); // ESG counts
+    await updateFunctionEsgCore(
+      id,
+      eventId,
+      {
+        functionNumber: formNote(formData, "functionNumber"),
+        postToReaderBoard: post === "true" ? true : post === "false" ? false : null,
+        readerBoardText: formNote(formData, "readerBoardText"),
+        hold24Hour: formData.get("hold24Hour") === "true",
+        defaultSetup: formNote(formData, "defaultSetup"),
+        expectedAttendance: intOrNull("expectedAttendance"),
+        setForCount: intOrNull("setForCount"),
+        actualAttendance: intOrNull("actualAttendance"),
+        decorNotes: formNote(formData, "decorNotes"),
+        securityNotes: formNote(formData, "securityNotes"),
+        signageNotes: formNote(formData, "signageNotes"),
+        billingNotes: formNote(formData, "billingNotes"),
+        costCenter: formNote(formData, "costCenter"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/functions`);
+    revalidatePath(`/events/${eventId}/functions/${id}`);
+  });
 }
 
 export async function renumberFunctions(eventId: string, clearPins: boolean) {
@@ -296,23 +302,26 @@ export async function createSchedule(
   functionId: string,
   eventId: string,
   formData: FormData
-): Promise<{ conflicts: RoomConflict[] } | undefined> {
+): Promise<{ conflicts: RoomConflict[] } | UserError | undefined> {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const result = await createScheduleCore(
-    functionId,
-    eventId,
-    {
-      type: formValue(formData, "type"),
-      startTime: formValue(formData, "startTime"),
-      endTime: formValue(formData, "endTime"),
-      notes: formNote(formData, "notes"),
-      isPublic: formData.get("isPublic") === "true",
-      force: formData.get("force") === "true",
-    },
-    session.user.id,
-  );
-  if ("conflicts" in result) return { conflicts: result.conflicts };
-  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return withUserErrors(async () => {
+    const result = await createScheduleCore(
+      functionId,
+      eventId,
+      {
+        type: formValue(formData, "type"),
+        startTime: formDateTimeKey(formData, "startTime", "Start time", { required: true }),
+        endTime: formDateTimeKey(formData, "endTime", "End time", { required: true }),
+        notes: formNote(formData, "notes"),
+        isPublic: formData.get("isPublic") === "true",
+        force: formData.get("force") === "true",
+      },
+      session.user.id,
+    );
+    if ("conflicts" in result) return { conflicts: result.conflicts };
+    revalidatePath(`/events/${eventId}/functions/${functionId}`);
+    return undefined;
+  });
 }
 
 export async function updateSchedule(
@@ -320,24 +329,27 @@ export async function updateSchedule(
   functionId: string,
   eventId: string,
   formData: FormData
-): Promise<{ conflicts: RoomConflict[] } | undefined> {
+): Promise<{ conflicts: RoomConflict[] } | UserError | undefined> {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const result = await updateScheduleCore(
-    scheduleId,
-    functionId,
-    eventId,
-    {
-      type: formValue(formData, "type"),
-      startTime: formValue(formData, "startTime"),
-      endTime: formValue(formData, "endTime"),
-      notes: formNote(formData, "notes"),
-      isPublic: formData.get("isPublic") === "true",
-      force: formData.get("force") === "true",
-    },
-    session.user.id,
-  );
-  if ("conflicts" in result) return { conflicts: result.conflicts };
-  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return withUserErrors(async () => {
+    const result = await updateScheduleCore(
+      scheduleId,
+      functionId,
+      eventId,
+      {
+        type: formValue(formData, "type"),
+        startTime: formDateTimeKey(formData, "startTime", "Start time", { required: true }),
+        endTime: formDateTimeKey(formData, "endTime", "End time", { required: true }),
+        notes: formNote(formData, "notes"),
+        isPublic: formData.get("isPublic") === "true",
+        force: formData.get("force") === "true",
+      },
+      session.user.id,
+    );
+    if ("conflicts" in result) return { conflicts: result.conflicts };
+    revalidatePath(`/events/${eventId}/functions/${functionId}`);
+    return undefined;
+  });
 }
 
 export async function deleteSchedule(scheduleId: string, functionId: string, eventId: string) {

@@ -49,7 +49,8 @@ function useActionError(fallback = "Couldn't save. Try again.") {
   return { error, setError, run, keepOnRefusal };
 }
 
-function FormError({ error, className = "" }: { error: string | null; className?: string }) {
+// A refusal shown outside an ActionForm (e.g. a confirm step that saves on its own).
+export function FormError({ error, className = "" }: { error: string | null; className?: string }) {
   if (!error) return null;
   return (
     <p
@@ -71,20 +72,23 @@ const ActionFormErrorContext = createContext<string | null>(null);
 // `keepValues`: "onRefusal" (default) keeps what was typed only after a
 // refusal, so a form that stays on screen shows what the server stored after
 // a save; "always" for a form that resets itself otherwise (React 18 behaviour).
-export function ActionForm({
+export function ActionForm<T = void>({
   action,
   onDone,
   keepValues = "onRefusal",
   fallback,
   onSubmit,
+  onChange,
   className,
   children,
 }: {
-  action: (formData: FormData) => Promise<void | UserError>;
-  onDone?: () => void;
+  action: (formData: FormData) => Promise<T | UserError>;
+  // Gets what the action returned (e.g. room conflicts to confirm), undefined after a navigation.
+  onDone?: (result: T | undefined) => void;
   keepValues?: "always" | "onRefusal";
   fallback?: string;
   onSubmit?: FormEventHandler<HTMLFormElement>;
+  onChange?: FormEventHandler<HTMLFormElement>;
   className?: string;
   children: ReactNode;
 }) {
@@ -93,19 +97,25 @@ export function ActionForm({
     <form
       action={async (formData) => {
         let saved: boolean;
+        let result: T | undefined;
         try {
-          saved = await run(() => action(formData));
+          saved = await run(async () => {
+            const r = await action(formData);
+            if (isUserError(r)) return r;
+            result = r;
+          });
         } catch (navigation) {
           // run only lets Next's redirect / notFound through: the action went
           // through and navigated (often to this same page with ?success=,
           // where this component keeps its state), so close the editor too.
-          onDone?.();
+          onDone?.(undefined);
           throw navigation;
         }
-        if (saved) onDone?.();
+        if (saved) onDone?.(result);
       }}
       onReset={keepValues === "always" ? keepFormValues : keepOnRefusal}
       onSubmit={onSubmit}
+      onChange={onChange}
       className={className}
     >
       <ActionFormErrorContext.Provider value={error}>{children}</ActionFormErrorContext.Provider>

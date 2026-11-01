@@ -38,7 +38,7 @@ export default async function NewFunctionPage({
 
   const createFunctionWithEventId = async (formData: FormData) => {
     "use server";
-    await createFunction(eventId, formData);
+    return createFunction(eventId, formData);
   };
 
   return (

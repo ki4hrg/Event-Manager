@@ -57,12 +57,12 @@ export default async function PresentationsPage({
 
   const createTrackAction = async (formData: FormData) => {
     "use server";
-    await createTrack(eventId, formData);
+    return createTrack(eventId, formData);
   };
 
   const updateTrackAction = async (trackId: string, formData: FormData) => {
     "use server";
-    await updateTrack(trackId, eventId, formData);
+    return updateTrack(trackId, eventId, formData);
   };
 
   const deleteTrackAction = async (trackId: string) => {

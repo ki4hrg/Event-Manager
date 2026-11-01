@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { z } from "zod";
 
 import { requirePermission } from "@/lib/permissions";
@@ -42,29 +43,33 @@ export async function getTracks(eventId: string) {
 
 export async function createTrack(eventId: string, formData: FormData) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await createTrackCore(
-    eventId,
-    {
-      name: formName(formData, "name"),
-      color: formNote(formData, "color"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/presentations`);
+  return withUserErrors(async () => {
+    await createTrackCore(
+      eventId,
+      {
+        name: formName(formData, "name"),
+        color: formNote(formData, "color"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/presentations`);
+  });
 }
 
 export async function updateTrack(trackId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await updateTrackCore(
-    trackId,
-    eventId,
-    {
-      name: formName(formData, "name"),
-      color: formNote(formData, "color"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/presentations`);
+  return withUserErrors(async () => {
+    await updateTrackCore(
+      trackId,
+      eventId,
+      {
+        name: formName(formData, "name"),
+        color: formNote(formData, "color"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/presentations`);
+  });
 }
 
 export async function deleteTrack(trackId: string, eventId: string) {
@@ -184,28 +189,30 @@ function speakerIds(formData: FormData): string[] {
 
 export async function createPresentation(eventId: string, formData: FormData) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  const presentation = await createPresentationCore(
-    eventId,
-    {
-      title: formValue(formData, "title"),
-      description: formNote(formData, "description"),
-      trackId: formId(formData, "trackId"),
-      schedulingNotes: formNote(formData, "schedulingNotes"),
-      internalNotes: formNote(formData, "internalNotes"),
-      type: formValue(formData, "type"),
-      breakoutGroupId: formId(formData, "breakoutGroupId"),
-      instanceCount: formInt(formData, "instanceCount", { min: 1, max: 10_000 }) ?? 1,
-      advancerVendorId: formId(formData, "advancerVendorId"),
-      advancerContactId: formId(formData, "advancerContactId"),
-      // Paired with speakerRoles by position: every entry kept, each an id.
-      speakerContactIds: speakerIds(formData),
-      speakerRoles: formTexts(formData, "speakerRoles"),
-      primarySpeakerId: formId(formData, "primarySpeakerId"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/presentations`);
-  redirect(`/events/${eventId}/presentations/${presentation.id}`);
+  return withUserErrors(async () => {
+    const presentation = await createPresentationCore(
+      eventId,
+      {
+        title: formValue(formData, "title"),
+        description: formNote(formData, "description"),
+        trackId: formId(formData, "trackId"),
+        schedulingNotes: formNote(formData, "schedulingNotes"),
+        internalNotes: formNote(formData, "internalNotes"),
+        type: formValue(formData, "type"),
+        breakoutGroupId: formId(formData, "breakoutGroupId"),
+        instanceCount: formInt(formData, "instanceCount", { min: 1, max: 10_000 }) ?? 1,
+        advancerVendorId: formId(formData, "advancerVendorId"),
+        advancerContactId: formId(formData, "advancerContactId"),
+        // Paired with speakerRoles by position: every entry kept, each an id.
+        speakerContactIds: speakerIds(formData),
+        speakerRoles: formTexts(formData, "speakerRoles"),
+        primarySpeakerId: formId(formData, "primarySpeakerId"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/presentations`);
+    redirect(`/events/${eventId}/presentations/${presentation.id}`);
+  });
 }
 
 export async function updatePresentationInstanceCount(id: string, eventId: string, count: number) {
@@ -216,27 +223,29 @@ export async function updatePresentationInstanceCount(id: string, eventId: strin
 
 export async function updatePresentation(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  return withUserErrors(async () => {
 
-  const args: PresentationUpdateArgs = {
-    title: formValue(formData, "title"),
-    description: formNote(formData, "description"),
-    trackId: formId(formData, "trackId"),
-    schedulingNotes: formNote(formData, "schedulingNotes"),
-    internalNotes: formNote(formData, "internalNotes"),
-    type: formValue(formData, "type"),
-  };
-  // Fields the form may leave out: absent leaves what the presentation has.
-  if (formData.has("breakoutGroupId")) args.breakoutGroupId = formId(formData, "breakoutGroupId");
-  const instanceCount = formInt(formData, "instanceCount", { min: 1, max: 10_000 });
-  if (instanceCount !== null) args.instanceCount = instanceCount;
-  if (formData.has("advancerVendorId")) args.advancerVendorId = formId(formData, "advancerVendorId");
-  if (formData.has("advancerContactId")) args.advancerContactId = formId(formData, "advancerContactId");
+    const args: PresentationUpdateArgs = {
+      title: formValue(formData, "title"),
+      description: formNote(formData, "description"),
+      trackId: formId(formData, "trackId"),
+      schedulingNotes: formNote(formData, "schedulingNotes"),
+      internalNotes: formNote(formData, "internalNotes"),
+      type: formValue(formData, "type"),
+    };
+    // Fields the form may leave out: absent leaves what the presentation has.
+    if (formData.has("breakoutGroupId")) args.breakoutGroupId = formId(formData, "breakoutGroupId");
+    const instanceCount = formInt(formData, "instanceCount", { min: 1, max: 10_000 });
+    if (instanceCount !== null) args.instanceCount = instanceCount;
+    if (formData.has("advancerVendorId")) args.advancerVendorId = formId(formData, "advancerVendorId");
+    if (formData.has("advancerContactId")) args.advancerContactId = formId(formData, "advancerContactId");
 
-  await updatePresentationCore(id, eventId, args, session.user.id);
+    await updatePresentationCore(id, eventId, args, session.user.id);
 
-  revalidatePath(`/events/${eventId}/presentations`);
-  revalidatePath(`/events/${eventId}/presentations/${id}`);
-  redirect(`/events/${eventId}/presentations/${id}?success=Presentation updated`);
+    revalidatePath(`/events/${eventId}/presentations`);
+    revalidatePath(`/events/${eventId}/presentations/${id}`);
+    redirect(`/events/${eventId}/presentations/${id}?success=Presentation updated`);
+  });
 }
 
 export async function deletePresentation(id: string, eventId: string) {
@@ -279,15 +288,17 @@ export async function addSpeaker(
   formData: FormData
 ) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await addSpeakerCore(
-    presentationId,
-    eventId,
-    formRequiredId(formData, "contactId", "contact"),
-    formNote(formData, "role"),
-    formData.get("isPrimary") === "true",
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  return withUserErrors(async () => {
+    await addSpeakerCore(
+      presentationId,
+      eventId,
+      formRequiredId(formData, "contactId", "contact"),
+      formNote(formData, "role"),
+      formData.get("isPrimary") === "true",
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  });
 }
 
 export async function updateSpeaker(
@@ -297,15 +308,17 @@ export async function updateSpeaker(
   formData: FormData
 ) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await updateSpeakerCore(
-    speakerId,
-    presentationId,
-    eventId,
-    formNote(formData, "role"),
-    formData.get("isPrimary") === "true",
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  return withUserErrors(async () => {
+    await updateSpeakerCore(
+      speakerId,
+      presentationId,
+      eventId,
+      formNote(formData, "role"),
+      formData.get("isPrimary") === "true",
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  });
 }
 
 export async function removeSpeaker(speakerId: string, presentationId: string, eventId: string) {
@@ -320,20 +333,22 @@ export async function createAndAddPresentationSpeaker(
   formData: FormData
 ) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await createAndAddPresentationSpeakerCore(
-    {
-      presentationId,
-      eventId,
-      firstName: formValue(formData, "firstName"),
-      lastName: formValue(formData, "lastName"),
-      email: formNote(formData, "email"),
-      organization: formNote(formData, "organization"),
-      role: formNote(formData, "role"),
-      isPrimary: formData.get("isPrimary") === "true",
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  return withUserErrors(async () => {
+    await createAndAddPresentationSpeakerCore(
+      {
+        presentationId,
+        eventId,
+        firstName: formValue(formData, "firstName"),
+        lastName: formValue(formData, "lastName"),
+        email: formNote(formData, "email"),
+        organization: formNote(formData, "organization"),
+        role: formNote(formData, "role"),
+        isPrimary: formData.get("isPrimary") === "true",
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  });
 }
 
 export async function reorderSpeakers(

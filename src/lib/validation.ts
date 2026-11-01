@@ -226,9 +226,14 @@ export function formDateKey(formData: FormData, key: string): string | null {
 
 /** A datetime-local value (YYYY-MM-DDTHH:MM, seconds tolerated) that is a real moment; blank is null.
  *  Returned as typed: the caller converts it in the event's timezone. */
-export function formDateTimeKey(formData: FormData, key: string, label = fieldLabel(key)): string | null {
+export function formDateTimeKey(formData: FormData, key: string, label?: string): string | null;
+export function formDateTimeKey(formData: FormData, key: string, label: string | undefined, opts: { required: true }): string;
+export function formDateTimeKey(formData: FormData, key: string, label = fieldLabel(key), opts: { required?: boolean } = {}): string | null {
   const raw = formString(formData, key);
-  if (!raw) return null;
+  if (!raw) {
+    if (opts.required) throw new UserFacingError(`${label} is required`);
+    return null;
+  }
   const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
   const real = m && dateKeySchema.safeParse(m[1]).success && Number(m[2]) < 24 && Number(m[3]) < 60 && Number(m[4] ?? 0) < 60;
   if (!real) throw new UserFacingError(`${label} must be a date and time`);

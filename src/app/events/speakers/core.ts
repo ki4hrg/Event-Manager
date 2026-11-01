@@ -8,6 +8,7 @@
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { rangeTouched } from "@/lib/dateRange";
+import { UserFacingError } from "@/lib/userErrors";
 import { assertEventRefs } from "@/lib/eventRefs";
 
 export type SpeakerContactFields = {
@@ -83,7 +84,7 @@ export async function upsertSpeakerProfileCore(eventId: string, contactId: strin
     const arrival = args.arrivalAt !== undefined ? args.arrivalAt : stored?.arrivalAt;
     const departure = args.departureAt !== undefined ? args.departureAt : stored?.departureAt;
     if (arrival && departure && departure < arrival && rangeTouched(stored && { start: stored.arrivalAt, end: stored.departureAt }, arrival, departure)) {
-      throw new Error("Departure can't be before arrival");
+      throw new UserFacingError("Departure can't be before arrival");
     }
   }
   const data: Record<string, unknown> = {};
