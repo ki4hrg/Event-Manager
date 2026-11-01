@@ -294,11 +294,11 @@ export default async function CateringOrderPage({
 
   const addContactAction = async (formData: FormData) => {
     "use server";
-    await addCateringOrderContact(cateringOrderId, eventId, formData);
+    return addCateringOrderContact(cateringOrderId, eventId, formData);
   };
   const updateContactAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateCateringOrderContact(id, cateringOrderId, eventId, formData);
+    return updateCateringOrderContact(id, cateringOrderId, eventId, formData);
   };
   const removeContactAction = async (id: string) => {
     "use server";
@@ -311,7 +311,7 @@ export default async function CateringOrderPage({
 
   const createContactAction = async (formData: FormData) => {
     "use server";
-    await createAndAddCateringOrderContact(cateringOrderId, eventId, formData);
+    return createAndAddCateringOrderContact(cateringOrderId, eventId, formData);
   };
 
   const assignWorkflowAction = async (templateId: string) => {
@@ -485,6 +485,7 @@ export default async function CateringOrderPage({
             </div>
 
             <ContactList
+              resource="CATERING_ORDERS"
               contacts={cateringOrder.contacts}
               roles={assignmentRoles.map((o) => o.label)}
               addContact={addContactAction}

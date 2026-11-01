@@ -6,6 +6,7 @@ import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
 import { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { refuseDuplicate } from "@/lib/uniqueRefusal";
 import { functionLinkedOrders, refreshWorkflowStatusForFunctions, refreshWorkflowStatusForOrders } from "@/app/events/workflows/core";
 import {
   requirePermissionForUser,
@@ -449,9 +450,12 @@ export async function addFunctionContactCore(
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
   await assertEventRefs(eventId, { contactIds: [contactId] });
-  const link = await prisma.functionContact.create({
-    data: { functionId, contactId, role },
-  });
+  const link = await refuseDuplicate(
+    prisma.functionContact.create({
+      data: { functionId, contactId, role },
+    }),
+    "Already a contact here",
+  );
   await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   return link;
 }
@@ -501,19 +505,23 @@ export async function createAndAddFunctionContactCore(
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", args.eventId);
   await assertFunctionInEvent(args.functionId, args.eventId);
 
-  const contact = await prisma.contact.create({
-    data: {
-      tenantId: await requireEventTenantId(args.eventId),
-      firstName: args.firstName,
-      lastName: args.lastName,
-      email: args.email,
-      phone: args.phone,
-      organization: args.organization,
-      updatedById: userId,
-    },
-  });
-  const link = await prisma.functionContact.create({
-    data: { functionId: args.functionId, contactId: contact.id, role: args.role },
+  const tenantId = await requireEventTenantId(args.eventId);
+  // One transaction, so a failed link doesn't leave a new contact behind.
+  const link = await prisma.$transaction(async (tx) => {
+    const contact = await tx.contact.create({
+      data: {
+        tenantId,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        email: args.email,
+        phone: args.phone,
+        organization: args.organization,
+        updatedById: userId,
+      },
+    });
+    return tx.functionContact.create({
+      data: { functionId: args.functionId, contactId: contact.id, role: args.role },
+    });
   });
   await prisma.function.update({
     where: { id: args.functionId },

@@ -118,12 +118,12 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
 
   const addContactAction = async (formData: FormData) => {
     "use server";
-    await addVenueContact(id, formData);
+    return addVenueContact(id, formData);
   };
 
   const updateContactAction = async (contactId: string, formData: FormData) => {
     "use server";
-    await updateVenueContact(contactId, id, formData);
+    return updateVenueContact(contactId, id, formData);
   };
 
   const removeContactAction = async (contactId: string) => {
@@ -133,7 +133,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
 
   const createContactAction = async (formData: FormData) => {
     "use server";
-    await createAndAddVenueContact(id, formData);
+    return createAndAddVenueContact(id, formData);
   };
 
   const updateVendorDetailsAction = async (formData: FormData) => {

@@ -1,6 +1,7 @@
 "use server";
 
 
+import { withUserErrors } from "@/lib/userErrors";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
@@ -372,14 +373,16 @@ export async function searchContacts(query: string) {
 
 export async function addFunctionContact(functionId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await addFunctionContactCore(
-    functionId,
-    eventId,
-    formRequiredId(formData, "contactId", "contact"),
-    formNote(formData, "role"),
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return withUserErrors(async () => {
+    await addFunctionContactCore(
+      functionId,
+      eventId,
+      formRequiredId(formData, "contactId", "contact"),
+      formNote(formData, "role"),
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  });
 }
 
 export async function updateFunctionContact(
@@ -389,14 +392,16 @@ export async function updateFunctionContact(
   formData: FormData
 ) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await updateFunctionContactCore(
-    contactId,
-    functionId,
-    eventId,
-    formNote(formData, "role"),
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return withUserErrors(async () => {
+    await updateFunctionContactCore(
+      contactId,
+      functionId,
+      eventId,
+      formNote(formData, "role"),
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  });
 }
 
 export async function removeFunctionContact(contactId: string, functionId: string, eventId: string) {
@@ -411,20 +416,22 @@ export async function createAndAddFunctionContact(
   formData: FormData
 ) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await createAndAddFunctionContactCore(
-    {
-      functionId,
-      eventId,
-      firstName: formValue(formData, "firstName"),
-      lastName: formValue(formData, "lastName"),
-      email: formNote(formData, "email"),
-      phone: formNote(formData, "phone"),
-      organization: formNote(formData, "organization"),
-      role: formNote(formData, "role"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return withUserErrors(async () => {
+    await createAndAddFunctionContactCore(
+      {
+        functionId,
+        eventId,
+        firstName: formName(formData, "firstName"),
+        lastName: formName(formData, "lastName"),
+        email: formNote(formData, "email"),
+        phone: formNote(formData, "phone"),
+        organization: formNote(formData, "organization"),
+        role: formNote(formData, "role"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  });
 }
 
 // ============================================================================

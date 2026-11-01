@@ -4,8 +4,9 @@
 // Actions). Wrappers in ./actions.ts pass session.user.id; MCP tools pass the
 // bearer-resolved userId.
 
-import { PermissionResource } from "@prisma/client";
+import { PermissionResource, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { refuseDuplicate } from "@/lib/uniqueRefusal";
 import { refreshWorkflowStatus } from "@/app/events/workflows/core";
 import { requirePermissionForUser, requireEventTenantId, PermissionError } from "@/lib/permissions";
 import { assertEventRefs } from "@/lib/eventRefs";
@@ -87,8 +88,8 @@ export async function deleteVendorCore(id: string, userId: string, tenantId: str
 // ---------------------------------------------------------------------------
 // VendorContact (vendor ↔ contact junction with role + isPrimary)
 
-async function clearOtherPrimaries(vendorId: string, excludeId?: string) {
-  await prisma.vendorContact.updateMany({
+async function clearOtherPrimaries(vendorId: string, excludeId?: string, db: Prisma.TransactionClient = prisma) {
+  await db.vendorContact.updateMany({
     where: { vendorId, ...(excludeId ? { NOT: { id: excludeId } } : {}) },
     data: { isPrimary: false },
   });
@@ -111,24 +112,27 @@ export async function createAndAddVendorContactCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
   await assertVendorInTenant(args.vendorId, tenantId);
-  const contact = await prisma.contact.create({
-    data: {
-      tenantId,
-      firstName: args.firstName,
-      lastName: args.lastName,
-      email: args.email,
-      organization: args.organization,
-      updatedById: userId,
-    },
-  });
-  if (args.isPrimary) await clearOtherPrimaries(args.vendorId);
-  const vc = await prisma.vendorContact.create({
-    data: {
-      vendorId: args.vendorId,
-      contactId: contact.id,
-      contactType: args.contactType,
-      isPrimary: args.isPrimary,
-    },
+  // One transaction, so a failed link doesn't leave a new contact behind.
+  const vc = await prisma.$transaction(async (tx) => {
+    const contact = await tx.contact.create({
+      data: {
+        tenantId,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        email: args.email,
+        organization: args.organization,
+        updatedById: userId,
+      },
+    });
+    if (args.isPrimary) await clearOtherPrimaries(args.vendorId, undefined, tx);
+    return tx.vendorContact.create({
+      data: {
+        vendorId: args.vendorId,
+        contactId: contact.id,
+        contactType: args.contactType,
+        isPrimary: args.isPrimary,
+      },
+    });
   });
   await prisma.vendor.update({
     where: { id: args.vendorId },
@@ -149,15 +153,22 @@ export async function addVendorContactCore(args: AddVendorContactArgs, userId: s
   await assertVendorInTenant(args.vendorId, tenantId);
   const contact = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
   if (!contact) throw new PermissionError("NOT_FOUND", "Contact not found");
-  if (args.isPrimary) await clearOtherPrimaries(args.vendorId);
-  const vc = await prisma.vendorContact.create({
-    data: {
-      vendorId: args.vendorId,
-      contactId: args.contactId,
-      contactType: args.contactType,
-      isPrimary: args.isPrimary,
-    },
-  });
+  // Clearing the other primaries and linking succeed or fail together, so an
+  // already-linked contact leaves the primary where it was.
+  const vc = await refuseDuplicate(
+    prisma.$transaction(async (tx) => {
+      if (args.isPrimary) await clearOtherPrimaries(args.vendorId, undefined, tx);
+      return tx.vendorContact.create({
+        data: {
+          vendorId: args.vendorId,
+          contactId: args.contactId,
+          contactType: args.contactType,
+          isPrimary: args.isPrimary,
+        },
+      });
+    }),
+    "Already a contact here",
+  );
   await prisma.vendor.update({
     where: { id: args.vendorId },
     data: { updatedById: userId },

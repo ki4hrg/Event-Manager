@@ -480,26 +480,30 @@ export async function getCateringOrdersForFunction(functionId: string, eventId: 
 
 export async function addCateringOrderContact(cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await addCateringOrderContactCore(
-    cateringOrderId,
-    eventId,
-    formRequiredId(formData, "contactId", "contact"),
-    formNote(formData, "role"),
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await addCateringOrderContactCore(
+      cateringOrderId,
+      eventId,
+      formRequiredId(formData, "contactId", "contact"),
+      formNote(formData, "role"),
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function updateCateringOrderContact(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateCateringOrderContactCore(
-    id,
-    cateringOrderId,
-    eventId,
-    formNote(formData, "role"),
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await updateCateringOrderContactCore(
+      id,
+      cateringOrderId,
+      eventId,
+      formNote(formData, "role"),
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function removeCateringOrderContact(id: string, cateringOrderId: string, eventId: string) {
@@ -510,19 +514,21 @@ export async function removeCateringOrderContact(id: string, cateringOrderId: st
 
 export async function createAndAddCateringOrderContact(cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await createAndAddCateringOrderContactCore(
-    {
-      cateringOrderId,
-      eventId,
-      firstName: formValue(formData, "firstName"),
-      lastName: formValue(formData, "lastName"),
-      email: formNote(formData, "email"),
-      organization: formNote(formData, "organization"),
-      role: formNote(formData, "role"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await createAndAddCateringOrderContactCore(
+      {
+        cateringOrderId,
+        eventId,
+        firstName: formName(formData, "firstName"),
+        lastName: formName(formData, "lastName"),
+        email: formNote(formData, "email"),
+        organization: formNote(formData, "organization"),
+        role: formNote(formData, "role"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function searchContactsForCateringOrder(query: string) {

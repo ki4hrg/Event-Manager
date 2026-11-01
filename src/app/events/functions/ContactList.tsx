@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
-import type { Contact } from "@prisma/client";
+import type { Contact, PermissionResource } from "@prisma/client";
 import { formatPhone } from "@/lib/format-phone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { OptionSelect } from "@/components/ui/OptionSelect";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 
 type ContactItem = {
   id: string;
@@ -19,13 +20,15 @@ type ContactItem = {
 
 type ContactListProps = {
   contacts: ContactItem[];
-  addContact: (formData: FormData) => Promise<void>;
-  updateContact: (id: string, formData: FormData) => Promise<void>;
+  addContact: (formData: FormData) => Promise<void | UserError>;
+  updateContact: (id: string, formData: FormData) => Promise<void | UserError>;
   removeContact: (id: string) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
-  createContact?: (formData: FormData) => Promise<void>;
+  createContact?: (formData: FormData) => Promise<void | UserError>;
   // The option list a contact's role picks from (assignment_role; venue_contact_type on venues).
   roles: string[];
+  // Whose write permission the controls follow: the page's own resource.
+  resource: PermissionResource;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -49,8 +52,9 @@ export function ContactList({
   searchContacts,
   createContact,
   roles,
+  resource,
 }: ContactListProps) {
-  const canWrite = useCanWrite("FUNCTIONS");
+  const canWrite = useCanWrite(resource);
   const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,21 +94,14 @@ export function ContactList({
   };
 
   const handleAddFormSubmit = async (formData: FormData) => {
-    if (!selectedContact) return;
+    if (!selectedContact) return { error: "Pick a contact" };
     formData.set("contactId", selectedContact.id);
-    await addContact(formData);
-    closeAddForm();
+    return addContact(formData);
   };
 
   const handleCreateFormSubmit = async (formData: FormData) => {
-    if (!createContact) return;
-    await createContact(formData);
-    closeAddForm();
-  };
-
-  const handleUpdateSubmit = async (contactId: string, formData: FormData) => {
-    await updateContact(contactId, formData);
-    setEditingId(null);
+    if (!createContact) return { error: "Contacts can't be created here" };
+    return createContact(formData);
   };
 
   return (
@@ -126,7 +123,7 @@ export function ContactList({
       </div>
 
       {formView === "search" && (
-        <form action={handleAddFormSubmit} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        <ActionForm action={handleAddFormSubmit} onDone={closeAddForm} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="space-y-4">
             {!selectedContact ? (
               <div>
@@ -227,6 +224,7 @@ export function ContactList({
             </div>
           </div>
 
+          <ActionFormError className="mt-4" />
           <div className="mt-4 flex gap-2">
             <SubmitButton label="Add Contact" />
             <button
@@ -237,11 +235,11 @@ export function ContactList({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       {formView === "create" && (
-        <form action={handleCreateFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        <ActionForm action={handleCreateFormSubmit} onDone={closeAddForm} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -299,6 +297,7 @@ export function ContactList({
             </div>
           </div>
 
+          <ActionFormError className="mt-4" />
           <div className="mt-4 flex gap-2">
             <SubmitButton label="Create & Add" />
             <button
@@ -316,7 +315,7 @@ export function ContactList({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       {contacts.length === 0 ? (
@@ -328,8 +327,9 @@ export function ContactList({
           {contacts.map((item) => (
             <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === item.id ? (
-                <form
-                  action={(formData) => handleUpdateSubmit(item.id, formData)}
+                <ActionForm
+                  action={(formData) => updateContact(item.id, formData)}
+                  onDone={() => setEditingId(null)}
                   className="space-y-3"
                 >
                   <div className="font-medium text-gray-900 dark:text-white text-sm">
@@ -351,6 +351,7 @@ export function ContactList({
                       className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                     />
                   </div>
+                  <ActionFormError />
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
                     <button
@@ -361,7 +362,7 @@ export function ContactList({
                       Cancel
                     </button>
                   </div>
-                </form>
+                </ActionForm>
               ) : (
                 <div className="flex items-start justify-between">
                   <div className="min-w-0">
@@ -408,7 +409,7 @@ export function ContactList({
                         onConfirm={() => removeContact(item.id)}
                         label="Remove"
                         confirmLabel="Remove"
-                        resource="FUNCTIONS"
+                        resource={resource}
                         requiredLevel="WRITE"
                       />
                     </div>

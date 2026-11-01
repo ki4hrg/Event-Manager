@@ -69,12 +69,12 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
 
   const addContactAction = async (formData: FormData) => {
     "use server";
-    await addVendorContact(id, formData);
+    return addVendorContact(id, formData);
   };
 
   const updateContactAction = async (contactId: string, formData: FormData) => {
     "use server";
-    await updateVendorContact(contactId, id, formData);
+    return updateVendorContact(contactId, id, formData);
   };
 
   const removeContactAction = async (contactId: string) => {
@@ -84,7 +84,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
 
   const createContactAction = async (formData: FormData) => {
     "use server";
-    await createAndAddVendorContact(id, formData);
+    return createAndAddVendorContact(id, formData);
   };
 
   return (

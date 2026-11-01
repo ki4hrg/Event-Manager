@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { prisma } from "@/lib/prisma";
 import { hasPermissionForUser, requirePermission } from "@/lib/permissions";
 import { eventVenuesOrderBy } from "@/lib/eventVenues";
@@ -177,50 +178,56 @@ export async function searchContactsForVendor(query: string) {
 
 export async function createAndAddVendorContact(vendorId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
-  await createAndAddVendorContactCore(
-    {
-      vendorId,
-      firstName: formValue(formData, "firstName"),
-      lastName: formValue(formData, "lastName"),
-      email: formNote(formData, "email"),
-      organization: formNote(formData, "organization"),
-      contactType: formNote(formData, "contactType"),
-      isPrimary: formData.get("isPrimary") === "true",
-    },
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath(`/vendors/${vendorId}`);
+  return withUserErrors(async () => {
+    await createAndAddVendorContactCore(
+      {
+        vendorId,
+        firstName: formName(formData, "firstName"),
+        lastName: formName(formData, "lastName"),
+        email: formNote(formData, "email"),
+        organization: formNote(formData, "organization"),
+        contactType: formNote(formData, "contactType"),
+        isPrimary: formData.get("isPrimary") === "true",
+      },
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath(`/vendors/${vendorId}`);
+  });
 }
 
 export async function addVendorContact(vendorId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
-  await addVendorContactCore(
-    {
-      vendorId,
-      contactId: formRequiredId(formData, "contactId", "contact"),
-      contactType: formNote(formData, "contactType"),
-      isPrimary: formData.get("isPrimary") === "true",
-    },
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath(`/vendors/${vendorId}`);
+  return withUserErrors(async () => {
+    await addVendorContactCore(
+      {
+        vendorId,
+        contactId: formRequiredId(formData, "contactId", "contact"),
+        contactType: formNote(formData, "contactType"),
+        isPrimary: formData.get("isPrimary") === "true",
+      },
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath(`/vendors/${vendorId}`);
+  });
 }
 
 export async function updateVendorContact(contactId: string, vendorId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
-  await updateVendorContactCore(
-    {
-      vendorContactId: contactId,
-      vendorId,
-      contactType: formNote(formData, "contactType"),
-      isPrimary: formData.get("isPrimary") === "true",
-    },
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath(`/vendors/${vendorId}`);
+  return withUserErrors(async () => {
+    await updateVendorContactCore(
+      {
+        vendorContactId: contactId,
+        vendorId,
+        contactType: formNote(formData, "contactType"),
+        isPrimary: formData.get("isPrimary") === "true",
+      },
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath(`/vendors/${vendorId}`);
+  });
 }
 
 export async function removeVendorContact(contactId: string, vendorId: string) {

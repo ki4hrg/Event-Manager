@@ -3,8 +3,8 @@ import { PermissionLevel, PermissionResource } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../test/fixtures";
-import { createVendor } from "./vendors/actions";
-import { createRoom } from "./venues/actions";
+import { addVendorContact, createVendor } from "./vendors/actions";
+import { addVenueContact, createAndAddVenueContact, createRoom } from "./venues/actions";
 import { createContactCore } from "./contacts/core";
 import { createVendorCore } from "./vendors/core";
 
@@ -27,6 +27,32 @@ function form(fields: Record<string, string | string[]>) {
 beforeEach(() => vi.mocked(auth).mockReset());
 
 describe("directory forms: checked, not cast", () => {
+  it("refuses linking a vendor contact twice and keeps the primary where it was", async () => {
+    const { tenantId } = await member({ [PermissionResource.VENDORS]: PermissionLevel.WRITE });
+    const vendor = await prisma.vendor.create({ data: { tenantId, name: "Caterer" } as never });
+    const [a, b] = await Promise.all(
+      ["A", "B"].map((n) => prisma.contact.create({ data: { tenantId, firstName: n, lastName: "L" } })),
+    );
+    await addVendorContact(vendor.id, form({ contactId: a.id, isPrimary: "true" }));
+    await addVendorContact(vendor.id, form({ contactId: b.id }));
+    await expect(addVendorContact(vendor.id, form({ contactId: b.id, isPrimary: "true" }))).resolves.toEqual({
+      error: "Already a contact here",
+    });
+    const primary = await prisma.vendorContact.findFirst({ where: { vendorId: vendor.id, isPrimary: true } });
+    expect(primary?.contactId).toBe(a.id);
+  });
+
+  it("returns venue contact refusals as { error }: none picked, linked twice, no name", async () => {
+    const { tenantId } = await member({ [PermissionResource.VENUES]: PermissionLevel.WRITE });
+    const venue = await prisma.venue.create({ data: { tenantId, name: "Hall" } });
+    const ada = await prisma.contact.create({ data: { tenantId, firstName: "Ada", lastName: "L" } });
+    await expect(addVenueContact(venue.id, form({ role: "Sales" }))).resolves.toHaveProperty("error");
+    await expect(addVenueContact(venue.id, form({ contactId: ada.id }))).resolves.toBeUndefined();
+    await expect(addVenueContact(venue.id, form({ contactId: ada.id }))).resolves.toEqual({ error: "Already a contact here" });
+    await expect(createAndAddVenueContact(venue.id, form({ firstName: "Bo", lastName: " " }))).resolves.toHaveProperty("error");
+    expect(await prisma.contact.count({ where: { tenantId } })).toBe(1);
+  });
+
   it("refuses a vendor with no name or with an order type that isn't one", async () => {
     const { tenantId } = await member({ [PermissionResource.VENDORS]: PermissionLevel.WRITE });
     await expect(createVendor(form({ name: "   " }))).rejects.toThrow("Name is required");

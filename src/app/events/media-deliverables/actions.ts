@@ -1,5 +1,7 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
+import { refuseDuplicate } from "@/lib/uniqueRefusal";
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -278,16 +280,21 @@ export async function unlinkMediaDeliverableFromPresentationPage(
 
 export async function addMediaDeliverableContact(mediaDeliverableId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
-  const contactId = formRequiredId(formData, "contactId", "contact");
-  const role = formValue(formData, "role");
-  await assertEventRefs(eventId, { contactIds: [contactId] });
+  return withUserErrors(async () => {
+    await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
+    const contactId = formRequiredId(formData, "contactId", "contact");
+    const role = formValue(formData, "role");
+    await assertEventRefs(eventId, { contactIds: [contactId] });
 
-  await prisma.mediaDeliverableContact.create({
-    data: { mediaDeliverableId, contactId, role: role || null },
+    await refuseDuplicate(
+      prisma.mediaDeliverableContact.create({
+        data: { mediaDeliverableId, contactId, role: role || null },
+      }),
+      "Already a contact here",
+    );
+    await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
+    revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
   });
-  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
-  revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
 }
 
 export async function updateMediaDeliverableContact(
@@ -297,12 +304,14 @@ export async function updateMediaDeliverableContact(
   formData: FormData
 ) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  await prisma.mediaDeliverableContact.update({
-    where: { id, mediaDeliverable: { eventId } },
-    data: { role: formNote(formData, "role") },
+  return withUserErrors(async () => {
+    await prisma.mediaDeliverableContact.update({
+      where: { id, mediaDeliverable: { eventId } },
+      data: { role: formNote(formData, "role") },
+    });
+    await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
+    revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
   });
-  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
-  revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
 }
 
 export async function removeMediaDeliverableContact(id: string, mediaDeliverableId: string, eventId: string) {
@@ -318,29 +327,33 @@ export async function createAndAddMediaDeliverableContact(
   formData: FormData
 ) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
-  const firstName = formValue(formData, "firstName");
-  const lastName = formValue(formData, "lastName");
-  const email = formValue(formData, "email");
-  const organization = formValue(formData, "organization");
-  const role = formValue(formData, "role");
+  return withUserErrors(async () => {
+    await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
+    const firstName = formName(formData, "firstName");
+    const lastName = formName(formData, "lastName");
+    const email = formValue(formData, "email");
+    const organization = formValue(formData, "organization");
+    const role = formValue(formData, "role");
 
-  const contact = await prisma.contact.create({
-    data: {
-      tenantId: session.tenantId,
-      firstName,
-      lastName,
-      email: email || null,
-      organization: organization || null,
-      updatedById: session.user.id,
-    },
+    // One transaction, so a failed link doesn't leave a new contact behind.
+    await prisma.$transaction(async (tx) => {
+      const contact = await tx.contact.create({
+        data: {
+          tenantId: session.tenantId,
+          firstName,
+          lastName,
+          email: email || null,
+          organization: organization || null,
+          updatedById: session.user.id,
+        },
+      });
+      await tx.mediaDeliverableContact.create({
+        data: { mediaDeliverableId, contactId: contact.id, role: role || null },
+      });
+    });
+    await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
+    revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
   });
-
-  await prisma.mediaDeliverableContact.create({
-    data: { mediaDeliverableId, contactId: contact.id, role: role || null },
-  });
-  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
-  revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
 }
 
 // Recomputes the provider (vendor/contact) pool for the create form as the
