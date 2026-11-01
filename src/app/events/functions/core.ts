@@ -2,7 +2,9 @@
 // mutations. NOT a "use server" file — see src/app/contacts/core.ts for the
 // security rationale.
 
-import type { EntityStatus } from "@prisma/client";
+import { z } from "zod";
+import { UserFacingError } from "@/lib/userErrors";
+import { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { functionLinkedOrders, refreshWorkflowStatusForFunctions, refreshWorkflowStatusForOrders } from "@/app/events/workflows/core";
 import {
@@ -233,11 +235,15 @@ export async function deleteFunctionsCore(ids: string[], eventId: string, userId
   return { count: r.count };
 }
 
-export type BulkFunctionUpdates = {
-  status?: EntityStatus;
-  substatus?: string | null;
-  type?: string;
-};
+// Exactly the fields a bulk update may change. Strict: any other key (eventId,
+// functionNumber…) is refused, so neither the action nor a tool can reach
+// another column.
+export const BulkFunctionUpdatesSchema = z.strictObject({
+  status: z.enum(EntityStatus).optional(),
+  substatus: z.string().max(1_000).nullable().optional(),
+  type: z.string().max(500).optional(),
+});
+export type BulkFunctionUpdates = z.infer<typeof BulkFunctionUpdatesSchema>;
 
 export async function bulkUpdateFunctionsCore(
   ids: string[],
@@ -246,15 +252,13 @@ export async function bulkUpdateFunctionsCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
+  const parsed = BulkFunctionUpdatesSchema.safeParse(updates);
+  if (!parsed.success) throw new UserFacingError("Bulk updates can change only status, substatus and type");
+  const { status, substatus, type } = parsed.data;
   const r = await prisma.function.updateMany({
     where: { id: { in: ids }, eventId },
-    // Field by field, never a spread: an update can't reach any other column.
-    data: {
-      ...(updates.status !== undefined ? { status: updates.status } : {}),
-      ...(updates.substatus !== undefined ? { substatus: updates.substatus } : {}),
-      ...(updates.type !== undefined ? { type: updates.type } : {}),
-      updatedById: userId,
-    },
+    // Named fields, never a spread; undefined leaves a column as it is.
+    data: { status, substatus, type, updatedById: userId },
   });
   // Cancelling drops a number while planning (kept once the ESG is issued).
   if (updates.status !== undefined) await syncFunctionNumbers(eventId);

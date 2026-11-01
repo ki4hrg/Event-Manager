@@ -1,7 +1,5 @@
 "use server";
 
-import { z } from "zod";
-import { EntityStatus } from "@prisma/client";
 import { idList, parseArgs } from "@/lib/validation";
 
 import { prisma } from "@/lib/prisma";
@@ -279,16 +277,8 @@ export async function bulkUpdateFunctions(
   updates: BulkFunctionUpdates,
 ) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  // Exactly these fields: anything else (eventId, functionNumber…) is refused.
-  const parsed = parseArgs(
-    z.strictObject({
-      status: z.enum(EntityStatus).optional(),
-      substatus: z.string().max(1_000).nullable().optional(),
-      type: z.string().max(500).optional(),
-    }),
-    updates,
-  );
-  await bulkUpdateFunctionsCore(parseArgs(idList(5_000), ids), eventId, parsed, session.user.id);
+  // The core checks the updates against BulkFunctionUpdatesSchema.
+  await bulkUpdateFunctionsCore(parseArgs(idList(5_000), ids), eventId, updates, session.user.id);
   revalidatePath(`/events/${eventId}/functions`);
 }
 

@@ -36,12 +36,23 @@ describe("bulk function updates touch only status, substatus and type", () => {
     expect(after.eventId).toBe(mine.eventId);
   });
 
-  it("ignores any other key at the core, whoever calls it", async () => {
+  it("refuses any other key at the core too, whoever calls it", async () => {
     const mine = await eventWithFunction();
     const theirs = await eventWithFunction();
-    await bulkUpdateFunctionsCore([mine.functionId], mine.eventId, { status: "IN_PROGRESS", eventId: theirs.eventId } as never, mine.userId);
+    await expect(
+      bulkUpdateFunctionsCore([mine.functionId], mine.eventId, { status: "IN_PROGRESS", eventId: theirs.eventId } as never, mine.userId),
+    ).rejects.toBeInstanceOf(UserFacingError);
     const after = await prisma.function.findUniqueOrThrow({ where: { id: mine.functionId } });
-    expect(after).toMatchObject({ eventId: mine.eventId, status: "IN_PROGRESS" });
+    expect(after.eventId).toBe(mine.eventId);
+  });
+
+  it("advertises the real statuses on every MCP status tool", async () => {
+    const { classifiedTools } = await import("@/lib/mcpTools");
+    const statusEnums = (classifiedTools() as { inputSchema: { properties?: Record<string, { enum?: string[] }> } }[])
+      .map((t) => t.inputSchema.properties?.status?.enum)
+      .filter((e): e is string[] => Array.isArray(e) && e.includes("IN_PROGRESS"));
+    expect(statusEnums.length).toBeGreaterThan(0);
+    for (const e of statusEnums) expect([...e].sort()).toEqual(["CANCELLED", "COMPLETE", "IN_PROGRESS", "PENDING"]);
   });
 
   it("applies a well-formed update", async () => {
