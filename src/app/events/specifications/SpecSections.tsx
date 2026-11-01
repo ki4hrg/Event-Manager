@@ -48,8 +48,7 @@ export function SpecSections<D extends string>({
         const letter = section.letter;
         const saveAction = async (formData: FormData) => {
           "use server";
-          if (doc === "esg") await updateSpecificationSection(eventId, letter, formData);
-          else await updatePostEventSection(eventId, letter, formData);
+          return doc === "esg" ? updateSpecificationSection(eventId, letter, formData) : updatePostEventSection(eventId, letter, formData);
         };
         const setNa = async (value: boolean) => {
           "use server";
@@ -79,11 +78,11 @@ export function SpecSections<D extends string>({
                     const grid = g.grid;
                     const createRow = async (formData: FormData) => {
                       "use server";
-                      await createSpecificationRow(eventId, grid, formData);
+                      return createSpecificationRow(eventId, grid, formData);
                     };
                     const updateRow = async (rowId: string, formData: FormData) => {
                       "use server";
-                      await updateSpecificationRow(eventId, grid, rowId, formData);
+                      return updateSpecificationRow(eventId, grid, rowId, formData);
                     };
                     const deleteRow = async (rowId: string) => {
                       "use server";

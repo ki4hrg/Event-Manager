@@ -61,7 +61,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
   };
   const createBlockAction = async (formData: FormData) => {
     "use server";
-    await createHotelBlock(proposalId, eventId, formData);
+    return createHotelBlock(proposalId, eventId, formData);
   };
   const addAmenityAction = async (label: string) => {
     "use server";

@@ -4,6 +4,7 @@
 
 import { Prisma, ProvidedBy } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { UserFacingError } from "@/lib/userErrors";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import {
@@ -37,7 +38,7 @@ export async function checkValue(
 ): Promise<void> {
   if (value === null) return;
   const bad = () => {
-    throw new Error(`Invalid value for ${key}`);
+    throw new UserFacingError(`Invalid value for ${key}`);
   };
   switch (kind) {
     case "text":
@@ -110,7 +111,7 @@ function checkRanges(fields: RangeField[], values: Record<string, unknown>, stor
     if (!(at(end) < at(start))) continue;
     if (stored && !rangeTouched({ start: asDate(stored[f.key]), end: asDate(stored[f.endKey]) }, asDate(start), asDate(end))) continue;
     const endLabel = fields.find((e) => e.key === f.endKey)?.label ?? f.endKey;
-    throw new Error(`${endLabel} can't be before ${f.label.toLowerCase()}`);
+    throw new UserFacingError(`${endLabel} can't be before ${f.label.toLowerCase()}`);
   }
 }
 
@@ -226,11 +227,11 @@ async function checkGridValues(eventId: string, grid: SpecGrid, values: Record<s
     const column = byKey.get(key);
     if (!column) throw new Error(`Unknown ${grid} column: ${key}`);
     if (grid === "coverage" && key === "kind") {
-      if (value !== "SECURITY" && value !== "FIRST_AID") throw new Error("Coverage must be SECURITY or FIRST_AID");
+      if (value !== "SECURITY" && value !== "FIRST_AID") throw new UserFacingError("Coverage must be SECURITY or FIRST_AID");
       continue;
     }
     if (grid === "distributions" && key === "action") {
-      if (value !== "COMPLETED" && value !== "REVISED") throw new Error("Distribution must be COMPLETED or REVISED");
+      if (value !== "COMPLETED" && value !== "REVISED") throw new UserFacingError("Distribution must be COMPLETED or REVISED");
       continue;
     }
     if (column.kind === "bool" && value === null) {
@@ -247,7 +248,7 @@ async function checkGridValues(eventId: string, grid: SpecGrid, values: Record<s
   for (const column of columns) {
     if (!column.required) continue;
     const v = values[column.key];
-    if ((creating && v === undefined) || v === null || v === "") throw new Error(`${column.label} is required`);
+    if ((creating && v === undefined) || v === null || v === "") throw new UserFacingError(`${column.label} is required`);
   }
 }
 

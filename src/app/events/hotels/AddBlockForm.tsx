@@ -1,6 +1,8 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { OptionSelect } from "@/components/ui/OptionSelect";
 import { btnPrimary } from "@/lib/buttonStyles";
@@ -24,15 +26,16 @@ export function AddBlockForm({
   guestTypes,
   defaultGuestType,
 }: {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   guestTypes: string[];
   defaultGuestType: string | null;
 }) {
   if (!useCanWrite("HOTELS")) return null;
   return (
-    <form action={action} className="flex flex-wrap items-center gap-2">
+    <ActionForm action={action} className="flex flex-wrap items-center gap-2">
       <OptionSelect aria-label="Guest type" name="guestType" defaultValue={defaultGuestType} options={guestTypes} className={selectClass} />
       <Submit />
-    </form>
+      <ActionFormError className="w-full" />
+    </ActionForm>
   );
 }

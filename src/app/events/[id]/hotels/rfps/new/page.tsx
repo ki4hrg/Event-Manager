@@ -68,7 +68,7 @@ export default async function NewRfpPage({
 
   const createAction = async (formData: FormData) => {
     "use server";
-    await createRfp(eventId, "HOTEL", formData);
+    return createRfp(eventId, "HOTEL", formData);
   };
 
   return (

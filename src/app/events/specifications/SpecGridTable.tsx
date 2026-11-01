@@ -7,6 +7,8 @@ import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import { useAutosave } from "@/lib/useAutosave";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import { btnPrimary, btnSecondary, btnOutlinedSm } from "@/lib/buttonStyles";
 import { COVERAGE_KINDS, DISTRIBUTION_ACTIONS, type SpecGridColumn } from "@/lib/esg/fields";
 import { SpecFieldInput, specInputClass, type SpecChoices, type SpecValue } from "./SpecFieldInput";
@@ -103,7 +105,7 @@ function RowEditor({
   timezone: string;
   choices: SpecChoices;
   canWrite: boolean;
-  updateRow: (formData: FormData) => Promise<void>;
+  updateRow: (formData: FormData) => Promise<void | UserError>;
   deleteRow: () => Promise<void>;
 }) {
   const [values] = useState(row.values);
@@ -114,7 +116,7 @@ function RowEditor({
     if (formRef.current) payload.current = new FormData(formRef.current);
   });
   const status = useAutosave(version, async () => {
-    if (payload.current) await updateRow(payload.current);
+    if (payload.current) return updateRow(payload.current);
   });
 
   return (
@@ -155,9 +157,9 @@ export function SpecGridTable({
   rows: SpecGridRow[];
   timezone: string;
   choices: SpecChoices;
-  createRow: (formData: FormData) => Promise<void>;
+  createRow: (formData: FormData) => Promise<void | UserError>;
   // Must not redirect: rows autosave through it.
-  updateRow: (rowId: string, formData: FormData) => Promise<void>;
+  updateRow: (rowId: string, formData: FormData) => Promise<void | UserError>;
   deleteRow: (rowId: string) => Promise<void>;
 }) {
   const canWrite = useCanWrite("EVENTS");
@@ -200,22 +202,23 @@ export function SpecGridTable({
       )}
       {/* A new row needs its required columns, so it's added explicitly; it autosaves from then on. */}
       {adding && (
-        <form
-          action={async (formData) => {
-            await createRow(formData);
+        <ActionForm
+          action={createRow}
+          onDone={() => {
             setAdding(false);
             router.refresh();
           }}
           className="mt-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3 border border-dashed border-gray-300 dark:border-gray-600"
         >
           <RowFields columns={columns} timezone={timezone} choices={choices} />
+          <ActionFormError />
           <div className="flex gap-2">
             <AddButton />
             <button type="button" onClick={() => setAdding(false)} className={`${btnSecondary} text-sm`}>
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
     </div>
   );

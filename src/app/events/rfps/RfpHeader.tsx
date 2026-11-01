@@ -1,3 +1,4 @@
+import type { UserError } from "@/lib/userErrors";
 import Link from "next/link";
 import type { RfpKind, RfpStatus } from "@prisma/client";
 import { DeleteButton } from "@/components/DeleteButton";
@@ -31,7 +32,7 @@ export function RfpHeader({
     updatedBy: { name: string | null; email: string } | null;
   };
   responses: number;
-  issue: () => Promise<void>;
+  issue: () => Promise<void | UserError>;
   remove: () => Promise<void>;
 }) {
   const base = rfpHref(event.id, rfp.kind, rfp.id);

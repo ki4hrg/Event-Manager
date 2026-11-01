@@ -23,7 +23,7 @@ export default async function NewRfpQuotePage({ params, searchParams }: { params
   const choices = await getQuoteFormChoices(eventId, rfpId);
   const createAction = async (formData: FormData) => {
     "use server";
-    await createVendorQuote(eventId, rfpId, formData);
+    return createVendorQuote(eventId, rfpId, formData);
   };
   return (
     <>

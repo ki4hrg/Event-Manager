@@ -13,6 +13,8 @@ import { BLANK, FB_INCLUDES, RFP_STATUS_LABELS, sectionsFor } from "@/lib/rfp/se
 import { isEmptyScope, scopeLabels, type AreaOption, type AreaScope } from "@/lib/areas";
 import { AreaChecklist } from "@/components/AreaChecklist";
 import { useAutosave } from "@/lib/useAutosave";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import { rangeEndFor, rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 
@@ -114,7 +116,7 @@ export function RfpForm({
   values: RfpValues;
   choices: RfpFormChoices;
   // Create submits; edit autosaves through it (no redirect).
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   // Set on create only.
   cancelHref?: string;
   // Extra payload for create (e.g. blocks filled from history).
@@ -144,7 +146,7 @@ export function RfpForm({
     if (formRef.current) payload.current = new FormData(formRef.current);
   });
   const status = useAutosave(version, async () => {
-    if (payload.current) await action(payload.current);
+    if (payload.current) return action(payload.current);
   });
 
   const toggle = (key: string, on: boolean) =>
@@ -158,7 +160,7 @@ export function RfpForm({
     setAlternates((prev) => prev.map((a, j) => (j === i ? { ...a, ...patch } : a)));
 
   return (
-    <form ref={formRef} action={isEdit ? undefined : action} onChange={isEdit ? bump : undefined} className={`${cardClass} space-y-6`}>
+    <ActionForm ref={formRef} action={isEdit ? undefined : action} onChange={isEdit ? bump : undefined} className={`${cardClass} space-y-6`}>
       {isEdit && (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Details</h2>
@@ -417,13 +419,14 @@ export function RfpForm({
       </fieldset>
 
       {!isEdit && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <ActionFormError className="basis-full" />
           <SaveButton label="Create RFP" />
           <Link href={cancelHref!} className={btnSecondary}>
             Cancel
           </Link>
         </div>
       )}
-    </form>
+    </ActionForm>
   );
 }

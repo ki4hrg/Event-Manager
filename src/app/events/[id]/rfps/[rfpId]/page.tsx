@@ -75,7 +75,7 @@ export default async function VendorRfpPage({
   const base = `/events/${eventId}/rfps/${rfpId}`;
   const updateAction = async (formData: FormData) => {
     "use server";
-    await updateRfp(rfpId, eventId, formData);
+    return updateRfp(rfpId, eventId, formData);
   };
   const deleteAction = async () => {
     "use server";
@@ -83,7 +83,7 @@ export default async function VendorRfpPage({
   };
   const issueAction = async () => {
     "use server";
-    await issueRfp(rfpId, eventId);
+    return issueRfp(rfpId, eventId);
   };
   const saveLinesAction = async (rows: RfpLineItemArgs[]) => {
     "use server";
@@ -99,11 +99,11 @@ export default async function VendorRfpPage({
   };
   const addRecipientsAction = async (vendorIds: string[]) => {
     "use server";
-    await addRfpVendorRecipients(rfpId, eventId, vendorIds);
+    return addRfpVendorRecipients(rfpId, eventId, vendorIds);
   };
   const updateRecipientAction = async (recipientId: string, args: RfpRecipientArgs) => {
     "use server";
-    await updateRfpRecipient(recipientId, rfpId, eventId, args);
+    return updateRfpRecipient(recipientId, rfpId, eventId, args);
   };
   const noAwardAction = async () => {
     "use server";
@@ -114,7 +114,7 @@ export default async function VendorRfpPage({
   const canNoAward = rfp.status !== "CLOSED" && rfp.quotes.length > 0 && !rfp.quotes.some((q) => q.status === "ACCEPTED");
   const removeRecipientAction = async (recipientId: string) => {
     "use server";
-    await removeRfpRecipient(recipientId, rfpId, eventId);
+    return removeRfpRecipient(recipientId, rfpId, eventId);
   };
   const day = (d: Date | null) => (d ? dateKey(d) : null);
   const lineRows = rfp.lineItems.map(({ _count, ...l }) => ({ ...l, day: day(l.day), endDay: day(l.endDay) }));

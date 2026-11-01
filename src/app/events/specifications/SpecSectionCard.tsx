@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import { useAutosave } from "@/lib/useAutosave";
+import type { UserError } from "@/lib/userErrors";
 import type { EsgFieldDef } from "@/lib/esg/fields";
 import type { InheritedValue } from "@/lib/esg/narrativeData";
 import { SpecFieldInput, type SpecChoices, type SpecValue } from "./SpecFieldInput";
@@ -39,7 +40,7 @@ export function SpecSectionCard({
   derived?: ReactNode;
   grids?: ReactNode;
   // Must not redirect: the card autosaves through it.
-  saveAction: (formData: FormData) => Promise<void>;
+  saveAction: (formData: FormData) => Promise<void | UserError>;
   setNa?: (na: boolean) => Promise<void>;
 }) {
   const canWrite = useCanWrite("EVENTS");
@@ -61,7 +62,7 @@ export function SpecSectionCard({
     if (formRef.current) payload.current = new FormData(formRef.current);
   });
   const status = useAutosave(version, async () => {
-    if (payload.current) await saveAction(payload.current);
+    if (payload.current) return saveAction(payload.current);
   });
 
   const toggleNa = () =>

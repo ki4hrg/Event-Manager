@@ -72,11 +72,11 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
   };
   const applyAction = async (formData: FormData) => {
     "use server";
-    await applyFormSubmission(eventId, submissionId, formData);
+    return applyFormSubmission(eventId, submissionId, formData);
   };
   const rejectAction = async (formData: FormData) => {
     "use server";
-    await rejectFormSubmission(eventId, submissionId, formData);
+    return rejectFormSubmission(eventId, submissionId, formData);
   };
 
   const appliedLinks = submission.state === "APPLIED" ? applyResultLinks(eventId, submission.applyResult) : [];

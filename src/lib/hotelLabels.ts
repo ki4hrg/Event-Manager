@@ -6,6 +6,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { UserFacingError } from "@/lib/userErrors";
 import { labelKey } from "@/lib/hotels";
 // Circular with the registry, which builds its merge targets from this
 // module; each side reads the other only inside function bodies.
@@ -31,7 +32,7 @@ export async function requireListLabels(
     const listed = byKey.get(labelKey(label));
     if (listed) return listed;
     if (kept.has(label)) return label;
-    throw new Error(`"${label}" isn't in the ${OPTION_CATEGORIES[category].mergeable.noun} list (${LIST_HOMES[category]})`);
+    throw new UserFacingError(`"${label}" isn't in the ${OPTION_CATEGORIES[category].mergeable.noun} list (${LIST_HOMES[category]})`);
   });
 }
 

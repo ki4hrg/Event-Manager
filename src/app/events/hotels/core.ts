@@ -11,6 +11,7 @@ import { AmenityStatus, ConcessionMet, HotelChargeScope, HotelWaiverType, type H
 import { z } from "zod";
 import { dateKeySchema, idSchema, nullableNumber, text } from "@/lib/validation";
 import { prisma } from "@/lib/prisma";
+import { UserFacingError } from "@/lib/userErrors";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { addDays, AMENITY_STATUS_LABELS, blockTypeLabel, coveredByProfile, dateFromKey, dateKey, labelKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { requireListLabels } from "@/lib/hotelLabels";
@@ -177,11 +178,11 @@ async function assertProposalRefs(eventId: string, args: ProposalWriteArgs) {
       : null,
   ]);
   if (!venue) throw new PermissionError("NOT_FOUND", "Hotel not found");
-  if (!status) throw new Error(`Unknown proposal status: ${args.status}`);
-  if (args.contractType && !contractType) throw new Error(`Unknown contract type: ${args.contractType}`);
+  if (!status) throw new UserFacingError(`Unknown proposal status: ${args.status}`);
+  if (args.contractType && !contractType) throw new UserFacingError(`Unknown contract type: ${args.contractType}`);
   if (args.leadSourceVendorId && !leadVendor) throw new PermissionError("NOT_FOUND", "Lead source not found");
   if (args.leadSourceContactId && !leadContact) throw new PermissionError("NOT_FOUND", "Lead source contact not found");
-  if (args.leadSourceDirect && args.leadSourceVendorId) throw new Error("A lead is direct or through a lead source, not both");
+  if (args.leadSourceDirect && args.leadSourceVendorId) throw new UserFacingError("A lead is direct or through a lead source, not both");
 }
 
 type StoredRanges = { submittedOn: Date | null; validUntil: Date | null; checkIn: Date | null; checkOut: Date | null };
@@ -189,30 +190,30 @@ type StoredRanges = { submittedOn: Date | null; validUntil: Date | null; checkIn
 // `stored` is the proposal being updated (null on create): a range it already
 // holds isn't rechecked.
 function validate(args: ProposalWriteArgs, stored: StoredRanges | null) {
-  if (!args.venueId) throw new Error("Hotel is required");
-  if (!args.status) throw new Error("Status is required");
-  if (!Number.isInteger(args.revision) || args.revision < 1) throw new Error("Revision must be a whole number of 1 or more");
+  if (!args.venueId) throw new UserFacingError("Hotel is required");
+  if (!args.status) throw new UserFacingError("Status is required");
+  if (!Number.isInteger(args.revision) || args.revision < 1) throw new UserFacingError("Revision must be a whole number of 1 or more");
   if (args.allowedAttrition != null && (args.allowedAttrition < 0 || args.allowedAttrition > 100)) {
-    throw new Error("Allowed attrition must be between 0 and 100");
+    throw new UserFacingError("Allowed attrition must be between 0 and 100");
   }
-  if (args.guaranteedRevenue != null && args.guaranteedRevenue < 0) throw new Error("Guaranteed revenue cannot be negative");
-  if (args.validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(args.validUntil)) throw new Error(`Invalid date: ${args.validUntil}`);
+  if (args.guaranteedRevenue != null && args.guaranteedRevenue < 0) throw new UserFacingError("Guaranteed revenue cannot be negative");
+  if (args.validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(args.validUntil)) throw new UserFacingError(`Invalid date: ${args.validUntil}`);
   const stay = stored && { start: stored.checkIn, end: stored.checkOut };
   if (args.checkIn && args.checkOut && args.checkOut <= args.checkIn && rangeTouched(stay, args.checkIn, args.checkOut)) {
-    throw new Error("Check-out must be after check-in");
+    throw new UserFacingError("Check-out must be after check-in");
   }
   const validity = stored && { start: stored.submittedOn, end: stored.validUntil };
   if (args.submittedOn && args.validUntil && args.validUntil < args.submittedOn && rangeTouched(validity, args.submittedOn, args.validUntil)) {
-    throw new Error("Valid until can't be before the submitted date");
+    throw new UserFacingError("Valid until can't be before the submitted date");
   }
-  if (args.fbMinimum != null && args.fbMinimum < 0) throw new Error("F&B minimum cannot be negative");
+  if (args.fbMinimum != null && args.fbMinimum < 0) throw new UserFacingError("F&B minimum cannot be negative");
   for (const [v, label] of [[args.fbTaxRate, "F&B tax"], [args.fbServiceCharge, "Service charge"]] as const) {
-    if (v != null && (v < 0 || v > 100)) throw new Error(`${label} must be between 0 and 100`);
+    if (v != null && (v < 0 || v > 100)) throw new UserFacingError(`${label} must be between 0 and 100`);
   }
   for (const r of args.spaces ?? []) {
-    if (r.capacity != null && (!Number.isInteger(r.capacity) || r.capacity < 0)) throw new Error("Capacity must be a whole number");
-    if (r.rental != null && r.rental < 0) throw new Error("Rental cannot be negative");
-    if (r.waiverAmount != null && r.waiverAmount < 0) throw new Error("A waiver amount cannot be negative");
+    if (r.capacity != null && (!Number.isInteger(r.capacity) || r.capacity < 0)) throw new UserFacingError("Capacity must be a whole number");
+    if (r.rental != null && r.rental < 0) throw new UserFacingError("Rental cannot be negative");
+    if (r.waiverAmount != null && r.waiverAmount < 0) throw new UserFacingError("A waiver amount cannot be negative");
   }
   const { checkIn, checkOut } = stayOf(args);
   nightKeys(checkIn, checkOut);
@@ -468,7 +469,7 @@ async function recordVersion(tx: Prisma.TransactionClient, proposalId: string, s
 async function writeConcessions(tx: Prisma.TransactionClient, proposalId: string, rfpId: string | null, rows: ProposalConcessionArgs[] | undefined) {
   if (rows === undefined) return;
   const filled = rows.filter((c) => c.met || c.offered?.trim());
-  if (filled.length && !rfpId) throw new Error("Only a proposal answering an RFP answers requested concessions");
+  if (filled.length && !rfpId) throw new UserFacingError("Only a proposal answering an RFP answers requested concessions");
   const ids = Array.from(new Set(filled.map((c) => c.concessionId)));
   if (ids.length && (await tx.rfpConcession.count({ where: { id: { in: ids }, rfpId: rfpId! } })) !== ids.length) {
     throw new PermissionError("NOT_FOUND", "Concession not found");
@@ -496,9 +497,9 @@ async function writeSpaces(tx: Prisma.TransactionClient, proposalId: string, rfp
   if (rows === undefined) return;
   const kept = rows.filter((r) => r.name.trim());
   const ids = kept.flatMap((r) => (r.spaceRequestId ? [r.spaceRequestId] : []));
-  if (new Set(ids).size !== ids.length) throw new Error("A meeting space request is answered once");
+  if (new Set(ids).size !== ids.length) throw new UserFacingError("A meeting space request is answered once");
   if (ids.length) {
-    if (!rfpId) throw new Error("Only a proposal answering an RFP answers its meeting space requests");
+    if (!rfpId) throw new UserFacingError("Only a proposal answering an RFP answers its meeting space requests");
     if ((await tx.rfpSpaceRequest.count({ where: { id: { in: ids }, rfpId, kind: "MEETING" } })) !== ids.length) {
       throw new PermissionError("NOT_FOUND", "Meeting space request not found");
     }
@@ -530,7 +531,7 @@ async function writeMeals(tx: Prisma.TransactionClient, proposalId: string, rows
   const kept = rows
     .map((m) => ({ mealType: m.mealType.trim(), price: m.price }))
     .filter((m) => m.mealType && m.price != null && !seen.has(m.mealType.toLowerCase()) && seen.add(m.mealType.toLowerCase()));
-  if (kept.some((m) => m.price! < 0)) throw new Error("A meal price cannot be negative");
+  if (kept.some((m) => m.price! < 0)) throw new UserFacingError("A meal price cannot be negative");
   await tx.hotelProposalMeal.deleteMany({ where: { proposalId } });
   await tx.hotelProposalMeal.createMany({ data: kept.map((m, i) => ({ proposalId, ...m, sortOrder: i })) });
 }
@@ -555,7 +556,7 @@ async function listLabels(eventId: string, args: ProposalWriteArgs, proposalId?:
         select: { amenities: { select: { label: true } }, concessions: { where: { concessionId: null }, select: { label: true } } },
       })
     : null;
-  for (const a of args.amenities) if (!AMENITY_STATUSES.has(a.status)) throw new Error(`Unknown amenity status: ${a.status}`);
+  for (const a of args.amenities) if (!AMENITY_STATUSES.has(a.status)) throw new UserFacingError(`Unknown amenity status: ${a.status}`);
   const amenityLabels = await requireListLabels(
     tenantId,
     "hotel_amenity",
@@ -678,7 +679,7 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
   if (!existing) throw new PermissionError("NOT_FOUND");
   validate(args, existing);
   await assertProposalRefs(eventId, args);
-  if (args.revision < existing.revision) throw new Error(`Revision cannot go back below ${existing.revision}`);
+  if (args.revision < existing.revision) throw new UserFacingError(`Revision cannot go back below ${existing.revision}`);
   // Linking to an RFP block (or another one, or none) after the fact.
   const relink = args.rfpBlockId !== undefined;
   const rfpBlock = relink ? await findRfpBlock(eventId, args.rfpBlockId) : null;
@@ -734,7 +735,7 @@ export async function linkHotelProposalCore(id: string, eventId: string, rfpBloc
     },
   });
   if (!proposal) throw new PermissionError("NOT_FOUND", "Proposal not found");
-  if (proposal.rfpId) throw new Error("This proposal already answers an RFP");
+  if (proposal.rfpId) throw new UserFacingError("This proposal already answers an RFP");
   const block = await findRfpBlock(eventId, rfpBlockId);
   if (!block) throw new PermissionError("NOT_FOUND", "RFP block not found");
   const requested = await prisma.rfpConcession.findMany({ where: { rfpId: block.rfpId }, orderBy: { sortOrder: "asc" }, select: { id: true, label: true } });
@@ -851,12 +852,12 @@ export function writeArgsOf(p: Parameters<typeof toProposalValues>[0]): Proposal
 export async function createNewHotelCore(eventId: string, hotel: OfferHotel, amenities: string[], userId: string) {
   const tenantId = await requireEventTenantId(eventId);
   const name = hotel.name?.trim();
-  if (!name) throw new Error("The hotel needs a name");
+  if (!name) throw new UserFacingError("The hotel needs a name");
   const same = await prisma.venue.findFirst({
     where: { tenantId, name: { equals: name, mode: "insensitive" } },
     select: { id: true },
   });
-  if (same) throw new Error(`${name} is already in Venues; choose it as the hotel`);
+  if (same) throw new UserFacingError(`${name} is already in Venues; choose it as the hotel`);
   const clean = (v: string | null) => v?.trim() || null;
   const venue = await createVenueCore(
     { name, address: clean(hotel.address), city: clean(hotel.city), state: clean(hotel.state), zip: clean(hotel.zip), country: null, notes: null, isLodging: true, amenities },

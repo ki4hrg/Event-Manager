@@ -80,7 +80,7 @@ export default async function RfpPage({
   const base = `/events/${eventId}/hotels/rfps/${rfpId}`;
   const updateAction = async (formData: FormData) => {
     "use server";
-    await updateRfp(rfpId, eventId, formData);
+    return updateRfp(rfpId, eventId, formData);
   };
   const deleteAction = async () => {
     "use server";
@@ -88,7 +88,7 @@ export default async function RfpPage({
   };
   const issueAction = async () => {
     "use server";
-    await issueRfp(rfpId, eventId);
+    return issueRfp(rfpId, eventId);
   };
   const saveBlocksAction = async (blocks: RfpBlockArgs[]) => {
     "use server";
@@ -116,19 +116,19 @@ export default async function RfpPage({
   };
   const addRecipientsAction = async (venueIds: string[]) => {
     "use server";
-    await addRfpRecipients(rfpId, eventId, venueIds);
+    return addRfpRecipients(rfpId, eventId, venueIds);
   };
   const addNewRecipientAction = async (hotel: OfferHotel) => {
     "use server";
-    await addNewRfpRecipient(rfpId, eventId, hotel);
+    return addNewRfpRecipient(rfpId, eventId, hotel);
   };
   const updateRecipientAction = async (recipientId: string, args: RfpRecipientArgs) => {
     "use server";
-    await updateRfpRecipient(recipientId, rfpId, eventId, args);
+    return updateRfpRecipient(recipientId, rfpId, eventId, args);
   };
   const removeRecipientAction = async (recipientId: string) => {
     "use server";
-    await removeRfpRecipient(recipientId, rfpId, eventId);
+    return removeRfpRecipient(recipientId, rfpId, eventId);
   };
   const linkProposalAction = async (proposalId: string, blockId: string) => {
     "use server";

@@ -71,13 +71,13 @@ async function authorizeRfp(rfpId: string | null, eventId: string, userId: strin
   }
   const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { id: true, kind: true } });
   if (!rfp) throw new PermissionError("NOT_FOUND", "RFP not found");
-  if (rfp.kind === "HOTEL") throw new Error("Hotels answer with proposals, not quotes");
+  if (rfp.kind === "HOTEL") throw new UserFacingError("Hotels answer with proposals, not quotes");
   await requirePermissionForUser(userId, resourceForKind(rfp.kind), "WRITE", eventId);
   return rfp;
 }
 
 function money(v: number | null, label: string) {
-  if (v != null && (!Number.isFinite(v) || v < 0)) throw new Error(`${label} cannot be negative`);
+  if (v != null && (!Number.isFinite(v) || v < 0)) throw new UserFacingError(`${label} cannot be negative`);
   return v;
 }
 
@@ -87,12 +87,12 @@ async function validate(eventId: string, rfpId: string | null, args: QuoteWriteA
   const tenantId = await requireEventTenantId(eventId);
   const vendor = await prisma.vendor.findFirst({ where: { id: args.vendorId, tenantId }, select: { id: true } });
   if (!vendor) throw new PermissionError("NOT_FOUND", "Vendor not found");
-  for (const d of [args.submittedOn, args.validUntil, args.depositDue]) if (d && !DATE_RE.test(d)) throw new Error(`Invalid date: ${d}`);
+  for (const d of [args.submittedOn, args.validUntil, args.depositDue]) if (d && !DATE_RE.test(d)) throw new UserFacingError(`Invalid date: ${d}`);
   const validity = stored && { start: stored.submittedOn, end: stored.validUntil };
   if (args.submittedOn && args.validUntil && args.validUntil < args.submittedOn && rangeTouched(validity, args.submittedOn, args.validUntil)) {
-    throw new Error("Valid until can't be before the submitted date");
+    throw new UserFacingError("Valid until can't be before the submitted date");
   }
-  if (!Number.isInteger(args.revision) || args.revision < 1) throw new Error("Revision must be a whole number of 1 or more");
+  if (!Number.isInteger(args.revision) || args.revision < 1) throw new UserFacingError("Revision must be a whole number of 1 or more");
   const asked = rfpId ? new Set((await prisma.rfpLineItem.findMany({ where: { rfpId }, select: { id: true } })).map((l) => l.id)) : new Set<string>();
   const lines = args.lines
     .filter((l) => l.description.trim() || l.rfpLineItemId)
@@ -101,7 +101,7 @@ async function validate(eventId: string, rfpId: string | null, args: QuoteWriteA
       const at = args.lines.indexOf(l);
       if (l.rfpLineItemId && !asked.has(l.rfpLineItemId)) throw new PermissionError("NOT_FOUND", "RFP line item not found");
       const label = l.description.trim() || "Line";
-      if (l.quantity != null && (!Number.isFinite(l.quantity) || l.quantity < 0)) throw new Error(`${label}: quantity cannot be negative`);
+      if (l.quantity != null && (!Number.isFinite(l.quantity) || l.quantity < 0)) throw new UserFacingError(`${label}: quantity cannot be negative`);
       return {
         id: l.id ?? null,
         rfpLineItemId: l.rfpLineItemId || null,
@@ -156,7 +156,7 @@ export async function createVendorQuoteCore(eventId: string, rfpId: string | nul
 // as blank), so an autosaving form updates the lines it just created.
 export async function updateVendorQuoteCore(id: string, eventId: string, args: QuoteWriteArgs, userId: string) {
   const current = await authorizeQuote(id, eventId, "WRITE", userId);
-  if (args.revision < current.revision) throw new Error("Revision cannot go down");
+  if (args.revision < current.revision) throw new UserFacingError("Revision cannot go down");
   const { data, lines } = await validate(eventId, current.rfpId, args, current);
   const existing = new Set((await prisma.vendorQuoteLine.findMany({ where: { quoteId: id }, select: { id: true } })).map((l) => l.id));
   const kept = lines.flatMap((l) => (l.id && existing.has(l.id) ? [l.id] : []));
@@ -244,13 +244,13 @@ export async function awardVendorQuoteCore(id: string, eventId: string, userId: 
   const tenantId = await requireEventTenantId(eventId);
   await requirePermissionForUser(userId, "VENDORS", "WRITE", { tenantId });
   const rfpId = quote.rfpId;
-  if (lineItemIds && !rfpId) throw new Error("A standalone quote has no RFP lines to award");
+  if (lineItemIds && !rfpId) throw new UserFacingError("A standalone quote has no RFP lines to award");
   if (lineItemIds && declineOthers) throw new Error("declineOthers awards the whole quote; omit lineItemIds");
   const lines = rfpId ? await prisma.rfpLineItem.findMany({ where: { rfpId }, select: { id: true, awardedQuoteId: true, ...sourceSelect } }) : [];
   let won: typeof lines;
   if (lineItemIds) {
     const wanted = new Set(lineItemIds);
-    if (!wanted.size) throw new Error("Pick at least one line");
+    if (!wanted.size) throw new UserFacingError("Pick at least one line");
     const own = new Set(lines.map((l) => l.id));
     for (const lineId of Array.from(wanted)) if (!own.has(lineId)) throw new PermissionError("NOT_FOUND", "RFP line item not found");
     won = lines.filter((l) => wanted.has(l.id) && l.awardedQuoteId !== id);
@@ -280,7 +280,7 @@ export async function awardVendorQuoteCore(id: string, eventId: string, userId: 
 export async function clearRfpLineAwardsCore(rfpId: string, eventId: string, lineItemIds: string[], userId: string) {
   const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
   if (!rfp) throw new PermissionError("NOT_FOUND", "RFP not found");
-  if (rfp.kind === "HOTEL") throw new Error("Hotels answer with proposals, not quotes");
+  if (rfp.kind === "HOTEL") throw new UserFacingError("Hotels answer with proposals, not quotes");
   await requirePermissionForUser(userId, resourceForKind(rfp.kind), "WRITE", eventId);
   const wanted = Array.from(new Set(lineItemIds));
   const lines = await prisma.rfpLineItem.findMany({ where: { rfpId, id: { in: wanted } }, select: { id: true, awardedQuoteId: true } });
@@ -311,7 +311,7 @@ export async function setVendorQuoteStatusCore(
 ) {
   const quote = await authorizeQuote(id, eventId, "WRITE", userId);
   const withdraw = quote.status === "ACCEPTED";
-  if (removeFromOrders && !withdraw) throw new Error("Only an accepted quote's vendor was added to orders");
+  if (removeFromOrders && !withdraw) throw new UserFacingError("Only an accepted quote's vendor was added to orders");
   if (removeFromOrders) await requirePermissionForUser(userId, "VENDORS", "WRITE", { tenantId: await requireEventTenantId(eventId) });
   const rfpId = quote.rfpId;
   const vendorId = quote.vendorId;
@@ -359,7 +359,7 @@ export async function setVendorQuoteStatusCore(
 export async function recordNoAwardCore(rfpId: string, eventId: string, userId: string) {
   const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
   if (!rfp) throw new PermissionError("NOT_FOUND", "RFP not found");
-  if (rfp.kind === "HOTEL") throw new Error("Hotels answer with proposals, not quotes");
+  if (rfp.kind === "HOTEL") throw new UserFacingError("Hotels answer with proposals, not quotes");
   await requirePermissionForUser(userId, resourceForKind(rfp.kind), "WRITE", eventId);
   if (await prisma.vendorQuote.count({ where: { rfpId, eventId, status: "ACCEPTED" } })) {
     throw new UserFacingError("A quote is accepted; withdraw its award first");
@@ -376,7 +376,7 @@ export async function recordNoAwardCore(rfpId: string, eventId: string, userId: 
 export async function getQuoteComparisonCore(rfpId: string, eventId: string, userId: string) {
   const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
   if (!rfp) throw new PermissionError("NOT_FOUND", "RFP not found");
-  if (rfp.kind === "HOTEL") throw new Error("A hotel RFP compares proposals, not quotes");
+  if (rfp.kind === "HOTEL") throw new UserFacingError("A hotel RFP compares proposals, not quotes");
   await requirePermissionForUser(userId, resourceForKind(rfp.kind), "VIEW", eventId);
   const [full, event] = await Promise.all([
     prisma.rfp.findFirstOrThrow({

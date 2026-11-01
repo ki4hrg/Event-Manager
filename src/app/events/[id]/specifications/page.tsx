@@ -58,7 +58,7 @@ export default async function SpecificationsPage({ params }: { params: Promise<{
   };
   const saveHeader = async (formData: FormData) => {
     "use server";
-    await updateSpecificationSection(eventId, "header", formData);
+    return updateSpecificationSection(eventId, "header", formData);
   };
 
   return (

@@ -5,6 +5,7 @@ import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { CONCESSION_GROUPS, concessionGroupOf } from "@/lib/rfp/sections";
 import { useAutosave } from "@/lib/useAutosave";
+import { isUserError, type UserError } from "@/lib/userErrors";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { RfpConcessionArgs } from "./core";
 
@@ -70,7 +71,7 @@ export function RfpConcessionsEditor({
   resource: PermissionResource;
   concessions: RfpConcessionArgs[];
   options: { label: string; group: string | null }[];
-  save: (concessions: RfpConcessionArgs[]) => Promise<(string | null)[]>;
+  save: (concessions: RfpConcessionArgs[]) => Promise<(string | null)[] | UserError>;
 }) {
   const canWrite = useCanWrite(resource);
   const known = new Map(options.map((o) => [o.label, o.group]));
@@ -83,6 +84,7 @@ export function RfpConcessionsEditor({
   const ids = useRef(new Map(rows.flatMap((r) => (r.id ? [[r.key, r.id] as const] : []))));
   const status = useAutosave(rows, async (sent) => {
     const saved = await save(sent.map((r) => ({ id: ids.current.get(r.key) ?? null, label: r.label, value: r.value || null, required: r.required })));
+    if (isUserError(saved)) return saved;
     sent.forEach((r, i) => {
       const id = saved[i];
       if (id) ids.current.set(r.key, id);

@@ -6,6 +6,7 @@ import { btnSecondary } from "@/lib/buttonStyles";
 import { addDays } from "@/lib/hotels";
 import type { PatternBasis } from "@/lib/hotelPattern";
 import { useAutosave } from "@/lib/useAutosave";
+import { isUserError, type UserError } from "@/lib/userErrors";
 import { emptyGridState, gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "../hotels/RoomGridEditor";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import { OptionSelect } from "@/components/ui/OptionSelect";
@@ -184,7 +185,7 @@ export function RfpBlocksEditor({
   guestTypes: string[];
   series: { id: string; name: string }[];
   defaultSeriesId: string | null;
-  save: (blocks: RfpBlockArgs[]) => Promise<(string | null)[]>;
+  save: (blocks: RfpBlockArgs[]) => Promise<(string | null)[] | UserError>;
   fill: (args: RfpFillArgs) => Promise<FillResult>;
 }) {
   const canWrite = useCanWrite("HOTELS");
@@ -261,6 +262,7 @@ export function RfpBlocksEditor({
           };
         }),
       );
+      if (isUserError(saved)) return saved;
       sent.forEach((b, i) => {
         const id = saved[i];
         if (id) ids.current.set(b.id, id);
