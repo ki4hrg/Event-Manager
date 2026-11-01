@@ -4,6 +4,7 @@
 
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { refuseDuplicate } from "@/lib/uniqueRefusal";
 import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { requireListLabels } from "@/lib/hotelLabels";
 import { assertIds } from "@/lib/validation";
@@ -246,9 +247,12 @@ export async function addVenueContactCore(
   await assertVenueInTenant(venueId, tenantId);
   const contact = await prisma.contact.findFirst({ where: { id: contactId, tenantId }, select: { id: true } });
   if (!contact) throw new PermissionError("NOT_FOUND", "Contact not found");
-  const link = await prisma.venueContact.create({
-    data: { venueId, contactId, role },
-  });
+  const link = await refuseDuplicate(
+    prisma.venueContact.create({
+      data: { venueId, contactId, role },
+    }),
+    "Already a contact here",
+  );
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
   return link;
 }
@@ -298,18 +302,21 @@ export async function createAndAddVenueContactCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
   await assertVenueInTenant(args.venueId, tenantId);
-  const contact = await prisma.contact.create({
-    data: {
-      tenantId,
-      firstName: args.firstName,
-      lastName: args.lastName,
-      email: args.email,
-      organization: args.organization,
-      updatedById: userId,
-    },
-  });
-  const link = await prisma.venueContact.create({
-    data: { venueId: args.venueId, contactId: contact.id, role: args.role },
+  // One transaction, so a failed link doesn't leave a new contact behind.
+  const link = await prisma.$transaction(async (tx) => {
+    const contact = await tx.contact.create({
+      data: {
+        tenantId,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        email: args.email,
+        organization: args.organization,
+        updatedById: userId,
+      },
+    });
+    return tx.venueContact.create({
+      data: { venueId: args.venueId, contactId: contact.id, role: args.role },
+    });
   });
   await prisma.venue.update({
     where: { id: args.venueId },

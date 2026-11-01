@@ -1,6 +1,7 @@
 "use server";
 
 import { withUserErrors } from "@/lib/userErrors";
+import { refuseDuplicate } from "@/lib/uniqueRefusal";
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -285,9 +286,12 @@ export async function addMediaDeliverableContact(mediaDeliverableId: string, eve
     const role = formValue(formData, "role");
     await assertEventRefs(eventId, { contactIds: [contactId] });
 
-    await prisma.mediaDeliverableContact.create({
-      data: { mediaDeliverableId, contactId, role: role || null },
-    });
+    await refuseDuplicate(
+      prisma.mediaDeliverableContact.create({
+        data: { mediaDeliverableId, contactId, role: role || null },
+      }),
+      "Already a contact here",
+    );
     await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
     revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
   });
@@ -325,25 +329,27 @@ export async function createAndAddMediaDeliverableContact(
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   return withUserErrors(async () => {
     await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
-    const firstName = formValue(formData, "firstName");
-    const lastName = formValue(formData, "lastName");
+    const firstName = formName(formData, "firstName");
+    const lastName = formName(formData, "lastName");
     const email = formValue(formData, "email");
     const organization = formValue(formData, "organization");
     const role = formValue(formData, "role");
 
-    const contact = await prisma.contact.create({
-      data: {
-        tenantId: session.tenantId,
-        firstName,
-        lastName,
-        email: email || null,
-        organization: organization || null,
-        updatedById: session.user.id,
-      },
-    });
-
-    await prisma.mediaDeliverableContact.create({
-      data: { mediaDeliverableId, contactId: contact.id, role: role || null },
+    // One transaction, so a failed link doesn't leave a new contact behind.
+    await prisma.$transaction(async (tx) => {
+      const contact = await tx.contact.create({
+        data: {
+          tenantId: session.tenantId,
+          firstName,
+          lastName,
+          email: email || null,
+          organization: organization || null,
+          updatedById: session.user.id,
+        },
+      });
+      await tx.mediaDeliverableContact.create({
+        data: { mediaDeliverableId, contactId: contact.id, role: role || null },
+      });
     });
     await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
     revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);

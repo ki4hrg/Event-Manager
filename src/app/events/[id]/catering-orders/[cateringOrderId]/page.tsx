@@ -485,6 +485,7 @@ export default async function CateringOrderPage({
             </div>
 
             <ContactList
+              resource="CATERING_ORDERS"
               contacts={cateringOrder.contacts}
               roles={assignmentRoles.map((o) => o.label)}
               addContact={addContactAction}

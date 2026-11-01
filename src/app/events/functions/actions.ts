@@ -421,8 +421,8 @@ export async function createAndAddFunctionContact(
       {
         functionId,
         eventId,
-        firstName: formValue(formData, "firstName"),
-        lastName: formValue(formData, "lastName"),
+        firstName: formName(formData, "firstName"),
+        lastName: formName(formData, "lastName"),
         email: formNote(formData, "email"),
         phone: formNote(formData, "phone"),
         organization: formNote(formData, "organization"),

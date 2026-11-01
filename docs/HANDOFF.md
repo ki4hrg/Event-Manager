@@ -40,7 +40,7 @@ majors (#264); Dependabot PRs are merged by hand once CI is green.
 Resume at: phase 3, #252 form by form (option C). Done: admin (#297), catering (#298), order forms
 and the shared `EquipmentTable` (#299; `actionErrorMessage` rethrows Next's redirect, so a save that
 navigates isn't shown as a failure), order sub-panels (#300, on the new `ActionForm`), and the #298/#299
-forms moved onto `ActionForm` (#301), the shared `ContactList` (this PR: catering, functions,
-media deliverables, venues). Next: booths (their core still throws
+forms moved onto `ActionForm` (#301), the contact lists (this PR: catering, functions, media
+deliverables, venues, vendors; duplicate links and blank names refused). Next: booths (their core still throws
 plain `Error` refusals), hotels, functions, then the rest. A new form uses `ActionForm` +
 `<ActionFormError />` (`src/components/FormError.tsx`) and its action returns through `withUserErrors`.

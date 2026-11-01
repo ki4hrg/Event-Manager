@@ -220,8 +220,8 @@ export async function createAndAddVenueContact(venueId: string, formData: FormDa
     await createAndAddVenueContactCore(
       {
         venueId,
-        firstName: formValue(formData, "firstName"),
-        lastName: formValue(formData, "lastName"),
+        firstName: formName(formData, "firstName"),
+        lastName: formName(formData, "lastName"),
         email: formNote(formData, "email"),
         organization: formNote(formData, "organization"),
         role: formNote(formData, "role"),

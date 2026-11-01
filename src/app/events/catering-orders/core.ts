@@ -3,6 +3,7 @@
 
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { refuseDuplicate } from "@/lib/uniqueRefusal";
 import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
@@ -653,9 +654,12 @@ export async function addCateringOrderContactCore(
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await assertCateringOrderInEvent(cateringOrderId, eventId);
   await assertEventRefs(eventId, { contactIds: [contactId] });
-  const row = await prisma.cateringOrderContact.create({
-    data: { cateringOrderId, contactId, role },
-  });
+  const row = await refuseDuplicate(
+    prisma.cateringOrderContact.create({
+      data: { cateringOrderId, contactId, role },
+    }),
+    "Already a contact here",
+  );
   await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
@@ -704,19 +708,22 @@ export async function createAndAddCateringOrderContactCore(
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", args.eventId);
   await assertCateringOrderInEvent(args.cateringOrderId, args.eventId);
 
-  const contact = await prisma.contact.create({
-    data: {
-      tenantId: await requireEventTenantId(args.eventId),
-      firstName: args.firstName,
-      lastName: args.lastName,
-      email: args.email,
-      organization: args.organization,
-      updatedById: userId,
-    },
-  });
-
-  const row = await prisma.cateringOrderContact.create({
-    data: { cateringOrderId: args.cateringOrderId, contactId: contact.id, role: args.role },
+  const tenantId = await requireEventTenantId(args.eventId);
+  // One transaction, so a failed link doesn't leave a new contact behind.
+  const row = await prisma.$transaction(async (tx) => {
+    const contact = await tx.contact.create({
+      data: {
+        tenantId,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        email: args.email,
+        organization: args.organization,
+        updatedById: userId,
+      },
+    });
+    return tx.cateringOrderContact.create({
+      data: { cateringOrderId: args.cateringOrderId, contactId: contact.id, role: args.role },
+    });
   });
   await bumpCateringOrder(args.cateringOrderId, args.eventId, userId);
   return row;

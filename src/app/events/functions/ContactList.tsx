@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
-import type { Contact } from "@prisma/client";
+import type { Contact, PermissionResource } from "@prisma/client";
 import { formatPhone } from "@/lib/format-phone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
@@ -27,6 +27,8 @@ type ContactListProps = {
   createContact?: (formData: FormData) => Promise<void | UserError>;
   // The option list a contact's role picks from (assignment_role; venue_contact_type on venues).
   roles: string[];
+  // Whose write permission the controls follow: the page's own resource.
+  resource: PermissionResource;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -50,8 +52,9 @@ export function ContactList({
   searchContacts,
   createContact,
   roles,
+  resource,
 }: ContactListProps) {
-  const canWrite = useCanWrite("FUNCTIONS");
+  const canWrite = useCanWrite(resource);
   const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -406,7 +409,7 @@ export function ContactList({
                         onConfirm={() => removeContact(item.id)}
                         label="Remove"
                         confirmLabel="Remove"
-                        resource="FUNCTIONS"
+                        resource={resource}
                         requiredLevel="WRITE"
                       />
                     </div>

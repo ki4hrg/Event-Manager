@@ -283,6 +283,7 @@ export default async function MediaDeliverablePage({
           />
 
           <ContactList
+            resource="MEDIA_DELIVERABLES"
             contacts={mediaDeliverable.contacts}
             roles={assignmentRoles.map((o) => o.label)}
             addContact={addContactAction}

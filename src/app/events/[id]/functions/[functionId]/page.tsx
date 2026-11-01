@@ -402,6 +402,7 @@ export default async function FunctionPage({
             action={updateFunctionEsgAction}
           />
           <ContactList
+            resource="FUNCTIONS"
             contacts={fn.contacts}
             roles={assignmentRoles.map((o) => o.label)}
             addContact={addContactAction}

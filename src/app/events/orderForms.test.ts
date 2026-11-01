@@ -3,7 +3,7 @@ import { PermissionLevel, PermissionResource, PermissionScope } from "@prisma/cl
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../../test/fixtures";
-import { addCateringOrderContact, createCateringOrder, createTimelineItem, updateCateringOrderContract, updateCateringOrderGuestCounts } from "./catering-orders/actions";
+import { addCateringOrderContact, createAndAddCateringOrderContact, createCateringOrder, createTimelineItem, updateCateringOrderContract, updateCateringOrderGuestCounts } from "./catering-orders/actions";
 import { createSetupEquipmentItem, createSetupTable } from "./setup-orders/actions";
 import { createAVEquipmentItem, createAVOrder, createInputItem } from "./av-orders/actions";
 import { createSupplyOrderItem } from "./supply-orders/actions";
@@ -138,6 +138,14 @@ describe("order forms: numbers, ids and enums are checked, not parsed into NaN",
     const foreign = await prisma.contact.create({ data: { tenantId: elsewhere.id, firstName: "Ada", lastName: "L" } });
     await expect(addCateringOrderContact(order.id, eventId, form({ contactId: foreign.id }))).rejects.toMatchObject({ kind: "NOT_FOUND" });
     expect(await prisma.cateringOrderContact.count({ where: { cateringOrderId: order.id } })).toBe(0);
+
+    // Linking the same contact twice, or creating one with no name, is a refusal too.
+    const ada = await prisma.contact.create({ data: { tenantId: (await prisma.event.findUniqueOrThrow({ where: { id: eventId } })).tenantId, firstName: "Ada", lastName: "L" } });
+    await expect(addCateringOrderContact(order.id, eventId, form({ contactId: ada.id }))).resolves.toBeUndefined();
+    await expect(addCateringOrderContact(order.id, eventId, form({ contactId: ada.id }))).resolves.toEqual({ error: "Already a contact here" });
+    const contactsBefore = await prisma.contact.count();
+    await expect(createAndAddCateringOrderContact(order.id, eventId, form({ firstName: "  ", lastName: "L" }))).resolves.toHaveProperty("error");
+    expect(await prisma.contact.count()).toBe(contactsBefore);
   });
 
   it("refuses a setup table with no quantity instead of storing NaN", async () => {
