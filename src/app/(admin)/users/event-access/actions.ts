@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -116,8 +117,10 @@ export async function revokeUserEventAccess(
   eventId: string,
 ) {
   const session = await requirePermission(PermissionResource.USERS, "VIEW");
-  await removeEventStaffCore(staffId, eventId, session.user.id);
-  revalidateUserAccess(userId);
+  return withUserErrors(async () => {
+    await removeEventStaffCore(staffId, eventId, session.user.id);
+    revalidateUserAccess(userId);
+  });
 }
 
 export async function grantUserSeriesAccess(

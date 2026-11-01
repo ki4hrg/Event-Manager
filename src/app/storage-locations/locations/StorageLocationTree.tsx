@@ -34,7 +34,7 @@ type Props = {
   canDelete: boolean;
   createLocation: (formData: FormData) => Promise<void | UserError>;
   updateLocation: (id: string, formData: FormData) => Promise<void | UserError>;
-  deleteLocation: (id: string) => Promise<void>;
+  deleteLocation: (id: string) => Promise<void | UserError>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
 };
 

@@ -1,9 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PermissionLevel, PermissionResource, PermissionScope } from "@prisma/client";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { UserFacingError } from "@/lib/userErrors";
 import { makeMember, makeTenant } from "../../../../../test/fixtures";
 import { removeEventStaffCore } from "./core";
+import { removeEventStaff } from "./actions";
+
+// revalidatePath needs Next's request store, which tests don't have.
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 // An admin-like role: DELETE on events in both scopes, capped at WRITE on one event.
 async function cappedStaff() {
@@ -26,6 +31,15 @@ describe("event staff caps: removing your own capped row is lifting the cap", ()
   it("refuses a capped staff member removing themselves, and keeps the row", async () => {
     const { userId, eventId, staffId } = await cappedStaff();
     await expect(removeEventStaffCore(staffId, eventId, userId)).rejects.toBeInstanceOf(UserFacingError);
+    expect(await prisma.eventStaff.count({ where: { id: staffId } })).toBe(1);
+  });
+
+  it("returns that refusal to the staff list's Remove button as { error }", async () => {
+    const { userId, eventId, staffId } = await cappedStaff();
+    vi.mocked(auth).mockResolvedValue({ user: { id: userId }, expires: "" } as never);
+    await expect(removeEventStaff(staffId, eventId)).resolves.toEqual({
+      error: "You can't change your own access to an event; ask an admin",
+    });
     expect(await prisma.eventStaff.count({ where: { id: staffId } })).toBe(1);
   });
 });

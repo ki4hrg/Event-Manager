@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import type { PermissionResource } from "@prisma/client";
 import { useCanDo } from "@/components/PermissionsProvider";
+import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 
 type InlineConfirmButtonProps = {
-  onConfirm: () => Promise<void> | void;
+  // A refusal (returned { error } or a throw) shows beside the buttons (#252).
+  onConfirm: () => Promise<void | UserError> | void;
   label?: string;
   confirmLabel?: string;
   // Consequence shown beside Confirm ("Rooms will become ungrouped.").
@@ -16,6 +18,8 @@ type InlineConfirmButtonProps = {
   // Trigger styling; defaults to a red text link for row actions.
   className?: string;
   disabled?: boolean;
+  // Shown when the action throws instead of returning { error }.
+  fallback?: string;
 };
 
 // Callback flavour of InlineDeleteButton for deletes/unlinks that aren't
@@ -29,9 +33,11 @@ export function InlineConfirmButton({
   requiredLevel = "DELETE",
   className = "text-red-600 dark:text-red-400 hover:underline text-sm",
   disabled = false,
+  fallback = "Couldn't do that. Try again.",
 }: InlineConfirmButtonProps) {
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const allowed = useCanDo(resource, requiredLevel);
 
   if (!allowed) return null;
@@ -45,8 +51,14 @@ export function InlineConfirmButton({
           disabled={isPending}
           onClick={() =>
             startTransition(async () => {
-              await onConfirm();
-              setConfirming(false);
+              setError(null);
+              try {
+                const result = await onConfirm();
+                if (isUserError(result)) return setError(result.error);
+                setConfirming(false);
+              } catch (e) {
+                setError(actionErrorMessage(e, fallback));
+              }
             })
           }
           className="text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
@@ -57,11 +69,19 @@ export function InlineConfirmButton({
         <button
           type="button"
           disabled={isPending}
-          onClick={() => setConfirming(false)}
+          onClick={() => {
+            setError(null);
+            setConfirming(false);
+          }}
           className="text-gray-500 dark:text-gray-400 hover:underline disabled:opacity-50"
         >
           Cancel
         </button>
+        {error && (
+          <span role="alert" className="basis-full text-red-700 dark:text-red-400">
+            {error}
+          </span>
+        )}
       </span>
     );
   }

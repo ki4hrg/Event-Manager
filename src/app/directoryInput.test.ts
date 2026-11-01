@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../test/fixtures";
 import { addVendorContact, createVendor } from "./vendors/actions";
 import { addVenueContact, createAndAddVenueContact, createRoom, createVenue } from "./venues/actions";
-import { createEquipment, updateEquipment } from "./equipment/actions";
+import { createEquipment, deleteEquipment, updateEquipment } from "./equipment/actions";
+import { deleteStorageLocation } from "./storage-locations/actions";
 import { createContact } from "./contacts/actions";
 import { createContactCore } from "./contacts/core";
 import { createVendorCore } from "./vendors/core";
@@ -29,6 +30,32 @@ function form(fields: Record<string, string | string[]>) {
 beforeEach(() => vi.mocked(auth).mockReset());
 
 describe("directory forms: checked, not cast", () => {
+  it("returns a delete that something still depends on as { error }, deleting nothing", async () => {
+    const { tenantId } = await member({
+      [PermissionResource.EQUIPMENT]: PermissionLevel.DELETE,
+      [PermissionResource.STORAGE_LOCATIONS]: PermissionLevel.DELETE,
+    });
+    const easel = await prisma.equipment.create({ data: { tenantId, name: "Easel", category: "Display" } });
+    const shelf = await prisma.storageLocation.create({ data: { tenantId, name: "Shelf A" } });
+    await prisma.inventoryItem.create({ data: { tenantId, equipmentId: easel.id, locationId: shelf.id } });
+    await expect(deleteEquipment(easel.id)).resolves.toEqual({
+      error: '"Easel" is stocked in 1 location. Remove those inventory items first.',
+    });
+    await expect(deleteStorageLocation(shelf.id)).resolves.toEqual({
+      error: '"Shelf A" still holds 1 item. Move or delete them first.',
+    });
+    expect(await prisma.equipment.count({ where: { id: easel.id } })).toBe(1);
+    expect(await prisma.storageLocation.count({ where: { id: shelf.id } })).toBe(1);
+
+    // Another tenant's equipment or location reads as not found, not as a refusal.
+    const other = await makeTenant();
+    const theirs = await prisma.equipment.create({ data: { tenantId: other.id, name: "Easel", category: "Display" } });
+    const theirShelf = await prisma.storageLocation.create({ data: { tenantId: other.id, name: "Shelf B" } });
+    await expect(deleteEquipment(theirs.id)).rejects.toMatchObject({ kind: "NOT_FOUND" });
+    await expect(deleteStorageLocation(theirShelf.id)).rejects.toMatchObject({ kind: "NOT_FOUND" });
+    await expect(deleteStorageLocation({ not: "" } as never)).rejects.toMatchObject({ kind: "NOT_FOUND" });
+  });
+
   it("returns directory refusals as { error }: no name, a duplicate, and still not-found for another tenant", async () => {
     const { tenantId } = await member({
       [PermissionResource.VENUES]: PermissionLevel.WRITE,

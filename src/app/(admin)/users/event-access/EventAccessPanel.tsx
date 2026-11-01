@@ -11,7 +11,7 @@ import {
 } from "@/components/AccessLevelSelect";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 
 type Assignment = {
   id: string;
@@ -33,7 +33,7 @@ type Props = {
   seriesOptions: SeriesOption[];
   grantEvent: (eventId: string, accessLevel: string) => Promise<void>;
   setLevel: (staffId: string, eventId: string, accessLevel: string) => Promise<void>;
-  revoke: (staffId: string, eventId: string) => Promise<void>;
+  revoke: (staffId: string, eventId: string) => Promise<void | UserError>;
   grantSeries: (
     seriesId: string,
     accessLevel: string,
@@ -230,7 +230,8 @@ export function EventAccessPanel({
                   resource="USERS"
                   requiredLevel="WRITE"
                   action={async () => {
-                    await revoke(a.id, a.event.id);
+                    const result = await revoke(a.id, a.event.id);
+                    if (isUserError(result)) return result;
                     router.refresh();
                   }}
                   hiddenInputs={{}}

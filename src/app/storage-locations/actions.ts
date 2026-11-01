@@ -26,7 +26,7 @@ import {
   deleteInventoryItemsCore,
   type InventoryItemWriteArgs,
 } from "./inventory-core";
-import { formId, formInt, formName, formNote } from "@/lib/validation";
+import { assertIds, formId, formInt, formName, formNote } from "@/lib/validation";
 
 const LOCATION_TYPE_CATEGORY = "location_type";
 
@@ -107,8 +107,11 @@ export async function setStorageLocationArchived(id: string, archived: boolean) 
 
 export async function deleteStorageLocation(id: string) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "DELETE");
-  await deleteStorageLocationCore(id, session.user.id, session.tenantId);
-  revalidatePath("/storage-locations");
+  assertIds(id);
+  return withUserErrors(async () => {
+    await deleteStorageLocationCore(id, session.user.id, session.tenantId);
+    revalidatePath("/storage-locations");
+  });
 }
 
 export async function reorderStorageLocations(orderedIds: string[]) {
