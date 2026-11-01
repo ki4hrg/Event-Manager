@@ -248,7 +248,13 @@ export async function bulkUpdateFunctionsCore(
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   const r = await prisma.function.updateMany({
     where: { id: { in: ids }, eventId },
-    data: { ...updates, updatedById: userId },
+    // Field by field, never a spread: an update can't reach any other column.
+    data: {
+      ...(updates.status !== undefined ? { status: updates.status } : {}),
+      ...(updates.substatus !== undefined ? { substatus: updates.substatus } : {}),
+      ...(updates.type !== undefined ? { type: updates.type } : {}),
+      updatedById: userId,
+    },
   });
   // Cancelling drops a number while planning (kept once the ESG is issued).
   if (updates.status !== undefined) await syncFunctionNumbers(eventId);

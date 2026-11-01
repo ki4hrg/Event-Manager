@@ -1,10 +1,13 @@
 "use server";
 
+import { z } from "zod";
+import { EntityStatus } from "@prisma/client";
+import { idList, parseArgs } from "@/lib/validation";
+
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { EntityStatus } from "@prisma/client";
 import type { RoomConflict } from "@/lib/conflicts";
 import {
   createFunctionCore,
@@ -276,7 +279,16 @@ export async function bulkUpdateFunctions(
   updates: BulkFunctionUpdates,
 ) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await bulkUpdateFunctionsCore(ids, eventId, updates, session.user.id);
+  // Exactly these fields: anything else (eventId, functionNumber…) is refused.
+  const parsed = parseArgs(
+    z.strictObject({
+      status: z.enum(EntityStatus).optional(),
+      substatus: z.string().max(1_000).nullable().optional(),
+      type: z.string().max(500).optional(),
+    }),
+    updates,
+  );
+  await bulkUpdateFunctionsCore(parseArgs(idList(5_000), ids), eventId, parsed, session.user.id);
   revalidatePath(`/events/${eventId}/functions`);
 }
 
