@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { UserFacingError } from "@/lib/userErrors";
 import { makeMember, makeTenant } from "../../../test/fixtures";
-import { addEventKeyStaff, updateEventAreas } from "./actions";
+import { addEventKeyStaff, updateEvent, updateEventAreas } from "./actions";
 import { bulkUpdateScheduleItems } from "./schedule-items/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
@@ -35,6 +35,18 @@ describe("event core: arguments and form fields are checked", () => {
     await expect(addEventKeyStaff(eventId, form({ title: "Lead" }))).resolves.toEqual({ error: "Pick a contact" });
     await expect(addEventKeyStaff(eventId, form({ contactId: contact.id, models: ["PAYROLL"] }))).resolves.toEqual({ error: "Pick order types from the list" });
     expect(await prisma.eventKeyStaff.count({ where: { eventId } })).toBe(0);
+
+    await expect(addEventKeyStaff(eventId, form({ contactId: contact.id, title: "Lead" }))).resolves.toBeUndefined();
+    await expect(addEventKeyStaff(eventId, form({ contactId: contact.id, title: "Lead" }))).resolves.toEqual({
+      error: "That contact already has that title on this event",
+    });
+  });
+
+  it("refuses an event that ends before it starts", async () => {
+    const { eventId } = await event({ [PermissionResource.EVENTS]: PermissionLevel.WRITE });
+    await expect(updateEvent(eventId, form({ name: "Expo", startDate: "2026-11-03", endDate: "2026-11-01" }))).resolves.toEqual({
+      error: "End date can't be before the start date",
+    });
   });
 
   it("refuses event areas that aren't lists of text", async () => {

@@ -5,6 +5,7 @@ import { UserFacingError } from "@/lib/userErrors";
 import { MODEL_TYPES } from "@/app/vendors/model-types";
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { refuseDuplicate } from "@/lib/uniqueRefusal";
 import {
   loadPermissionsForUser,
   requireEventTenantId,
@@ -76,7 +77,7 @@ export type EventWriteArgs = {
 function assertEventDates(args: EventWriteArgs, stored: { startDate: Date; endDate: Date } | null) {
   if (args.endDate >= args.startDate) return;
   if (!rangeTouched(stored && { start: stored.startDate, end: stored.endDate }, args.startDate, args.endDate)) return;
-  throw new Error("End date can't be before the start date");
+  throw new UserFacingError("End date can't be before the start date");
 }
 
 function attendanceData(args: EventWriteArgs) {
@@ -194,15 +195,18 @@ function checkedModels(models: unknown): string[] {
 export async function addEventKeyStaffCore(args: AddEventKeyStaffArgs, userId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", args.eventId);
   await assertEventRefs(args.eventId, { contactIds: [args.contactId] });
-  const row = await prisma.eventKeyStaff.create({
-    data: {
-      eventId: args.eventId,
-      contactId: args.contactId,
-      title: args.title,
-      models: checkedModels(args.models),
-      ...keyStaffEsgData(args),
-    },
-  });
+  const row = await refuseDuplicate(
+    prisma.eventKeyStaff.create({
+      data: {
+        eventId: args.eventId,
+        contactId: args.contactId,
+        title: args.title,
+        models: checkedModels(args.models),
+        ...keyStaffEsgData(args),
+      },
+    }),
+    "That contact already has that title on this event",
+  );
   await prisma.event.update({ where: { id: args.eventId }, data: { updatedById: userId } });
   return row;
 }
@@ -216,10 +220,13 @@ export type UpdateEventKeyStaffArgs = KeyStaffEsgArgs & {
 
 export async function updateEventKeyStaffCore(args: UpdateEventKeyStaffArgs, userId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", args.eventId);
-  const row = await prisma.eventKeyStaff.update({
-    where: { id: args.keyStaffId, eventId: args.eventId },
-    data: { title: args.title, models: checkedModels(args.models), ...keyStaffEsgData(args) },
-  });
+  const row = await refuseDuplicate(
+    prisma.eventKeyStaff.update({
+      where: { id: args.keyStaffId, eventId: args.eventId },
+      data: { title: args.title, models: checkedModels(args.models), ...keyStaffEsgData(args) },
+    }),
+    "That contact already has that title on this event",
+  );
   await prisma.event.update({ where: { id: args.eventId }, data: { updatedById: userId } });
   return row;
 }

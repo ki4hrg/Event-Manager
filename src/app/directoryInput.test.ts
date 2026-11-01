@@ -36,7 +36,7 @@ describe("directory forms: checked, not cast", () => {
       [PermissionResource.CONTACTS]: PermissionLevel.WRITE,
     });
     await expect(createVenue(form({ name: " " }))).resolves.toEqual({ error: "Name is required" });
-    await expect(createContact(form({ firstName: "", lastName: "" }))).resolves.toHaveProperty("error");
+    await expect(createContact(form({ firstName: "", lastName: "" }))).resolves.toEqual({ error: "Enter a first or last name" });
     await expect(createEquipment(form({ name: "Riser", category: "Staging" }))).resolves.toBeUndefined();
     await expect(createEquipment(form({ name: "Riser", category: "Staging" }))).resolves.toEqual({
       error: "There's already equipment with that name in this category",

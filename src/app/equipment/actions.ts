@@ -8,7 +8,7 @@ import { carryEquipmentRename } from "@/lib/equipment-utils";
 import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
 import { assertIds, formName } from "@/lib/validation";
-import { withUserErrors } from "@/lib/userErrors";
+import { UserFacingError, withUserErrors } from "@/lib/userErrors";
 import { refuseDuplicate } from "@/lib/uniqueRefusal";
 
 const DUPLICATE_EQUIPMENT = "There's already equipment with that name in this category";
@@ -66,8 +66,8 @@ export async function createEquipmentInline(
   const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
 
   const trimmed = name.trim();
-  if (!trimmed) throw new Error("Equipment needs a name.");
-  if (!category) throw new Error("Equipment needs a category.");
+  if (!trimmed) throw new UserFacingError("Equipment needs a name");
+  if (!category) throw new UserFacingError("Equipment needs a category");
 
   const existing = await prisma.equipment.findFirst({
     where: { tenantId, name: trimmed, category },
@@ -98,13 +98,11 @@ export async function updateEquipment(id: string, formData: FormData) {
     if (!current) throw new PermissionError("NOT_FOUND", "Equipment not found");
     const name = formName(formData, "name");
     const category = formName(formData, "category");
-    await refuseDuplicate(
-      prisma.$transaction(async (tx) => {
-        await tx.equipment.update({ where: { id, tenantId }, data: { name, category } });
-        await carryEquipmentRename(tx, id, current.name, name);
-      }),
-      DUPLICATE_EQUIPMENT,
-    );
+    await prisma.$transaction(async (tx) => {
+      // Only the equipment row's own unique name is the person's to fix.
+      await refuseDuplicate(tx.equipment.update({ where: { id, tenantId }, data: { name, category } }), DUPLICATE_EQUIPMENT);
+      await carryEquipmentRename(tx, id, current.name, name);
+    });
     revalidatePath("/equipment");
   });
 }
@@ -124,7 +122,7 @@ export async function deleteEquipment(id: string) {
   if (!equipment) throw new Error("Equipment not found.");
   const inventoried = equipment._count.inventoryItems;
   if (inventoried > 0) {
-    throw new Error(
+    throw new UserFacingError(
       `"${equipment.name}" is stocked in ${inventoried} location${inventoried === 1 ? "" : "s"}. Remove those inventory items first.`,
     );
   }

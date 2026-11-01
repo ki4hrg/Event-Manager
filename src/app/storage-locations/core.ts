@@ -162,7 +162,7 @@ export async function deleteStorageLocationCore(id: string, userId: string, tena
   if (!location) throw new Error("Location not found.");
   const held = location._count.inventoryItems;
   if (held > 0) {
-    throw new Error(
+    throw new UserFacingError(
       `"${location.name}" still holds ${held} item${held === 1 ? "" : "s"}. Move or delete them first.`,
     );
   }
