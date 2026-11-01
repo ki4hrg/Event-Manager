@@ -610,7 +610,7 @@ export async function removeRfpRecipient(recipientId: string, id: string, eventI
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
   return withUserErrors(async () => {
-    await removeRfpRecipientCore(recipientId, id, eventId, session.user.id);
+    await removeRfpRecipientCore(parseArgs(idSchema, recipientId), id, eventId, session.user.id);
     revalidateLists(eventId, kind);
   });
 }

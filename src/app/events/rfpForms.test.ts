@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../../test/fixtures";
 import { createRfp, saveRfpConcessions } from "./rfps/actions";
 import { createMediaDeliverable } from "./media-deliverables/actions";
+import { createSpecificationRow } from "./specifications/actions";
+import { createVendorQuote } from "./quotes/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -37,6 +39,17 @@ describe("RFP, media and specification forms (#252): refusals come back as { err
     expect(await prisma.rfp.count({ where: { eventId } })).toBe(0);
     await expect(createMediaDeliverable(eventId, form({ name: " " }))).resolves.toEqual({ error: "Name is required" });
     expect(await prisma.mediaDeliverable.count({ where: { eventId } })).toBe(0);
+  });
+
+  it("returns core refusals from specifications and quotes as { error }, writing nothing", async () => {
+    const { eventId } = await event({ [PermissionResource.EVENTS]: PermissionLevel.WRITE });
+    await expect(createSpecificationRow(eventId, "vips", form({ title: "CEO" }))).resolves.toEqual({ error: "Name is required" });
+    const tenantId = (await prisma.event.findUniqueOrThrow({ where: { id: eventId } })).tenantId;
+    const vendor = await prisma.vendor.create({ data: { tenantId, name: "AV Co" } as never });
+    await expect(
+      createVendorQuote(eventId, null, form({ vendorId: vendor.id, submittedOn: "2026-10-10", validUntil: "2026-10-01" })),
+    ).resolves.toEqual({ error: "Valid until can't be before the submitted date" });
+    expect(await prisma.vendorQuote.count({ where: { eventId } })).toBe(0);
   });
 
   it("returns an RFP card's refusal to its autosave as { error }", async () => {

@@ -428,7 +428,7 @@ export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpa
 // point at this event's order (and the item at that order's).
 export async function saveRfpLineItemsCore(id: string, eventId: string, rows: RfpLineItemArgs[], userId: string) {
   const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
-  if (kind === "HOTEL") throw new Error("A hotel RFP has room blocks, not line items");
+  if (kind === "HOTEL") throw new UserFacingError("A hotel RFP has room blocks, not line items");
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { startDate: true, endDate: true } });
   const first = addDays(dateKey(event.startDate), -NIGHT_WINDOW_DAYS);
   const last = addDays(dateKey(event.endDate), NIGHT_WINDOW_DAYS);
@@ -757,7 +757,7 @@ export type RfpRecipientArgs = { sentOn: string | null; declinedToBid: boolean; 
 // Adds vendors (the tenant's) to a vendor RFP; ones already on it are skipped.
 export async function addRfpVendorRecipientsCore(id: string, eventId: string, vendorIds: string[], userId: string) {
   const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
-  if (kind === "HOTEL") throw new Error("A hotel RFP goes to hotels");
+  if (kind === "HOTEL") throw new UserFacingError("A hotel RFP goes to hotels");
   const tenantId = await requireEventTenantId(eventId);
   const ids = Array.from(new Set(vendorIds));
   const vendors = await prisma.vendor.count({ where: { id: { in: ids }, tenantId } });
@@ -768,7 +768,7 @@ export async function addRfpVendorRecipientsCore(id: string, eventId: string, ve
 // Adds hotels (the tenant's venues) to an RFP; ones already on it are skipped.
 export async function addRfpRecipientsCore(id: string, eventId: string, venueIds: string[], userId: string) {
   const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
-  if (kind !== "HOTEL") throw new Error("A vendor RFP goes to vendors");
+  if (kind !== "HOTEL") throw new UserFacingError("A vendor RFP goes to vendors");
   const tenantId = await requireEventTenantId(eventId);
   const ids = Array.from(new Set(venueIds));
   const venues = await prisma.venue.count({ where: { id: { in: ids }, tenantId } });
@@ -779,7 +779,7 @@ export async function addRfpRecipientsCore(id: string, eventId: string, venueIds
 // A hotel not in Venues yet, created (VENUES WRITE) and added to the RFP.
 export async function addNewRfpRecipientCore(id: string, eventId: string, hotel: OfferHotel, userId: string) {
   const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
-  if (kind !== "HOTEL") throw new Error("A vendor RFP goes to vendors");
+  if (kind !== "HOTEL") throw new UserFacingError("A vendor RFP goes to vendors");
   const venue = await createNewHotelCore(eventId, hotel, [], userId);
   await prisma.rfpRecipient.create({ data: { rfpId: id, venueId: venue.id } });
 }

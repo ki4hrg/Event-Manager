@@ -37,7 +37,7 @@ async function assertBlockLabels(eventId: string, args: { contractType: string |
   const tenantId = await requireEventTenantId(eventId);
   for (const w of wanted) {
     const found = await prisma.customOption.findFirst({ where: { tenantId, category: w.category, label: w.label! }, select: { id: true } });
-    if (!found) throw new Error(`Unknown ${w.noun}: ${w.label}`);
+    if (!found) throw new UserFacingError(`Unknown ${w.noun}: ${w.label}`);
   }
 }
 
@@ -86,7 +86,7 @@ export async function createHotelBlockCore(proposalId: string, eventId: string, 
     where: { tenantId, category: "proposal_status", label: proposal.status },
     select: { group: true },
   });
-  if (status?.group !== "ACCEPTED") throw new Error("Only an accepted proposal can become a block");
+  if (status?.group !== "ACCEPTED") throw new UserFacingError("Only an accepted proposal can become a block");
   const hasHq = await prisma.hotelBlock.count({ where: inEvent(eventId) });
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { timezone: true } });
 
@@ -176,16 +176,16 @@ export async function updateHotelBlockCore(blockId: string, eventId: string, arg
   await assertBlockInEvent(blockId, eventId);
   const held = await prisma.hotelBlock.findUniqueOrThrow({ where: { id: blockId }, select: { contractType: true, guestType: true } });
   await assertBlockLabels(eventId, args, [held.contractType, held.guestType]);
-  if (args.checkIn && args.checkOut && args.checkOut <= args.checkIn) throw new Error("Check-out must be after check-in");
+  if (args.checkIn && args.checkOut && args.checkOut <= args.checkIn) throw new UserFacingError("Check-out must be after check-in");
   if (args.allowedAttrition != null && (args.allowedAttrition < 0 || args.allowedAttrition > 100)) {
-    throw new Error("Allowed attrition must be between 0 and 100");
+    throw new UserFacingError("Allowed attrition must be between 0 and 100");
   }
-  if (args.attritionBasis != null && !isAttritionBasis(args.attritionBasis)) throw new Error(`Unknown attrition basis: ${args.attritionBasis}`);
-  if (args.compRatio != null && (!Number.isInteger(args.compRatio) || args.compRatio < 1)) throw new Error("Comp ratio must be a whole number of room nights");
+  if (args.attritionBasis != null && !isAttritionBasis(args.attritionBasis)) throw new UserFacingError(`Unknown attrition basis: ${args.attritionBasis}`);
+  if (args.compRatio != null && (!Number.isInteger(args.compRatio) || args.compRatio < 1)) throw new UserFacingError("Comp ratio must be a whole number of room nights");
   const stay = new Set(nightKeys(args.checkIn, args.checkOut));
   for (const n of args.nights) {
-    if (!stay.has(n.night)) throw new Error(`Night ${n.night} is outside the stay`);
-    if (n.rooms < 0 || n.otherReservations < 0) throw new Error("Room numbers cannot be negative");
+    if (!stay.has(n.night)) throw new UserFacingError(`Night ${n.night} is outside the stay`);
+    if (n.rooms < 0 || n.otherReservations < 0) throw new UserFacingError("Room numbers cannot be negative");
   }
 
   return prisma.$transaction(async (tx) => {
@@ -566,7 +566,7 @@ export async function clearFinalGuestListCore(blockId: string, eventId: string, 
 export async function saveBlockReviewCore(blockId: string, eventId: string, args: { reviewedOn: string | null; reviewNotes: string | null }, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   await assertBlockInEvent(blockId, eventId);
-  if (args.reviewedOn && !/^\d{4}-\d{2}-\d{2}$/.test(args.reviewedOn)) throw new Error(`Invalid date: ${args.reviewedOn}`);
+  if (args.reviewedOn && !/^\d{4}-\d{2}-\d{2}$/.test(args.reviewedOn)) throw new UserFacingError(`Invalid date: ${args.reviewedOn}`);
   return prisma.hotelBlock.update({
     where: { id: blockId },
     data: {

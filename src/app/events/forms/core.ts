@@ -269,7 +269,7 @@ export async function rejectFormSubmissionCore(id: string, eventId: string, note
     where: { id, eventId, state: "SUBMITTED" },
     data: { state: "REJECTED", reviewNotes: notes, handledById: userId, handledAt: new Date() },
   });
-  if (r.count === 0) throw new Error("This submission was already handled");
+  if (r.count === 0) throw new UserFacingError("This submission was already handled");
 }
 
 export type ApplyFormSubmissionArgs = {
@@ -286,9 +286,9 @@ export type ApplyFormSubmissionArgs = {
 async function assertApproved(id: string, requiredTemplateId: string | null) {
   const { complete, templateIds } = await workflowCompletionCore("form_submission", id);
   if (requiredTemplateId && !templateIds.has(requiredTemplateId)) {
-    throw new Error("The approval workflow this form requires was removed. Assign it again and complete it to apply.");
+    throw new UserFacingError("The approval workflow this form requires was removed. Assign it again and complete it to apply.");
   }
-  if (!complete) throw new Error("Finish the approval workflow before applying");
+  if (!complete) throw new UserFacingError("Finish the approval workflow before applying");
 }
 
 const linkTargetSelect = {
@@ -312,14 +312,14 @@ export async function applyFormSubmissionCore(id: string, eventId: string, args:
     include: { formLink: { select: linkTargetSelect }, files: true },
   });
   if (!sub) throw new PermissionError("NOT_FOUND", "Submission not found");
-  if (sub.state !== "SUBMITTED") throw new Error("This submission was already handled");
-  if (args.sections.length === 0) throw new Error("Pick at least one section to apply");
+  if (sub.state !== "SUBMITTED") throw new UserFacingError("This submission was already handled");
+  if (args.sections.length === 0) throw new UserFacingError("Pick at least one section to apply");
 
   const link: FormLinkTarget = sub.formLink;
   const mod = formModule(sub.formType);
   const snapshot = await mod.snapshot(link);
-  if (!snapshot) throw new Error("The record this form reviews no longer exists");
-  if (snapshot.version !== args.version) throw new Error(STALE_REVIEW);
+  if (!snapshot) throw new UserFacingError("The record this form reviews no longer exists");
+  if (snapshot.version !== args.version) throw new UserFacingError(STALE_REVIEW);
 
   await assertApproved(id, sub.requiredTemplateId);
   // Claim it so a second click can't apply twice; put it back if apply fails.
@@ -327,7 +327,7 @@ export async function applyFormSubmissionCore(id: string, eventId: string, args:
     where: { id, eventId, tenantId, state: "SUBMITTED" },
     data: { state: "APPLIED", handledById: userId, handledAt: new Date(), reviewNotes: args.notes },
   });
-  if (claimed.count === 0) throw new Error("This submission was already handled");
+  if (claimed.count === 0) throw new UserFacingError("This submission was already handled");
 
   let result: Awaited<ReturnType<typeof mod.apply>>;
   try {
