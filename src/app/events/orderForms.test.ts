@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../../test/fixtures";
 import { createCateringOrder, createTimelineItem, updateCateringOrderContract, updateCateringOrderGuestCounts } from "./catering-orders/actions";
 import { createSetupEquipmentItem, createSetupTable } from "./setup-orders/actions";
-import { createAVEquipmentItem, createAVOrder } from "./av-orders/actions";
+import { createAVEquipmentItem, createAVOrder, createInputItem } from "./av-orders/actions";
+import { createSupplyOrderItem } from "./supply-orders/actions";
+import { createPrintItem } from "./print-orders/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -100,10 +102,37 @@ describe("order forms: numbers, ids and enums are checked, not parsed into NaN",
     expect(await prisma.equipmentItem.count({ where: { avOrderId: av.id } })).toBe(0);
   });
 
+  it("returns order sub-panel refusals as { error }, writing nothing", async () => {
+    const { eventId } = await event({
+      [PermissionResource.SUPPLY_ORDERS]: PermissionLevel.WRITE,
+      [PermissionResource.PRINT_ORDERS]: PermissionLevel.WRITE,
+    });
+    const supply = await prisma.supplyOrder.create({ data: { eventId, name: "Kits" } as never });
+    await expect(createSupplyOrderItem(supply.id, eventId, form({ quantity: "2" }))).resolves.toEqual({
+      error: "Supply item needs a description or an equipment selection.",
+    });
+    expect(await prisma.supplyOrderItem.count({ where: { supplyOrderId: supply.id } })).toBe(0);
+
+    const print = await prisma.printOrder.create({ data: { eventId, name: "Signs" } as never });
+    await expect(createPrintItem(print.id, eventId, form({ description: "Banner", quantity: "-1" }))).resolves.toHaveProperty("error");
+    expect(await prisma.printItem.count({ where: { printOrderId: print.id } })).toBe(0);
+  });
+
+  it("still throws for an input on another event's input group", async () => {
+    const { eventId } = await event({ [PermissionResource.AV_ORDERS]: PermissionLevel.WRITE });
+    const other = await event({ [PermissionResource.AV_ORDERS]: PermissionLevel.WRITE });
+    const av = await prisma.aVOrder.create({
+      data: { eventId, name: "Keynote", audioSection: { create: { inputGroups: { create: { name: "Stage" } } } } } as never,
+      include: { audioSection: { include: { inputGroups: true } } },
+    });
+    const groupId = (av as unknown as { audioSection: { inputGroups: { id: string }[] } }).audioSection.inputGroups[0].id;
+    await expect(createInputItem(groupId, av.id, other.eventId, form({ name: "Lav 1" }))).rejects.toMatchObject({ kind: "NOT_FOUND" });
+  });
+
   it("refuses a setup table with no quantity instead of storing NaN", async () => {
     const { eventId } = await event({ [PermissionResource.SETUP_ORDERS]: PermissionLevel.WRITE });
     const order = await prisma.setupOrder.create({ data: { eventId, name: "Ballroom" } as never });
-    await expect(createSetupTable(order.id, eventId, form({ tableType: "Round" }))).rejects.toThrow("Quantity is required");
+    await expect(createSetupTable(order.id, eventId, form({ tableType: "Round" }))).resolves.toEqual({ error: "Quantity is required" });
     expect(await prisma.setupTable.count({ where: { setupOrderId: order.id } })).toBe(0);
   });
 });

@@ -8,7 +8,8 @@ import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import { aggregateSetupTables } from "./utils";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 
 type TableRow = SetupTable & { providerVendor: { id: string; name: string } | null };
 
@@ -17,8 +18,8 @@ type SetupTableListProps = {
   vendorOptions: ResponsiblePartyOptions;
   tableOptions: Equipment[];
   chairOptions: Equipment[];
-  createTable: (formData: FormData) => Promise<void>;
-  updateTable: (id: string, formData: FormData) => Promise<void>;
+  createTable: (formData: FormData) => Promise<void | UserError>;
+  updateTable: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteTable: (id: string) => Promise<void>;
 };
 
@@ -98,6 +99,7 @@ function RowForm({
   chairOptions,
   vendorOptions,
   onSubmit,
+  onDone,
   onCancel,
   submitLabel,
 }: {
@@ -110,7 +112,8 @@ function RowForm({
   tableOptions: Equipment[];
   chairOptions: Equipment[];
   vendorOptions: ResponsiblePartyOptions;
-  onSubmit: (formData: FormData) => Promise<void>;
+  onSubmit: (formData: FormData) => Promise<void | UserError>;
+  onDone: () => void;
   onCancel: () => void;
   submitLabel: string;
 }) {
@@ -119,21 +122,16 @@ function RowForm({
     typeof defaultChairCount === "number" ? defaultChairCount : (parseInt(defaultChairCount) || 0)
   );
   const [tableType, setTableType] = useState(defaultTableType);
-  const [error, setError] = useState<string | null>(null);
 
   const totalChairs = chairCount > 0 ? (qty > 0 ? qty * chairCount : chairCount) : null;
 
   const handleSubmit = async (formData: FormData) => {
-    if (!tableType && chairCount <= 0) {
-      setError("Enter a table type or a chair count.");
-      return;
-    }
-    setError(null);
-    await onSubmit(formData);
+    if (!tableType && chairCount <= 0) return { error: "Enter a table type or a chair count." };
+    return onSubmit(formData);
   };
 
   return (
-    <form action={handleSubmit} onReset={keepFormValues} className="space-y-3">
+    <ActionForm action={handleSubmit} onDone={onDone} className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Qty *</label>
@@ -198,7 +196,7 @@ function RowForm({
           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
         />
       </div>
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      <ActionFormError />
       <div className="flex gap-2">
         <SubmitButton label={submitLabel} />
         <button
@@ -209,7 +207,7 @@ function RowForm({
           Cancel
         </button>
       </div>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -226,16 +224,6 @@ export function SetupTableList({
   const canDelete = useCanDelete("SETUP_ORDERS");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  const handleCreate = async (formData: FormData) => {
-    await createTable(formData);
-    setShowAddForm(false);
-  };
-
-  const handleUpdate = async (id: string, formData: FormData) => {
-    await updateTable(id, formData);
-    setEditingId(null);
-  };
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -257,7 +245,8 @@ export function SetupTableList({
             tableOptions={tableOptions}
             chairOptions={chairOptions}
             vendorOptions={vendorOptions}
-            onSubmit={handleCreate}
+            onSubmit={createTable}
+            onDone={() => setShowAddForm(false)}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Add"
           />
@@ -283,7 +272,8 @@ export function SetupTableList({
                   tableOptions={tableOptions}
                   chairOptions={chairOptions}
                   vendorOptions={vendorOptions}
-                  onSubmit={(fd) => handleUpdate(row.id, fd)}
+                  onSubmit={(fd) => updateTable(row.id, fd)}
+                  onDone={() => setEditingId(null)}
                   onCancel={() => setEditingId(null)}
                   submitLabel="Save"
                 />

@@ -240,14 +240,18 @@ function parseSetupTableData(formData: FormData): SetupTableWriteArgs {
 
 export async function createSetupTable(setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await createSetupTableCore(setupOrderId, eventId, parseSetupTableData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  return withUserErrors(async () => {
+    await createSetupTableCore(setupOrderId, eventId, parseSetupTableData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  });
 }
 
 export async function updateSetupTable(id: string, setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await updateSetupTableCore(id, setupOrderId, eventId, parseSetupTableData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  return withUserErrors(async () => {
+    await updateSetupTableCore(id, setupOrderId, eventId, parseSetupTableData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  });
 }
 
 export async function deleteSetupTable(id: string, setupOrderId: string, eventId: string) {
@@ -267,14 +271,18 @@ function parseSetupDetailData(formData: FormData): SetupOrderDetailWriteArgs {
 
 export async function createSetupOrderDetail(setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await createSetupOrderDetailCore(setupOrderId, eventId, parseSetupDetailData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  return withUserErrors(async () => {
+    await createSetupOrderDetailCore(setupOrderId, eventId, parseSetupDetailData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  });
 }
 
 export async function updateSetupOrderDetail(id: string, setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await updateSetupOrderDetailCore(id, setupOrderId, eventId, parseSetupDetailData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  return withUserErrors(async () => {
+    await updateSetupOrderDetailCore(id, setupOrderId, eventId, parseSetupDetailData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  });
 }
 
 export async function deleteSetupOrderDetail(id: string, setupOrderId: string, eventId: string) {

@@ -1,6 +1,16 @@
 "use client";
 
-import { type FormEvent, useCallback, useRef, useState } from "react";
+import {
+  createContext,
+  type FormEvent,
+  type FormEventHandler,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from "react";
+import { keepFormValues } from "@/lib/keepFormValues";
 import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 
 // Runs a form's Server Action and keeps the refusal to show (#252): a
@@ -51,4 +61,51 @@ export function FormError({ error, className = "" }: { error: string | null; cla
       {error}
     </p>
   );
+}
+
+const ActionFormErrorContext = createContext<string | null>(null);
+
+// A <form> whose Server Action can refuse (#252). It runs `action` through
+// useActionError and calls `onDone` only when it went through, so an editor
+// closes on success and stays open, with what was typed, on a refusal. The
+// error lives in this form: a form that closes takes its error with it.
+// Put <ActionFormError /> where the message belongs (above the buttons).
+// `keepValues`: "always" (default) for a form that closes or navigates on
+// success; "onRefusal" for one that stays on screen, so a save shows what the
+// server stored.
+export function ActionForm({
+  action,
+  onDone,
+  keepValues = "always",
+  fallback,
+  onSubmit,
+  className,
+  children,
+}: {
+  action: (formData: FormData) => Promise<void | UserError>;
+  onDone?: () => void;
+  keepValues?: "always" | "onRefusal";
+  fallback?: string;
+  onSubmit?: FormEventHandler<HTMLFormElement>;
+  className?: string;
+  children: ReactNode;
+}) {
+  const { error, run, keepOnRefusal } = useActionError(fallback);
+  return (
+    <form
+      action={async (formData) => {
+        if (await run(() => action(formData))) onDone?.();
+      }}
+      onReset={keepValues === "always" ? keepFormValues : keepOnRefusal}
+      onSubmit={onSubmit}
+      className={className}
+    >
+      <ActionFormErrorContext.Provider value={error}>{children}</ActionFormErrorContext.Provider>
+    </form>
+  );
+}
+
+// The enclosing ActionForm's refusal, if any.
+export function ActionFormError({ className }: { className?: string }) {
+  return <FormError error={useContext(ActionFormErrorContext)} className={className} />;
 }

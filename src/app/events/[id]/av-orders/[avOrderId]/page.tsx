@@ -288,18 +288,18 @@ export default async function AVOrderPage({
   const updateAudioSectionAction = async (formData: FormData) => {
     "use server";
     if (!avOrder.audioSection) return;
-    await updateAudioSection(avOrder.audioSection.id, avOrderId, eventId, formData);
+    return updateAudioSection(avOrder.audioSection.id, avOrderId, eventId, formData);
   };
 
   const createInputGroupAction = async (formData: FormData) => {
     "use server";
     if (!avOrder.audioSection) return;
-    await createInputGroup(avOrder.audioSection.id, avOrderId, eventId, formData);
+    return createInputGroup(avOrder.audioSection.id, avOrderId, eventId, formData);
   };
 
   const updateInputGroupAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateInputGroup(id, avOrderId, eventId, formData);
+    return updateInputGroup(id, avOrderId, eventId, formData);
   };
 
   const deleteInputGroupAction = async (id: string) => {
@@ -309,12 +309,12 @@ export default async function AVOrderPage({
 
   const createInputItemAction = async (inputGroupId: string, formData: FormData) => {
     "use server";
-    await createInputItem(inputGroupId, avOrderId, eventId, formData);
+    return createInputItem(inputGroupId, avOrderId, eventId, formData);
   };
 
   const updateInputItemAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateInputItem(id, avOrderId, eventId, formData);
+    return updateInputItem(id, avOrderId, eventId, formData);
   };
 
   const deleteInputItemAction = async (id: string) => {
@@ -325,12 +325,12 @@ export default async function AVOrderPage({
   const createMonitorMixAction = async (formData: FormData) => {
     "use server";
     if (!avOrder.audioSection) return;
-    await createMonitorMix(avOrder.audioSection.id, avOrderId, eventId, formData);
+    return createMonitorMix(avOrder.audioSection.id, avOrderId, eventId, formData);
   };
 
   const updateMonitorMixAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateMonitorMix(id, avOrderId, eventId, formData);
+    return updateMonitorMix(id, avOrderId, eventId, formData);
   };
 
   const deleteMonitorMixAction = async (id: string) => {
@@ -340,12 +340,12 @@ export default async function AVOrderPage({
 
   const createMonitorOutputAction = async (monitorMixId: string, formData: FormData) => {
     "use server";
-    await createMonitorOutput(monitorMixId, avOrderId, eventId, formData);
+    return createMonitorOutput(monitorMixId, avOrderId, eventId, formData);
   };
 
   const updateMonitorOutputAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateMonitorOutput(id, avOrderId, eventId, formData);
+    return updateMonitorOutput(id, avOrderId, eventId, formData);
   };
 
   const deleteMonitorOutputAction = async (id: string) => {

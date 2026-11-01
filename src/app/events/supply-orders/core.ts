@@ -9,6 +9,7 @@ import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
 import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
 import { assertIds } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
 
 async function assertSupplyOrderInEvent(supplyOrderId: string, eventId: string) {
   assertIds(supplyOrderId);
@@ -348,7 +349,7 @@ function normalizeItemArgs(args: SupplyItemWriteArgs): SupplyItemWriteArgs {
   // A container line is identified by its container, so it needs neither a
   // description nor an equipment selection.
   if (!args.containerLocationId && !args.description && !args.equipmentId) {
-    throw new Error("Supply item needs a description or an equipment selection.");
+    throw new UserFacingError("Supply item needs a description or an equipment selection.");
   }
   // Provider is a single-party concept.
   let providerVendorId = args.providerVendorId;
@@ -385,9 +386,9 @@ async function assertContainerUsable(
     where: { id: containerLocationId, tenant: { events: { some: { id: eventId } } } },
     select: { name: true, kind: true },
   });
-  if (!location) throw new Error("Container not found.");
+  if (!location) throw new PermissionError("NOT_FOUND", "Container not found");
   if (location.kind !== "CONTAINER") {
-    throw new Error(`"${location.name}" is a place, not a container.`);
+    throw new UserFacingError(`"${location.name}" is a place, not a container.`);
   }
 
   const claimed = await prisma.supplyOrderItem.findFirst({
@@ -399,7 +400,7 @@ async function assertContainerUsable(
     select: { supplyOrder: { select: { name: true } } },
   });
   if (claimed) {
-    throw new Error(
+    throw new UserFacingError(
       `"${location.name}" is already on the "${claimed.supplyOrder.name}" order for this event.`,
     );
   }
