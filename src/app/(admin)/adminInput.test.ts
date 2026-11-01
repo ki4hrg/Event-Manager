@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../../test/fixtures";
 import { createWorkflowStep, createWorkflowTemplate, updateWorkflowTemplate } from "./workflows/actions";
-import { createOption } from "./settings/actions";
+import { createOption, deleteOption, updateOption } from "./settings/actions";
 import { createUser } from "./users/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
@@ -54,6 +54,24 @@ describe("admin workflow templates: checked, not cast", () => {
 });
 
 describe("settings options: checked, not cast", () => {
+  it("refuses a duplicate option label, and another tenant's option reads as not found", async () => {
+    const { tenantId } = await admin({ [PermissionResource.SETTINGS]: PermissionLevel.DELETE });
+    await expect(createOption("dietary_need", form({ label: "Vegan" }))).resolves.toBeUndefined();
+    await expect(createOption("dietary_need", form({ label: " vegan " }))).resolves.toHaveProperty("error");
+    expect(await prisma.customOption.count({ where: { tenantId, category: "dietary_need", label: { contains: "egan" } } })).toBe(1);
+
+    const other = await makeTenant();
+    const theirs = await prisma.customOption.create({ data: { tenantId: other.id, category: "dietary_need", label: "Kosher" } });
+    await expect(updateOption("dietary_need", theirs.id, form({ label: "Mine" }))).rejects.toMatchObject({ kind: "NOT_FOUND" });
+    await expect(deleteOption("dietary_need", theirs.id)).rejects.toMatchObject({ kind: "NOT_FOUND" });
+  });
+
+  it("refuses deleting a system option", async () => {
+    const { tenantId } = await admin({ [PermissionResource.SETTINGS]: PermissionLevel.DELETE });
+    const sys = await prisma.customOption.create({ data: { tenantId, category: "dietary_need", label: "None", isSystem: true } });
+    await expect(deleteOption("dietary_need", sys.id)).resolves.toEqual({ error: "Cannot delete a system option." });
+  });
+
   it.each([
     ["a color that isn't on the picker", { label: "VIP", color: "url(evil)" }, "Pick a color from the list"],
     ["an over-long label", { label: "x".repeat(1_001) }, "Label must be at most 1000 characters"],

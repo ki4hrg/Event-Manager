@@ -289,8 +289,12 @@ function SortableOptionRow({
   // A split list's own group is fixed; others pick one.
   const pickGroup = groupOptions && !fixedGroup;
   const merge = async (intoId: string) => {
-    const result = await mergeOption(category, option.id, intoId);
-    if (isUserError(result)) return setError(result.error);
+    try {
+      const result = await mergeOption(category, option.id, intoId);
+      if (isUserError(result)) return setError(result.error);
+    } catch (e) {
+      return setError(actionErrorMessage(e, "Couldn't merge. Try again."));
+    }
     setEditingId(null);
     router.refresh();
   };
@@ -463,6 +467,7 @@ function SortableOptionRow({
               <button type="button" onClick={() => setBlocked(false)} className="text-sm text-gray-500 dark:text-gray-400">
                 Cancel
               </button>
+              {error && <p className={`basis-full ${errorClass}`}>{error}</p>}
             </div>
           )}
         </div>

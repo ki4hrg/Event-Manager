@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { ActionForm, ActionFormError } from "@/components/FormError";
-import type { UserError } from "@/lib/userErrors";
+import { ActionForm, ActionFormError, FormError } from "@/components/FormError";
+import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 import type {
   WorkflowTemplate,
   WorkflowStep,
@@ -34,7 +34,7 @@ type WorkflowEditorProps = {
   deleteTemplate: () => Promise<void | UserError>;
   createStep: (formData: FormData) => Promise<void | UserError>;
   updateStep: (id: string, formData: FormData) => Promise<void | UserError>;
-  previewStep: (id: string, formData: FormData) => Promise<{ records: number }>;
+  previewStep: (id: string, formData: FormData) => Promise<{ records: number } | UserError>;
   deleteStep: (id: string) => Promise<void>;
   createItem: (stepId: string, formData: FormData) => Promise<void | UserError>;
   updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
@@ -158,7 +158,7 @@ function StepRow({
   checks: WorkflowCheckKey[];
   substatuses: CustomOption[];
   updateStep: (id: string, formData: FormData) => Promise<void | UserError>;
-  previewStep: (id: string, formData: FormData) => Promise<{ records: number }>;
+  previewStep: (id: string, formData: FormData) => Promise<{ records: number } | UserError>;
   deleteStep: (id: string) => Promise<void>;
   createItem: (stepId: string, formData: FormData) => Promise<void | UserError>;
   updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
@@ -174,12 +174,20 @@ function StepRow({
   const [impact, setImpact] = useState<number | null>(null);
   const completionForm = useRef<HTMLFormElement>(null);
   const updateRecords = useRef<HTMLInputElement>(null);
+  // A refused preview (or a failed request) is shown instead of silently not saving.
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const proposeChange = async () => {
     const form = completionForm.current;
     if (!form) return;
-    const { records } = await previewStep(step.id, new FormData(form));
-    if (records > 0) setImpact(records);
-    else form.requestSubmit();
+    setPreviewError(null);
+    try {
+      const preview = await previewStep(step.id, new FormData(form));
+      if (isUserError(preview)) return setPreviewError(preview.error);
+      if (preview.records > 0) setImpact(preview.records);
+      else form.requestSubmit();
+    } catch (e) {
+      setPreviewError(actionErrorMessage(e, "Couldn't check that change. Try again."));
+    }
   };
   const saveChange = (moveRecords: boolean) => {
     if (updateRecords.current) updateRecords.current.value = moveRecords ? "true" : "";
@@ -356,6 +364,7 @@ function StepRow({
                 ))}
               </select>
             )}
+            <FormError error={previewError} className="w-full sm:basis-full" />
             {impact !== null && (
               <div className="flex flex-wrap items-center gap-2 text-xs text-gray-700 dark:text-gray-300 sm:basis-full">
                 <span>

@@ -212,6 +212,7 @@ export async function createWorkflowStep(templateId: string, formData: FormData)
 
 export async function updateWorkflowStep(id: string, templateId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  assertIds(id);
   return withUserErrors(async () => {
     await assertTemplateInTenant(templateId, session.tenantId);
     const label = formText(formData, "label", { label: "Label", max: 10_000, required: true });
@@ -239,16 +240,18 @@ export async function updateWorkflowStep(id: string, templateId: string, formDat
 // says, for the editor's prompt before it saves.
 export async function previewStepCompletionChange(id: string, templateId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
-  await assertTemplateInTenant(templateId, session.tenantId);
-  const completion = parseCompletion(formData);
-  if (!completion.completionMode) return { records: 0 };
-  const moves = await stepChangeImpact(
-    templateId,
-    id,
-    { completionMode: completion.completionMode, computedKey: completion.computedKey },
-    session.tenantId,
-  );
-  return { records: moves.length };
+  return withUserErrors(async () => {
+    await assertTemplateInTenant(templateId, session.tenantId);
+    const completion = parseCompletion(formData);
+    if (!completion.completionMode) return { records: 0 };
+    const moves = await stepChangeImpact(
+      templateId,
+      id,
+      { completionMode: completion.completionMode, computedKey: completion.computedKey },
+      session.tenantId,
+    );
+    return { records: moves.length };
+  });
 }
 
 export async function deleteWorkflowStep(id: string, templateId: string) {
@@ -280,14 +283,13 @@ export async function createChecklistItem(stepId: string, templateId: string, fo
     await assertTemplateInTenant(templateId, session.tenantId);
     const label = formText(formData, "label", { label: "Label", max: 10_000, required: true });
 
+    const step = await prisma.workflowStep.findFirst({ where: { id: stepId, templateId }, select: { id: true } });
+    if (!step) throw new PermissionError("NOT_FOUND", "Workflow step not found");
     const maxOrder = await prisma.workflowChecklistItem.findFirst({
-      where: { stepId, step: { templateId } },
+      where: { stepId },
       orderBy: { sortOrder: "desc" },
       select: { sortOrder: true },
     });
-
-    const step = await prisma.workflowStep.findFirst({ where: { id: stepId, templateId }, select: { id: true } });
-    if (!step) throw new PermissionError("NOT_FOUND", "Workflow step not found");
     await prisma.workflowChecklistItem.create({
       data: {
         stepId,
@@ -303,6 +305,7 @@ export async function createChecklistItem(stepId: string, templateId: string, fo
 
 export async function updateChecklistItem(id: string, templateId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  assertIds(id);
   return withUserErrors(async () => {
     await assertTemplateInTenant(templateId, session.tenantId);
     const label = formText(formData, "label", { label: "Label", max: 10_000, required: true });
