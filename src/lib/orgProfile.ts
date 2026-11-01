@@ -3,6 +3,7 @@
 // fields an event's specification leaves blank.
 
 import { isBlankText } from "@/lib/esg/format";
+import { formText } from "@/lib/validation";
 
 export type OrgProfileKey =
   | "phone"
@@ -51,8 +52,9 @@ export const orgProfileSelect = {
 export function orgProfileFromForm(formData: FormData): OrgProfile {
   const profile = {} as OrgProfile;
   for (const f of ORG_PROFILE_FIELDS) {
-    const raw = ((formData.get(f.key) as string) || "").trim();
-    profile[f.key] = f.kind === "richtext" ? (isBlankText(raw) ? null : raw) : raw || null;
+    // Bounded like any form field: a refusal names the field.
+    const raw = formText(formData, f.key, { label: f.label, max: f.kind === "richtext" ? 100_000 : 1_000 });
+    profile[f.key] = f.kind === "richtext" && raw && isBlankText(raw) ? null : raw;
   }
   return profile;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PermissionResource } from "@prisma/client";
@@ -36,10 +37,17 @@ function Row({
   const same = options.find((o) => labelKey(o.label) === labelKey(label));
   const [intoId, setIntoId] = useState(same?.id ?? "");
   const [pending, start] = useTransition();
-  const run = (fn: () => Promise<void>) =>
+  const [error, setError] = useState<string | null>(null);
+  const run = (fn: () => Promise<void | UserError>) =>
     start(async () => {
-      await fn();
-      router.refresh();
+      setError(null);
+      try {
+        const result = await fn();
+        if (isUserError(result)) return setError(result.error);
+        router.refresh();
+      } catch (e) {
+        setError(actionErrorMessage(e, "Couldn't save. Try again."));
+      }
     });
   const add = () => {
     const formData = new FormData();
@@ -72,6 +80,11 @@ function Row({
             </button>
           )}
         </div>
+      )}
+      {error && (
+        <p role="alert" className="basis-full text-sm text-red-700 dark:text-red-400">
+          {error}
+        </p>
       )}
     </div>
   );

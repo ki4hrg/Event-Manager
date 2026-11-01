@@ -2,10 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PermissionLevel, PermissionResource } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { UserFacingError } from "@/lib/userErrors";
 import { makeMember, makeTenant } from "../../../test/fixtures";
 import { createWorkflowStep, createWorkflowTemplate, updateWorkflowTemplate } from "./workflows/actions";
-import { createOption } from "./settings/actions";
+import { createOption, deleteOption, updateOption } from "./settings/actions";
 import { createUser } from "./users/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
@@ -41,26 +40,44 @@ describe("admin workflow templates: checked, not cast", () => {
     ["an unknown record type", { name: "A", defaultForEntityTypes: ["constructor"] }, "Pick record types from the list"],
   ])("refuses %s", async (_label, fields, message) => {
     const { tenantId } = await admin({ [PermissionResource.WORKFLOWS]: PermissionLevel.WRITE });
-    await expect(createWorkflowTemplate(form(fields))).rejects.toThrow(message);
+    await expect(createWorkflowTemplate(form(fields))).resolves.toEqual({ error: expect.stringContaining(message) });
     expect(await prisma.workflowTemplate.count({ where: { tenantId } })).toBe(0);
   });
 
   it("refuses a status that isn't one, on the template and on a step", async () => {
     const { tenantId } = await admin({ [PermissionResource.WORKFLOWS]: PermissionLevel.WRITE });
     const t = await prisma.workflowTemplate.create({ data: { tenantId, name: "T" } });
-    await expect(updateWorkflowTemplate(t.id, form({ name: "T", pendingStatusValue: "SHIPPED" }))).rejects.toBeInstanceOf(UserFacingError);
-    await expect(createWorkflowStep(t.id, form({ label: "Step", pendingStatusValue: "SHIPPED" }))).rejects.toBeInstanceOf(UserFacingError);
+    await expect(updateWorkflowTemplate(t.id, form({ name: "T", pendingStatusValue: "SHIPPED" }))).resolves.toHaveProperty("error");
+    await expect(createWorkflowStep(t.id, form({ label: "Step", pendingStatusValue: "SHIPPED" }))).resolves.toHaveProperty("error");
     expect(await prisma.workflowStep.count({ where: { templateId: t.id } })).toBe(0);
   });
 });
 
 describe("settings options: checked, not cast", () => {
+  it("refuses a duplicate option label, and another tenant's option reads as not found", async () => {
+    const { tenantId } = await admin({ [PermissionResource.SETTINGS]: PermissionLevel.DELETE });
+    await expect(createOption("dietary_need", form({ label: "Vegan" }))).resolves.toBeUndefined();
+    await expect(createOption("dietary_need", form({ label: " vegan " }))).resolves.toHaveProperty("error");
+    expect(await prisma.customOption.count({ where: { tenantId, category: "dietary_need", label: { contains: "egan" } } })).toBe(1);
+
+    const other = await makeTenant();
+    const theirs = await prisma.customOption.create({ data: { tenantId: other.id, category: "dietary_need", label: "Kosher" } });
+    await expect(updateOption("dietary_need", theirs.id, form({ label: "Mine" }))).rejects.toMatchObject({ kind: "NOT_FOUND" });
+    await expect(deleteOption("dietary_need", theirs.id)).rejects.toMatchObject({ kind: "NOT_FOUND" });
+  });
+
+  it("refuses deleting a system option", async () => {
+    const { tenantId } = await admin({ [PermissionResource.SETTINGS]: PermissionLevel.DELETE });
+    const sys = await prisma.customOption.create({ data: { tenantId, category: "dietary_need", label: "None", isSystem: true } });
+    await expect(deleteOption("dietary_need", sys.id)).resolves.toEqual({ error: "Cannot delete a system option." });
+  });
+
   it.each([
     ["a color that isn't on the picker", { label: "VIP", color: "url(evil)" }, "Pick a color from the list"],
     ["an over-long label", { label: "x".repeat(1_001) }, "Label must be at most 1000 characters"],
   ])("refuses %s", async (_label, fields, message) => {
     await admin({ [PermissionResource.SETTINGS]: PermissionLevel.WRITE });
-    await expect(createOption("function_type", form(fields))).rejects.toThrow(message);
+    await expect(createOption("function_type", form(fields))).resolves.toEqual({ error: expect.stringContaining(message) });
   });
 });
 
