@@ -22,10 +22,10 @@ import {
   type OptionCategory,
 } from "@/lib/optionCategories";
 import { duplicateLabelError, inUseError, labelFormError } from "./optionLabels";
-import { assertIds, idList, parseArgs } from "@/lib/validation";
+import { assertIds, formText, idList, parseArgs } from "@/lib/validation";
 import { UserFacingError } from "@/lib/userErrors";
 import { COLOR_OPTIONS } from "@/lib/colors";
-import { MODEL_TYPES, VENDOR_ROLES } from "@/app/vendors/model-types";
+import { MODEL_TYPES } from "@/app/vendors/model-types";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -82,11 +82,7 @@ async function assertUniqueLabel(tenantId: string, category: OptionCategory, lab
 
 // An option's label, color and order types as the option form posts them.
 function readLabel(formData: FormData) {
-  const raw = formData.get("label");
-  const label = (typeof raw === "string" ? raw : "").trim();
-  if (!label) throw new UserFacingError("Label is required");
-  if (label.length > 200) throw new UserFacingError("Label must be at most 200 characters");
-  return label;
+  return formText(formData, "label", { label: "Label", max: 1_000, required: true });
 }
 // A color is a name from the picker (src/lib/colors.ts); blank is none.
 function readColor(formData: FormData) {
@@ -96,9 +92,9 @@ function readColor(formData: FormData) {
   if (!(COLOR_OPTIONS as string[]).includes(color)) throw new UserFacingError("Pick a color from the list");
   return color;
 }
-// Order types and vendor roles, from the checkboxes.
+// Order types, from the checkboxes.
 function readModels(formData: FormData) {
-  const known = new Set<string>([...MODEL_TYPES.map((t) => t.value), ...VENDOR_ROLES.map((r) => r.value)]);
+  const known = new Set<string>(MODEL_TYPES.map((t) => t.value));
   const values = formData.getAll("models");
   if (!values.every((v): v is string => typeof v === "string" && known.has(v))) throw new UserFacingError("Pick order types from the list");
   return Array.from(new Set(values));

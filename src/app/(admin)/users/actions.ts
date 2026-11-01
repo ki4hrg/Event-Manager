@@ -73,11 +73,14 @@ export async function getUser(id: string) {
 
 // The email and name the user form posts. The email is a global sign-in, so
 // it must be one; the name is optional and bounded.
+function isEmail(email: string) {
+  return email.length <= 254 && z.email().safeParse(email).success;
+}
 function readUserFields(formData: FormData) {
   const raw = formData.get("email");
   const email = (typeof raw === "string" ? raw : "").trim().toLowerCase();
   if (!email) throw new UserFacingError("Email is required");
-  if (email.length > 254 || !z.email().safeParse(email).success) throw new UserFacingError("Enter a valid email address");
+
   const rawName = formData.get("name");
   const name = (typeof rawName === "string" ? rawName : "").trim() || null;
   if (name && name.length > 200) throw new UserFacingError("Name must be at most 200 characters");
@@ -100,6 +103,7 @@ export async function createUser(formData: FormData) {
   const tenantId = session.tenantId;
 
   const { email, name } = readUserFields(formData);
+  if (!isEmail(email)) throw new UserFacingError("Enter a valid email address");
   const roleId = (formData.get("roleId") as string) || "";
   // Only a super admin may mint another super admin; the field is ignored
   // from anyone else even if they forge it into the form.
@@ -185,6 +189,9 @@ export async function updateUser(id: string, formData: FormData) {
     },
   });
   if (!current) throw new Error("User not found");
+  // Checked only when it changes: a stored address the check is stricter than
+  // must not block editing the rest of the account.
+  if (email !== current.email && !isEmail(email)) throw new UserFacingError("Enter a valid email address");
   // The email is the sign-in (and password-reset) address of a global
   // account: one tenant's admin may not re-point it for an account that also
   // belongs to another organization or is a platform admin.

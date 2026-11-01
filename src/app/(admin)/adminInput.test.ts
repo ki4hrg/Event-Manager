@@ -57,7 +57,7 @@ describe("admin workflow templates: checked, not cast", () => {
 describe("settings options: checked, not cast", () => {
   it.each([
     ["a color that isn't on the picker", { label: "VIP", color: "url(evil)" }, "Pick a color from the list"],
-    ["an over-long label", { label: "x".repeat(201) }, "Label must be at most 200 characters"],
+    ["an over-long label", { label: "x".repeat(1_001) }, "Label must be at most 1000 characters"],
   ])("refuses %s", async (_label, fields, message) => {
     await admin({ [PermissionResource.SETTINGS]: PermissionLevel.WRITE });
     await expect(createOption("function_type", form(fields))).rejects.toThrow(message);

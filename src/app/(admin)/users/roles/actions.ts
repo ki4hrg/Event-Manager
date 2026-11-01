@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PERMISSION_GROUPS, permissionFieldName } from "./resources";
 import { assertIds } from "@/lib/validation";
+import { formText } from "@/lib/validation";
 
 export async function getRoles() {
   await requirePermission(PermissionResource.ROLES, "VIEW");
@@ -74,15 +75,10 @@ function readLevel(
 
 // A role's name and description as the role form posts them.
 function readRoleFields(formData: FormData) {
-  const text = (key: string) => {
-    const v = formData.get(key);
-    return (typeof v === "string" ? v : "").trim();
+  return {
+    name: formText(formData, "name", { label: "Name", max: 200, required: true }),
+    description: formText(formData, "description", { label: "Description", max: 10_000 }),
   };
-  const name = text("name");
-  const description = text("description") || null;
-  if (name.length > 100) throw new Error("Name must be at most 100 characters");
-  if (description && description.length > 2_000) throw new Error("Description must be at most 2000 characters");
-  return { name, description };
 }
 
 // Role definitions are global — one Admin/User/Viewer matrix shared by every
@@ -93,7 +89,6 @@ export async function createRole(formData: FormData) {
   const session = await requireSuperAdmin();
 
   const { name, description } = readRoleFields(formData);
-  if (!name) throw new Error("Name is required");
 
   const duplicate = await prisma.role.findUnique({ where: { name }, select: { id: true } });
   if (duplicate) throw new Error("A role with this name already exists");
@@ -127,7 +122,6 @@ export async function updateRole(id: string, formData: FormData) {
   if (role.isSystem) throw new Error("System roles cannot be modified");
 
   const { name, description } = readRoleFields(formData);
-  if (!name) throw new Error("Name is required");
 
   if (name !== role.name) {
     const duplicate = await prisma.role.findUnique({ where: { name }, select: { id: true } });

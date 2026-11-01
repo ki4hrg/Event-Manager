@@ -11,7 +11,7 @@ import { seedTenantDefaults } from "../../../../prisma/tenantDefaults.mjs";
 export async function createTenantCore(name: string, slugInput: string | null, profile?: OrgProfile) {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Name is required");
-  if (trimmed.length > 200 || (slugInput?.length ?? 0) > 100) throw new Error("Name must be at most 200 characters, slug 100");
+  if (trimmed.length > 200 || (slugInput?.length ?? 0) > 200) throw new Error("Name and slug must be at most 200 characters");
   const slug = slugifyTenantName(slugInput?.trim() || trimmed);
   if (!slug) throw new Error("Slug must contain at least one letter or number");
 
