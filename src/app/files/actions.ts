@@ -4,9 +4,11 @@ import { unlinkSync } from "fs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { assertIds } from "@/lib/validation";
 import { getUploadPath, getEntityTypeFromRecord, getEntityIdFromRecord, resolveFileEventId, inboundFileTenantId } from "@/lib/uploads";
 
 export async function deleteFile(fileId: string, revalidateTarget: string) {
+  assertIds(fileId);
   const record = await prisma.fileUpload.findUnique({
     where: { id: fileId },
   });
@@ -29,5 +31,8 @@ export async function deleteFile(fileId: string, revalidateTarget: string) {
   try { unlinkSync(filePath); } catch {}
 
   await prisma.fileUpload.delete({ where: { id: fileId } });
-  revalidatePath(revalidateTarget);
+  // The page the client was on; only an app path is revalidated.
+  if (typeof revalidateTarget === "string" && revalidateTarget.startsWith("/") && revalidateTarget.length <= 500) {
+    revalidatePath(revalidateTarget);
+  }
 }

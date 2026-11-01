@@ -141,6 +141,7 @@ function RoomRow({
             />
             <input
               type="number"
+              min={0}
               name="capacity"
               defaultValue={room.capacity ?? ""}
               className="w-24 px-3 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
@@ -333,6 +334,7 @@ export function RoomList({
             />
             <input
               type="number"
+              min={0}
               name="capacity"
               placeholder="Capacity"
               className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"

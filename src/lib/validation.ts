@@ -130,8 +130,9 @@ export function formInt(formData: FormData, key: string, opts: { min?: number; m
 
 /** `raw` as a whole number within an Int column's range (or `opts`), refused by `label`. */
 export function parseWhole(raw: string, label: string, opts: { min?: number; max?: number } = {}): number {
-  const n = Number(raw.trim());
-  if (!raw.trim() || !Number.isInteger(n)) throw new UserFacingError(`${label} must be a whole number`);
+  // Plain digits only: Number() would also read "0x10" and "1e3".
+  const n = /^-?\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
+  if (!Number.isInteger(n)) throw new UserFacingError(`${label} must be a whole number`);
   const { min = -2_147_483_647, max = 2_147_483_647 } = opts;
   if (n < min || n > max) throw new UserFacingError(`${label} must be between ${min} and ${max}`);
   return n;
@@ -141,7 +142,7 @@ export function parseWhole(raw: string, label: string, opts: { min?: number; max
 export function formNumber(formData: FormData, key: string, opts: { min?: number } = {}): number | null {
   const raw = formString(formData, key);
   if (!raw) return null;
-  const n = Number(raw);
+  const n = /^-?(\d+\.?\d*|\.\d+)$/.test(raw) ? Number(raw) : NaN;
   if (!Number.isFinite(n)) throw new UserFacingError(`${fieldLabel(key)} must be a number`);
   if (opts.min !== undefined && n < opts.min) throw new UserFacingError(`${fieldLabel(key)} can't be below ${opts.min}`);
   return n;

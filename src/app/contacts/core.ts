@@ -13,6 +13,7 @@
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
+import { UserFacingError } from "@/lib/userErrors";
 
 export type ContactWriteArgs = {
   firstName: string;
@@ -24,8 +25,14 @@ export type ContactWriteArgs = {
   roles: string[];
 };
 
+// A contact needs a first or a last name, or it shows as a blank row.
+function requireContactName(args: { firstName: string; lastName: string }) {
+  if (!args.firstName?.trim() && !args.lastName?.trim()) throw new UserFacingError("Enter a first or last name");
+}
+
 export async function createContactCore(args: ContactWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.CONTACTS, "WRITE", { tenantId });
+  requireContactName(args);
   return prisma.contact.create({
     data: {
       tenantId,
@@ -48,6 +55,7 @@ export async function updateContactCore(
   tenantId: string,
 ) {
   await requirePermissionForUser(userId, PermissionResource.CONTACTS, "WRITE", { tenantId });
+  requireContactName(args);
   // `tenantId` in the unique where makes a foreign id a not-found rather than
   // a cross-tenant write.
   return prisma.contact.update({

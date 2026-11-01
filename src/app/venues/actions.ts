@@ -25,6 +25,8 @@ import {
   type RoomWriteArgs,
   addVenueAmenityCore,
 } from "./core";
+import { formId, formInt, formName, formNote, formRequiredId, formTexts, formValue, parseWhole } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
 
 export async function getVenues() {
   const session = await requirePermission(PermissionResource.VENUES, "VIEW");
@@ -51,17 +53,17 @@ export async function getVenue(id: string) {
 
 function readVenueArgs(formData: FormData): VenueWriteArgs {
   return {
-    name: formData.get("name") as string,
-    address: (formData.get("address") as string) || null,
-    city: (formData.get("city") as string) || null,
-    state: (formData.get("state") as string) || null,
-    zip: (formData.get("zip") as string) || null,
-    country: (formData.get("country") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    name: formName(formData, "name"),
+    address: formNote(formData, "address"),
+    city: formNote(formData, "city"),
+    state: formNote(formData, "state"),
+    zip: formNote(formData, "zip"),
+    country: formNote(formData, "country"),
+    notes: formNote(formData, "notes"),
     isLodging: formData.get("isLodging") === "true",
-    brand: (formData.get("brand") as string) || null,
-    area: (formData.get("area") as string) || null,
-    amenities: formData.has("amenitiesField") ? (formData.getAll("amenities") as string[]) : undefined,
+    brand: formNote(formData, "brand"),
+    area: formNote(formData, "area"),
+    amenities: formData.has("amenitiesField") ? formTexts(formData, "amenities") : undefined,
   };
 }
 
@@ -82,7 +84,7 @@ export async function updateVenue(id: string, formData: FormData) {
 
 export async function updateVenueVendorDetails(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  const notes = (formData.get("notes") as string) || null;
+  const notes = formNote(formData, "notes");
   await updateVenueVendorDetailsCore(venueId, notes, session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
@@ -96,16 +98,17 @@ export async function deleteVenue(id: string) {
 
 // Set-up capacities post as parallel capacitySetup / capacityCount inputs.
 function readRoomArgs(formData: FormData): RoomWriteArgs {
-  const capacity = formData.get("capacity") as string;
-  const counts = formData.getAll("capacityCount") as string[];
+  const counts = formTexts(formData, "capacityCount", { max: 20 });
+  const setups = formTexts(formData, "capacitySetup");
+  if (setups.length !== counts.length) throw new UserFacingError("Each set-up needs a capacity");
   return {
-    name: formData.get("name") as string,
-    capacity: capacity ? parseInt(capacity) : null,
-    notes: (formData.get("notes") as string) || null,
-    groupId: (formData.get("groupId") as string) || null,
-    capacities: (formData.getAll("capacitySetup") as string[]).map((setupType, i) => ({
+    name: formName(formData, "name"),
+    capacity: formInt(formData, "capacity", { min: 0 }),
+    notes: formNote(formData, "notes"),
+    groupId: formId(formData, "groupId"),
+    capacities: setups.map((setupType, i) => ({
       setupType,
-      capacity: counts[i] ? parseInt(counts[i]) : 0,
+      capacity: counts[i]?.trim() ? parseWhole(counts[i], "Capacity", { min: 0 }) : 0,
     })),
   };
 }
@@ -136,13 +139,13 @@ export async function addVenueAmenity(venueId: string, label: string) {
 
 export async function createRoomGroup(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await createRoomGroupCore(venueId, formData.get("name") as string, session.user.id, session.tenantId);
+  await createRoomGroupCore(venueId, formName(formData, "name"), session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function updateRoomGroup(groupId: string, venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await updateRoomGroupCore(groupId, venueId, formData.get("name") as string, session.user.id, session.tenantId);
+  await updateRoomGroupCore(groupId, venueId, formName(formData, "name"), session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
@@ -181,8 +184,8 @@ export async function addVenueContact(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
   await addVenueContactCore(
     venueId,
-    formData.get("contactId") as string,
-    (formData.get("role") as string) || null,
+    formRequiredId(formData, "contactId", "contact"),
+    formNote(formData, "role"),
     session.user.id,
     session.tenantId,
   );
@@ -194,7 +197,7 @@ export async function updateVenueContact(contactId: string, venueId: string, for
   await updateVenueContactCore(
     contactId,
     venueId,
-    (formData.get("role") as string) || null,
+    formNote(formData, "role"),
     session.user.id,
     session.tenantId,
   );
@@ -212,11 +215,11 @@ export async function createAndAddVenueContact(venueId: string, formData: FormDa
   await createAndAddVenueContactCore(
     {
       venueId,
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      email: (formData.get("email") as string) || null,
-      organization: (formData.get("organization") as string) || null,
-      role: (formData.get("role") as string) || null,
+      firstName: formValue(formData, "firstName"),
+      lastName: formValue(formData, "lastName"),
+      email: formNote(formData, "email"),
+      organization: formNote(formData, "organization"),
+      role: formNote(formData, "role"),
     },
     session.user.id,
     session.tenantId,
