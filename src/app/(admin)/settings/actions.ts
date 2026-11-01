@@ -22,7 +22,10 @@ import {
   type OptionCategory,
 } from "@/lib/optionCategories";
 import { duplicateLabelError, inUseError, labelFormError } from "./optionLabels";
-import { assertIds, idList, parseArgs } from "@/lib/validation";
+import { assertIds, formText, idList, parseArgs } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
+import { COLOR_OPTIONS } from "@/lib/colors";
+import { MODEL_TYPES } from "@/app/vendors/model-types";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -77,13 +80,34 @@ async function assertUniqueLabel(tenantId: string, category: OptionCategory, lab
   if (error) throw new Error(error);
 }
 
+// An option's label, color and order types as the option form posts them.
+function readLabel(formData: FormData) {
+  return formText(formData, "label", { label: "Label", max: 1_000, required: true });
+}
+// A color is a name from the picker (src/lib/colors.ts); blank is none.
+function readColor(formData: FormData) {
+  const raw = formData.get("color");
+  const color = typeof raw === "string" ? raw : "";
+  if (!color) return null;
+  if (!(COLOR_OPTIONS as string[]).includes(color)) throw new UserFacingError("Pick a color from the list");
+  return color;
+}
+// Order types, from the checkboxes.
+function readModels(formData: FormData) {
+  const known = new Set<string>(MODEL_TYPES.map((t) => t.value));
+  const values = formData.getAll("models");
+  if (!values.every((v): v is string => typeof v === "string" && known.has(v))) throw new UserFacingError("Pick order types from the list");
+  return Array.from(new Set(values));
+}
+
 // The posted group, checked against the list's group source; undefined when
 // the list has no groups or the form rendered no group control.
 async function readGroup(tenantId: string, category: OptionCategory, formData: FormData): Promise<string | null | undefined> {
   if (!formData.has("group")) return undefined;
   const choices = await groupChoices(prisma, tenantId, category);
   if (!choices) return undefined;
-  const group = (formData.get("group") as string) || null;
+  const raw = formData.get("group");
+  const group = (typeof raw === "string" ? raw : "") || null;
   if (group && !choices.some((c) => c.value === group)) throw new Error("Unknown group");
   return group;
 }
@@ -91,8 +115,7 @@ async function readGroup(tenantId: string, category: OptionCategory, formData: F
 export async function createOption(category: OptionCategory, formData: FormData) {
   const def = optionCategory(category);
   const { tenantId } = await requirePermission(def.resource, "WRITE");
-  const label = ((formData.get("label") as string) ?? "").trim();
-  if (!label) throw new Error("Label is required");
+  const label = readLabel(formData);
   await assertUniqueLabel(tenantId, category, label);
   const group = await readGroup(tenantId, category, formData);
   if (def.groups?.kind === "fixed" && def.groups.split && !group) throw new Error("Pick a group");
@@ -108,9 +131,9 @@ export async function createOption(category: OptionCategory, formData: FormData)
       tenantId,
       category,
       label,
-      color: def.color ? (formData.get("color") as string) || null : null,
+      color: def.color ? readColor(formData) : null,
       group: group ?? null,
-      models: def.models ? (formData.getAll("models") as string[]) : [],
+      models: def.models ? readModels(formData) : [],
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
@@ -122,8 +145,7 @@ export async function updateOption(category: OptionCategory, id: string, formDat
   const def = optionCategory(category);
   const { tenantId } = await requirePermission(def.resource, "WRITE");
   assertIds(id);
-  const label = ((formData.get("label") as string) ?? "").trim();
-  if (!label) throw new Error("Label is required");
+  const label = readLabel(formData);
 
   const existing = await prisma.customOption.findFirst({
     where: { id, tenantId, category },
@@ -140,9 +162,9 @@ export async function updateOption(category: OptionCategory, id: string, formDat
       where: { id, tenantId },
       data: {
         label,
-        ...(def.color ? { color: (formData.get("color") as string) || null } : {}),
+        ...(def.color ? { color: readColor(formData) } : {}),
         ...(group !== undefined ? { group } : {}),
-        ...(def.models ? { models: formData.getAll("models") as string[] } : {}),
+        ...(def.models ? { models: readModels(formData) } : {}),
       },
     });
     await propagateLabelRename(tx, tenantId, category, existing.label, label);

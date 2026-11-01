@@ -1,11 +1,14 @@
 "use server";
 
+import { z } from "zod";
+
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { isSuperAdmin, requireSuperAdmin } from "@/lib/tenant";
 import { sendInviteEmail, sendPasswordResetEmail } from "@/lib/email";
 import { revalidatePath } from "next/cache";
+import { UserFacingError } from "@/lib/userErrors";
 import { redirect } from "next/navigation";
 import { assertIds } from "@/lib/validation";
 
@@ -68,8 +71,25 @@ export async function getUser(id: string) {
   };
 }
 
+// The email and name the user form posts. The email is a global sign-in, so
+// it must be one; the name is optional and bounded.
+function isEmail(email: string) {
+  return email.length <= 254 && z.email().safeParse(email).success;
+}
+function readUserFields(formData: FormData) {
+  const raw = formData.get("email");
+  const email = (typeof raw === "string" ? raw : "").trim().toLowerCase();
+  if (!email) throw new UserFacingError("Email is required");
+
+  const rawName = formData.get("name");
+  const name = (typeof rawName === "string" ? rawName : "").trim() || null;
+  if (name && name.length > 200) throw new UserFacingError("Name must be at most 200 characters");
+  return { email, name };
+}
+
 async function resolveRole(roleId: string) {
   if (!roleId) throw new Error("Role is required");
+  assertIds(roleId);
   const role = await prisma.role.findUnique({
     where: { id: roleId },
     select: { id: true, name: true },
@@ -82,8 +102,8 @@ export async function createUser(formData: FormData) {
   const session = await requirePermission(PermissionResource.USERS, "WRITE");
   const tenantId = session.tenantId;
 
-  const email = ((formData.get("email") as string) || "").trim().toLowerCase();
-  const name = (formData.get("name") as string) || null;
+  const { email, name } = readUserFields(formData);
+  if (!isEmail(email)) throw new UserFacingError("Enter a valid email address");
   const roleId = (formData.get("roleId") as string) || "";
   // Only a super admin may mint another super admin; the field is ignored
   // from anyone else even if they forge it into the form.
@@ -91,9 +111,6 @@ export async function createUser(formData: FormData) {
   const makeSuperAdmin = superAdmin && formData.get("isSuperAdmin") === "true";
   const showDiagnostics = superAdmin && formData.get("showDiagnostics") === "true";
 
-  if (!email) {
-    throw new Error("Email is required");
-  }
   const role = await resolveRole(roleId);
 
   const tenant = await prisma.tenant.findUnique({
@@ -157,13 +174,9 @@ export async function updateUser(id: string, formData: FormData) {
   const tenantId = session.tenantId;
   const superAdmin = await isSuperAdmin();
 
-  const email = ((formData.get("email") as string) || "").trim().toLowerCase();
-  const name = (formData.get("name") as string) || null;
+  const { email, name } = readUserFields(formData);
   const submittedRoleId = (formData.get("roleId") as string) || "";
 
-  if (!email) {
-    throw new Error("Email is required");
-  }
 
   const current = await prisma.user.findFirst({
     where: superAdmin ? { id } : { id, memberships: { some: { tenantId } } },
@@ -176,6 +189,9 @@ export async function updateUser(id: string, formData: FormData) {
     },
   });
   if (!current) throw new Error("User not found");
+  // Checked only when it changes: a stored address the check is stricter than
+  // must not block editing the rest of the account.
+  if (email !== current.email && !isEmail(email)) throw new UserFacingError("Enter a valid email address");
   // The email is the sign-in (and password-reset) address of a global
   // account: one tenant's admin may not re-point it for an account that also
   // belongs to another organization or is a platform admin.

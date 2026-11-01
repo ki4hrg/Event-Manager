@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PERMISSION_GROUPS, permissionFieldName } from "./resources";
 import { assertIds } from "@/lib/validation";
+import { formText } from "@/lib/validation";
 
 export async function getRoles() {
   await requirePermission(PermissionResource.ROLES, "VIEW");
@@ -72,6 +73,14 @@ function readLevel(
   return PermissionLevel.NONE;
 }
 
+// A role's name and description as the role form posts them.
+function readRoleFields(formData: FormData) {
+  return {
+    name: formText(formData, "name", { label: "Name", max: 200, required: true }),
+    description: formText(formData, "description", { label: "Description", max: 10_000 }),
+  };
+}
+
 // Role definitions are global — one Admin/User/Viewer matrix shared by every
 // tenant. Editing one changes what the role means in every organization, so
 // every mutation is super-admin only; ROLES VIEW/WRITE on a tenant role only
@@ -79,9 +88,7 @@ function readLevel(
 export async function createRole(formData: FormData) {
   const session = await requireSuperAdmin();
 
-  const name = ((formData.get("name") as string) || "").trim();
-  const description = (formData.get("description") as string)?.trim() || null;
-  if (!name) throw new Error("Name is required");
+  const { name, description } = readRoleFields(formData);
 
   const duplicate = await prisma.role.findUnique({ where: { name }, select: { id: true } });
   if (duplicate) throw new Error("A role with this name already exists");
@@ -114,9 +121,7 @@ export async function updateRole(id: string, formData: FormData) {
   if (!role) throw new Error("Role not found");
   if (role.isSystem) throw new Error("System roles cannot be modified");
 
-  const name = ((formData.get("name") as string) || "").trim();
-  const description = (formData.get("description") as string)?.trim() || null;
-  if (!name) throw new Error("Name is required");
+  const { name, description } = readRoleFields(formData);
 
   if (name !== role.name) {
     const duplicate = await prisma.role.findUnique({ where: { name }, select: { id: true } });

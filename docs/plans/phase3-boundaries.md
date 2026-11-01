@@ -64,8 +64,9 @@ them, not ahead of time.
    #281 (`readJsonList` in `src/lib/validation.ts`, item schemas beside the cores; MCP tools
    covered by #279). Structured action arguments in the same files (RFP line items,
    concessions, space, recipients, history, pattern fill; pickup counts and guest lists; quote
-   awards; inbox pickup and BEO): this PR (`parseArgs`).
-7. Admin and account.
+   awards; inbox pickup and BEO): #282 (`parseArgs`).
+7. Admin and account. Done: this PR (workflow templates, users, settings options, roles,
+   tenants, API keys, event access).
 8. Order types, one PR each (catering, AV, setup, print, supply, media deliverables) with their
    slice of `mcpTools/orders.ts`.
 9. Event core: events, functions, breakout schedule, schedule items, specifications, staff.

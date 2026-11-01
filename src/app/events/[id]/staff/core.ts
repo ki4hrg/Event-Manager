@@ -36,6 +36,8 @@ export async function addEventStaffCore(
   args: { eventId: string; userId: string; accessLevel?: AccessCap | null },
   actorUserId: string,
 ) {
+  // An object as the event id would be checked as a tenant-wide target.
+  assertIds(args.eventId);
   await requirePermissionForUser(
     actorUserId,
     PermissionResource.EVENTS,
@@ -43,6 +45,7 @@ export async function addEventStaffCore(
     args.eventId,
   );
   if (!args.userId) throw new Error("User is required");
+  assertIds(args.userId);
 
   // Staff must belong to the event's tenant; a user id from elsewhere reads as
   // not-found rather than granting an outsider a foothold on the event.
@@ -67,6 +70,7 @@ export async function setEventStaffLevelCore(
   args: { staffId: string; eventId: string; accessLevel: AccessCap | null },
   actorUserId: string,
 ) {
+  assertIds(args.eventId);
   await requirePermissionForUser(
     actorUserId,
     PermissionResource.EVENTS,
@@ -92,6 +96,7 @@ export async function removeEventStaffCore(
   eventId: string,
   actorUserId: string,
 ) {
+  assertIds(eventId);
   await requirePermissionForUser(actorUserId, PermissionResource.EVENTS, "WRITE", eventId);
   assertIds(staffId);
   await prisma.eventStaff.deleteMany({ where: { id: staffId, eventId } });
@@ -112,6 +117,7 @@ export async function grantSeriesAccessCore(
   // The series decides the tenant; a global gate there first, so a caller with
   // no event write at all gets a clean refusal instead of an empty "skipped
   // everything" result.
+  assertIds(args.userId, args.seriesId);
   const series = await prisma.eventSeries.findUnique({
     where: { id: args.seriesId },
     select: { tenantId: true },

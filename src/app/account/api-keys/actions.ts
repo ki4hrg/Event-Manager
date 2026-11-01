@@ -27,8 +27,10 @@ export async function mintApiKey(formData: FormData): Promise<{
 }> {
   const session = await requireAuth();
 
-  const name = ((formData.get("name") as string) || "").trim();
+  const raw = formData.get("name");
+  const name = (typeof raw === "string" ? raw : "").trim();
   if (!name) throw new Error("Name is required");
+  if (name.length > 100) throw new Error("Name must be at most 100 characters");
 
   const { fullKey, keyPrefix, hashedKey } = generateApiKey();
 

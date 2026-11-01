@@ -76,6 +76,7 @@ export async function updateTenant(id: string, formData: FormData) {
   const name = ((formData.get("name") as string) || "").trim();
   const slug = slugifyTenantName((formData.get("slug") as string) || name);
   if (!name) throw new Error("Name is required");
+  if (name.length > 200) throw new Error("Name must be at most 200 characters");
   if (!slug) throw new Error("Slug must contain at least one letter or number");
 
   const clash = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });

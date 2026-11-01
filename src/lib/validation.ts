@@ -82,3 +82,21 @@ export function assertIds(...values: unknown[]): void {
   if (values.length > 10_000) throw new PermissionError("NOT_FOUND");
   if (!values.every((v) => idSchema.safeParse(v).success)) throw new PermissionError("NOT_FOUND");
 }
+
+/**
+ * A text field from a form, trimmed. Blank is null unless `required` (then a
+ * UserFacingError naming `label`); longer than `max` is refused the same way.
+ * Bounds are generous: a form may resend a value stored before they existed.
+ */
+export function formText(formData: FormData, key: string, opts: { label: string; max: number; required: true }): string;
+export function formText(formData: FormData, key: string, opts: { label: string; max: number; required?: false }): string | null;
+export function formText(formData: FormData, key: string, opts: { label: string; max: number; required?: boolean }) {
+  const raw = formData.get(key);
+  const value = (typeof raw === "string" ? raw : "").trim();
+  if (!value) {
+    if (opts.required) throw new UserFacingError(`${opts.label} is required`);
+    return null;
+  }
+  if (value.length > opts.max) throw new UserFacingError(`${opts.label} must be at most ${opts.max} characters`);
+  return value;
+}

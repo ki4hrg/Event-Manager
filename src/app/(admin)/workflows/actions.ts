@@ -6,11 +6,14 @@ import { requirePermission } from "@/lib/permissions";
 import { requireActiveTenantId } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { PermissionResource } from "@prisma/client";
-import type { EntityStatus, WorkflowCompletionMode } from "@prisma/client";
+import { EntityStatus, PermissionResource } from "@prisma/client";
+import type { WorkflowCompletionMode } from "@prisma/client";
+import { z } from "zod";
+import { UserFacingError } from "@/lib/userErrors";
+import { assertIds, formText, idList, parseArgs } from "@/lib/validation";
+import { isWorkflowEntityType } from "@/app/events/workflows/entity-types";
 import { isWorkflowCheckKey } from "@/lib/workflowChecks";
 import { applyStatusMoves, stepChangeImpact } from "@/app/events/workflows/core";
-import { assertIds } from "@/lib/validation";
 
 const COMPLETION_MODES: readonly WorkflowCompletionMode[] = ["MANUAL", "AUTO", "PROMPT"];
 
@@ -24,6 +27,25 @@ function parseCompletion(formData: FormData) {
   const key = formData.get("computedKey") as string | null;
   if (!isWorkflowCheckKey(key)) throw new Error("Pick what completes the step");
   return { completionMode: mode, computedKey: key };
+}
+
+// What the template, step and item forms post, checked instead of cast.
+const field = (formData: FormData, key: string) => {
+  const v = formData.get(key);
+  return typeof v === "string" ? v : "";
+};
+// A status select: blank is none. A substatus is a CustomOption label, stored as sent.
+function statusValue(formData: FormData, key: string): EntityStatus | null {
+  const v = field(formData, key);
+  if (!v) return null;
+  const parsed = z.enum(EntityStatus).safeParse(v);
+  if (!parsed.success) throw new UserFacingError("Pick a status from the list");
+  return parsed.data;
+}
+function entityTypes(formData: FormData) {
+  const values = formData.getAll("defaultForEntityTypes");
+  if (!values.every(isWorkflowEntityType)) throw new UserFacingError("Pick record types from the list");
+  return Array.from(new Set(values));
 }
 
 // --- Templates ---
@@ -92,9 +114,9 @@ async function assertTemplateInTenant(templateId: string, tenantId: string) {
 
 export async function createWorkflowTemplate(formData: FormData) {
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
-  const name = formData.get("name") as string;
-  const description = formData.get("description") as string;
-  const defaultForEntityTypes = formData.getAll("defaultForEntityTypes") as string[];
+  const name = formText(formData, "name", { label: "Name", max: 1_000, required: true });
+  const description = formText(formData, "description", { label: "Description", max: 100_000 });
+  const defaultForEntityTypes = entityTypes(formData);
 
   const maxOrder = await prisma.workflowTemplate.findFirst({
     where: { tenantId: session.tenantId },
@@ -106,7 +128,7 @@ export async function createWorkflowTemplate(formData: FormData) {
     data: {
       tenantId: session.tenantId,
       name,
-      description: description || null,
+      description,
       defaultForEntityTypes,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
       updatedById: session.user.id,
@@ -118,17 +140,18 @@ export async function createWorkflowTemplate(formData: FormData) {
 
 export async function updateWorkflowTemplate(id: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
-  const name = formData.get("name") as string;
-  const description = formData.get("description") as string;
-  const defaultForEntityTypes = formData.getAll("defaultForEntityTypes") as string[];
-  const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
-  const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
-  const completionStatusValue = (formData.get("completionStatusValue") as EntityStatus | null) || null;
-  const completionSubstatusValue = (formData.get("completionSubstatusValue") as string | null) || null;
+  assertIds(id);
+  const name = formText(formData, "name", { label: "Name", max: 1_000, required: true });
+  const description = formText(formData, "description", { label: "Description", max: 100_000 });
+  const defaultForEntityTypes = entityTypes(formData);
+  const pendingStatusValue = statusValue(formData, "pendingStatusValue");
+  const pendingSubstatusValue = formText(formData, "pendingSubstatusValue", { label: "Substatus", max: 1_000 });
+  const completionStatusValue = statusValue(formData, "completionStatusValue");
+  const completionSubstatusValue = formText(formData, "completionSubstatusValue", { label: "Substatus", max: 1_000 });
 
   await prisma.workflowTemplate.update({
     where: { id, tenantId: session.tenantId },
-    data: { name, description: description || null, defaultForEntityTypes, pendingStatusValue, pendingSubstatusValue, completionStatusValue, completionSubstatusValue, updatedById: session.user.id },
+    data: { name, description, defaultForEntityTypes, pendingStatusValue, pendingSubstatusValue, completionStatusValue, completionSubstatusValue, updatedById: session.user.id },
   });
 
   revalidatePath(`/workflows/${id}`);
@@ -137,6 +160,7 @@ export async function updateWorkflowTemplate(id: string, formData: FormData) {
 
 export async function deleteWorkflowTemplate(id: string) {
   const { tenantId } = await requirePermission(PermissionResource.WORKFLOWS, "DELETE");
+  assertIds(id);
   // Submissions record the approval they need by id; deleting the template
   // would leave them unappliable.
   const awaiting = await prisma.formSubmission.count({
@@ -154,9 +178,9 @@ export async function deleteWorkflowTemplate(id: string) {
 export async function createWorkflowStep(templateId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   await assertTemplateInTenant(templateId, session.tenantId);
-  const label = formData.get("label") as string;
-  const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
-  const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
+  const label = formText(formData, "label", { label: "Label", max: 10_000, required: true });
+  const pendingStatusValue = statusValue(formData, "pendingStatusValue");
+  const pendingSubstatusValue = formText(formData, "pendingSubstatusValue", { label: "Substatus", max: 1_000 });
 
   const maxOrder = await prisma.workflowStep.findFirst({
     where: { templateId },
@@ -181,9 +205,9 @@ export async function createWorkflowStep(templateId: string, formData: FormData)
 export async function updateWorkflowStep(id: string, templateId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   await assertTemplateInTenant(templateId, session.tenantId);
-  const label = formData.get("label") as string;
-  const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
-  const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
+  const label = formText(formData, "label", { label: "Label", max: 10_000, required: true });
+  const pendingStatusValue = statusValue(formData, "pendingStatusValue");
+  const pendingSubstatusValue = formText(formData, "pendingSubstatusValue", { label: "Substatus", max: 1_000 });
 
   const completion = parseCompletion(formData);
   // "Update them too" from the editor's prompt: move the records whose status
@@ -229,7 +253,7 @@ export async function reorderWorkflowSteps(templateId: string, orderedIds: strin
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   await assertTemplateInTenant(templateId, session.tenantId);
   await Promise.all(
-    orderedIds.map((id, index) =>
+    parseArgs(idList(500), orderedIds).map((id, index) =>
       prisma.workflowStep.update({ where: { id, templateId }, data: { sortOrder: index } })
     )
   );
@@ -241,8 +265,9 @@ export async function reorderWorkflowSteps(templateId: string, orderedIds: strin
 
 export async function createChecklistItem(stepId: string, templateId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  assertIds(stepId);
   await assertTemplateInTenant(templateId, session.tenantId);
-  const label = formData.get("label") as string;
+  const label = formText(formData, "label", { label: "Label", max: 10_000, required: true });
 
   const maxOrder = await prisma.workflowChecklistItem.findFirst({
     where: { stepId, step: { templateId } },
@@ -267,7 +292,7 @@ export async function createChecklistItem(stepId: string, templateId: string, fo
 export async function updateChecklistItem(id: string, templateId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   await assertTemplateInTenant(templateId, session.tenantId);
-  const label = formData.get("label") as string;
+  const label = formText(formData, "label", { label: "Label", max: 10_000, required: true });
   const required = formData.has("required") ? { required: formData.get("required") === "true" } : {};
 
   await prisma.workflowChecklistItem.update({ where: { id, step: { templateId } }, data: { label, ...required } });
@@ -287,7 +312,7 @@ export async function reorderChecklistItems(stepId: string, templateId: string, 
   const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   await assertTemplateInTenant(templateId, session.tenantId);
   await Promise.all(
-    orderedIds.map((id, index) =>
+    parseArgs(idList(500), orderedIds).map((id, index) =>
       prisma.workflowChecklistItem.update({ where: { id, step: { templateId } }, data: { sortOrder: index } })
     )
   );
