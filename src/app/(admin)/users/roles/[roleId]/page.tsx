@@ -32,14 +32,14 @@ export default async function EditRolePage({
 
   const saveAction = async (formData: FormData) => {
     "use server";
-    await updateRole(roleId, formData);
+    return updateRole(roleId, formData);
   };
 
   const deleteAction = role.isSystem || !superAdmin
     ? undefined
     : async () => {
         "use server";
-        await deleteRole(roleId);
+        return deleteRole(roleId);
       };
 
   return (

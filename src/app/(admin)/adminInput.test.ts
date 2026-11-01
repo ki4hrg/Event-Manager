@@ -67,7 +67,15 @@ describe("settings options: checked, not cast", () => {
 describe("user admin: the email is a real address", () => {
   it("refuses a malformed email before creating anyone", async () => {
     await admin({ [PermissionResource.USERS]: PermissionLevel.WRITE });
-    await expect(createUser(form({ email: "not an email", roleId: "r1" }))).rejects.toThrow("Enter a valid email address");
+    await expect(createUser(form({ email: "not an email", roleId: "r1" }))).resolves.toEqual({ error: "Enter a valid email address" });
     expect(await prisma.user.count({ where: { email: "not an email" } })).toBe(0);
+  });
+
+  it("returns a duplicate-member refusal as { error } so the admin reads it (#252)", async () => {
+    const { tenantId } = await admin({ [PermissionResource.USERS]: PermissionLevel.WRITE });
+    const role = (await prisma.tenantMembership.findFirstOrThrow({ where: { tenantId } })).roleId;
+    const existing = await prisma.user.create({ data: { email: `dup-${tenantId}@example.test` } });
+    await prisma.tenantMembership.create({ data: { tenantId, userId: existing.id, roleId: role } });
+    await expect(createUser(form({ email: existing.email!, roleId: role }))).resolves.toEqual({ error: "A user with this email is already a member here" });
   });
 });

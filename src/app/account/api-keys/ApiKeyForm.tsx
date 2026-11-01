@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { mintApiKey } from "./actions";
 import { keepFormValues } from "@/lib/keepFormValues";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { actionErrorMessage, isUserError } from "@/lib/userErrors";
 
 type RevealedKey = {
   id: string;
@@ -25,6 +25,10 @@ export function ApiKeyForm() {
     startTransition(async () => {
       try {
         const result = await mintApiKey(formData);
+        if (isUserError(result)) {
+          setError(result.error);
+          return;
+        }
         setRevealed({
           id: result.id,
           name: result.name,

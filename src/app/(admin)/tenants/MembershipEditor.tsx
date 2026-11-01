@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { roleBadgeClass } from "@/lib/roleStyles";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { type UserError, actionErrorMessage, isUserError } from "@/lib/userErrors";
 
 // One editor for both directions of the user <-> tenant relationship: the
 // tenant page lists its members, the user page lists their organizations.
@@ -32,8 +32,8 @@ type Props = {
   candidates: Option[];
   candidateLabel: string;
   roles: RoleOption[];
-  add: (otherId: string, roleId: string) => Promise<void>;
-  setRole: (otherId: string, roleId: string) => Promise<void>;
+  add: (otherId: string, roleId: string) => Promise<void | UserError>;
+  setRole: (otherId: string, roleId: string) => Promise<void | UserError>;
   remove: (otherId: string) => Promise<void>;
 };
 
@@ -97,11 +97,15 @@ export function MembershipEditor({
   const defaultRoleId = roles.find((r) => r.name === "User")?.id ?? roles[0]?.id ?? "";
   const [roleId, setRoleId] = useState(defaultRoleId);
 
-  function run(fn: () => Promise<void>) {
+  function run(fn: () => Promise<void | UserError>) {
     setError(null);
     startTransition(async () => {
       try {
-        await fn();
+        const result = await fn();
+        if (isUserError(result)) {
+          setError(result.error);
+          return;
+        }
         router.refresh();
       } catch (e) {
         setError(actionErrorMessage(e, "An error occurred"));
@@ -167,8 +171,9 @@ export function MembershipEditor({
             e.preventDefault();
             if (!candidateId) return;
             run(async () => {
-              await add(candidateId, roleId);
-              setCandidateId("");
+              const result = await add(candidateId, roleId);
+              if (!isUserError(result)) setCandidateId("");
+              return result;
             });
           }}
         >

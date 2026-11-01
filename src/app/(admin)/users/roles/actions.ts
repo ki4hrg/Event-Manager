@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { PERMISSION_GROUPS, permissionFieldName } from "./resources";
 import { assertIds } from "@/lib/validation";
 import { formText } from "@/lib/validation";
+import { UserFacingError, withUserErrors } from "@/lib/userErrors";
 
 export async function getRoles() {
   await requirePermission(PermissionResource.ROLES, "VIEW");
@@ -93,80 +94,86 @@ function readRoleFields(formData: FormData) {
 // lets a tenant admin read the matrix and assign roles.
 export async function createRole(formData: FormData) {
   const session = await requireSuperAdmin();
+  return withUserErrors(async () => {
 
-  const { name, description } = readRoleFields(formData);
+    const { name, description } = readRoleFields(formData);
 
-  const duplicate = await prisma.role.findUnique({ where: { name }, select: { id: true } });
-  if (duplicate) throw new Error("A role with this name already exists");
+    const duplicate = await prisma.role.findUnique({ where: { name }, select: { id: true } });
+    if (duplicate) throw new UserFacingError("A role with this name already exists");
 
-  const rows = parsePermissions(formData);
-  const role = await prisma.role.create({
-    data: {
-      name,
-      description,
-      isSystem: false,
-      updatedById: session.userId,
-      permissions: { create: rows },
-    },
-    select: { id: true },
+    const rows = parsePermissions(formData);
+    const role = await prisma.role.create({
+      data: {
+        name,
+        description,
+        isSystem: false,
+        updatedById: session.userId,
+        permissions: { create: rows },
+      },
+      select: { id: true },
+    });
+
+    revalidatePath("/users/roles");
+    revalidatePath(`/users/roles/${role.id}`);
+    redirect(`/users/roles/${role.id}?success=Role+created`);
   });
-
-  revalidatePath("/users/roles");
-  revalidatePath(`/users/roles/${role.id}`);
-  redirect(`/users/roles/${role.id}?success=Role+created`);
 }
 
 export async function updateRole(id: string, formData: FormData) {
   const session = await requireSuperAdmin();
-  assertIds(id);
+  return withUserErrors(async () => {
+    assertIds(id);
 
-  const role = await prisma.role.findUnique({
-    where: { id },
-    select: { isSystem: true, name: true },
+    const role = await prisma.role.findUnique({
+      where: { id },
+      select: { isSystem: true, name: true },
+    });
+    if (!role) throw new Error("Role not found");
+    if (role.isSystem) throw new UserFacingError("System roles cannot be modified");
+
+    const { name, description } = readRoleFields(formData);
+
+    if (name !== role.name) {
+      const duplicate = await prisma.role.findUnique({ where: { name }, select: { id: true } });
+      if (duplicate) throw new UserFacingError("A role with this name already exists");
+    }
+
+    const rows = parsePermissions(formData);
+
+    await prisma.$transaction([
+      prisma.role.update({ where: { id }, data: { name, description, updatedById: session.userId } }),
+      prisma.rolePermission.deleteMany({ where: { roleId: id } }),
+      prisma.rolePermission.createMany({ data: rows.map((r) => ({ roleId: id, ...r })) }),
+    ]);
+
+    revalidatePath("/users/roles");
+    revalidatePath(`/users/roles/${id}`);
+    redirect(`/users/roles/${id}?success=Role+updated`);
   });
-  if (!role) throw new Error("Role not found");
-  if (role.isSystem) throw new Error("System roles cannot be modified");
-
-  const { name, description } = readRoleFields(formData);
-
-  if (name !== role.name) {
-    const duplicate = await prisma.role.findUnique({ where: { name }, select: { id: true } });
-    if (duplicate) throw new Error("A role with this name already exists");
-  }
-
-  const rows = parsePermissions(formData);
-
-  await prisma.$transaction([
-    prisma.role.update({ where: { id }, data: { name, description, updatedById: session.userId } }),
-    prisma.rolePermission.deleteMany({ where: { roleId: id } }),
-    prisma.rolePermission.createMany({ data: rows.map((r) => ({ roleId: id, ...r })) }),
-  ]);
-
-  revalidatePath("/users/roles");
-  revalidatePath(`/users/roles/${id}`);
-  redirect(`/users/roles/${id}?success=Role+updated`);
 }
 
 export async function deleteRole(id: string) {
   await requireSuperAdmin();
-  assertIds(id);
+  return withUserErrors(async () => {
+    assertIds(id);
 
-  const role = await prisma.role.findUnique({
-    where: { id },
-    select: { isSystem: true, _count: { select: { memberships: true } } },
+    const role = await prisma.role.findUnique({
+      where: { id },
+      select: { isSystem: true, _count: { select: { memberships: true } } },
+    });
+    if (!role) throw new Error("Role not found");
+    if (role.isSystem) throw new UserFacingError("System roles cannot be deleted");
+    if (role._count.memberships > 0) {
+      throw new UserFacingError(
+        `Cannot delete: ${role._count.memberships} membership(s) use this role. Reassign them first.`,
+      );
+    }
+
+    await prisma.role.delete({ where: { id } });
+
+    revalidatePath("/users/roles");
+    redirect("/users/roles?success=Role+deleted");
   });
-  if (!role) throw new Error("Role not found");
-  if (role.isSystem) throw new Error("System roles cannot be deleted");
-  if (role._count.memberships > 0) {
-    throw new Error(
-      `Cannot delete: ${role._count.memberships} membership(s) use this role. Reassign them first.`,
-    );
-  }
-
-  await prisma.role.delete({ where: { id } });
-
-  revalidatePath("/users/roles");
-  redirect("/users/roles?success=Role+deleted");
 }
 
 /**

@@ -7,7 +7,7 @@ import { OrgProfileFields, OrgProfileView } from "@/components/OrgProfileFields"
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import type { OrgProfile } from "@/lib/orgProfile";
 import { keepFormValues } from "@/lib/keepFormValues";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { type UserError, actionErrorMessage, isUserError } from "@/lib/userErrors";
 
 function SubmitButton({ isCreate }: { isCreate: boolean }) {
   const { pending } = useFormStatus();
@@ -23,8 +23,8 @@ const inputClass =
 
 type Props = {
   tenant?: { id: string; name: string; slug: string } & OrgProfile;
-  saveAction: (formData: FormData) => Promise<void>;
-  deleteAction?: () => Promise<void>;
+  saveAction: (formData: FormData) => Promise<void | UserError>;
+  deleteAction?: () => Promise<void | UserError>;
 };
 
 export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
@@ -35,7 +35,8 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
   async function handleSubmit(formData: FormData) {
     setError(null);
     try {
-      await saveAction(formData);
+      const result = await saveAction(formData);
+      if (isUserError(result)) setError(result.error);
     } catch (e) {
       setError(actionErrorMessage(e, "An error occurred"));
     }

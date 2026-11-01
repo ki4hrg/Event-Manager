@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { generateApiKey } from "@/lib/mcpAuth";
 import { assertIds } from "@/lib/validation";
+import { type UserError, UserFacingError, withUserErrors } from "@/lib/userErrors";
 
 export async function getApiKeys() {
   const session = await requireAuth();
@@ -24,13 +25,13 @@ export async function mintApiKey(formData: FormData): Promise<{
   keyPrefix: string;
   fullKey: string;
   createdAt: Date;
-}> {
+} | UserError> {
   const session = await requireAuth();
-
+  return withUserErrors(async () => {
   const raw = formData.get("name");
   const name = (typeof raw === "string" ? raw : "").trim();
-  if (!name) throw new Error("Name is required");
-  if (name.length > 100) throw new Error("Name must be at most 100 characters");
+  if (!name) throw new UserFacingError("Name is required");
+  if (name.length > 100) throw new UserFacingError("Name must be at most 100 characters");
 
   const { fullKey, keyPrefix, hashedKey } = generateApiKey();
 
@@ -41,6 +42,7 @@ export async function mintApiKey(formData: FormData): Promise<{
 
   revalidatePath("/account/api-keys");
   return { ...created, fullKey };
+  });
 }
 
 export async function revokeApiKey(id: string): Promise<void> {

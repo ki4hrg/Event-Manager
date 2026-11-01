@@ -7,7 +7,7 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { roleBadgeClass } from "@/lib/roleStyles";
 import { DEFAULT_ROLE_NAME } from "@/app/(admin)/users/roles/resources";
 import { keepFormValues } from "@/lib/keepFormValues";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { type UserError, actionErrorMessage, isUserError } from "@/lib/userErrors";
 
 function SubmitButton({ isCreate }: { isCreate: boolean }) {
   const { pending } = useFormStatus();
@@ -36,10 +36,10 @@ interface UserFormProps {
     showDiagnostics?: boolean;
   };
   roles: RoleOption[];
-  saveAction: (formData: FormData) => Promise<void>;
+  saveAction: (formData: FormData) => Promise<void | UserError>;
   deleteAction?: () => Promise<void>;
   // Removes the membership in the active tenant without deleting the account.
-  removeAction?: () => Promise<void>;
+  removeAction?: () => Promise<void | UserError>;
   currentUserId?: string;
   tenantName?: string | null;
   // Only super admins may grant or revoke platform-admin status.
@@ -67,7 +67,9 @@ export function UserForm({
   async function handleSubmit(formData: FormData) {
     setError(null);
     try {
-      await saveAction(formData);
+      // A refusal comes back as { error } (withUserErrors) so its text survives.
+      const result = await saveAction(formData);
+      if (isUserError(result)) setError(result.error);
     } catch (e) {
       setError(actionErrorMessage(e, "An error occurred"));
     }

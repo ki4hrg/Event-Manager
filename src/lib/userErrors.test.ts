@@ -17,6 +17,8 @@ describe("actionErrorMessage (#252)", () => {
     const fromServer = Object.assign(new Error("A user with this email already exists"), { digest: "123" });
     expect(actionErrorMessage(fromServer, "An error occurred")).toBe("An error occurred");
     expect(actionErrorMessage(new TypeError("Failed to fetch"), "Couldn't save")).toBe("Couldn't save");
+    expect(actionErrorMessage(new TypeError("Load failed"), "Couldn't save")).toBe("Couldn't save");
+    expect(actionErrorMessage(new TypeError("NetworkError when attempting to fetch resource."), "Couldn't save")).toBe("Couldn't save");
     expect(actionErrorMessage(new Error('Server Action "abc" was not found on the server.'), "Couldn't save")).toBe("Couldn't save");
   });
 

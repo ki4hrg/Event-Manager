@@ -35,9 +35,16 @@ export function isUserError(result: unknown): result is UserError {
 // after a deploy). An error thrown in the browser (a file that won't parse)
 // shows its message. Refusals meant for the person come back as { error }
 // through withUserErrors instead.
-const FRAMEWORK = /Minified React error|Server Components render|Failed to fetch|Server Action .* was not found|unexpected response was received|^NEXT_/;
+// Network failures read differently per browser: Chrome "Failed to fetch",
+// Safari "Load failed", Firefox "NetworkError when attempting to fetch resource".
+const FRAMEWORK =
+  /Minified React error|Server Components render|Failed to fetch|Load failed|NetworkError when attempting|Server Action .* was not found|unexpected response was received|^NEXT_/;
 
 export function actionErrorMessage(e: unknown, fallback: string): string {
-  if (!(e instanceof Error) || !e.message || "digest" in e || FRAMEWORK.test(e.message)) return fallback;
+  if (!(e instanceof Error) || !e.message || "digest" in e || FRAMEWORK.test(e.message)) {
+    // The fallback replaces it on screen; keep the real error for whoever debugs.
+    console.error(e);
+    return fallback;
+  }
   return e.message;
 }

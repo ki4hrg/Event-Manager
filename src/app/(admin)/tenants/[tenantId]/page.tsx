@@ -49,19 +49,19 @@ export default async function TenantDetailPage({
 
   const saveAction = async (formData: FormData) => {
     "use server";
-    await updateTenant(tenantId, formData);
+    return updateTenant(tenantId, formData);
   };
   const deleteAction = async () => {
     "use server";
-    await deleteTenant(tenantId);
+    return deleteTenant(tenantId);
   };
   const addAction = async (userId: string, roleId: string) => {
     "use server";
-    await addMembership(tenantId, userId, roleId);
+    return addMembership(tenantId, userId, roleId);
   };
   const setRoleAction = async (userId: string, roleId: string) => {
     "use server";
-    await setMembershipRole(tenantId, userId, roleId);
+    return setMembershipRole(tenantId, userId, roleId);
   };
   const removeAction = async (userId: string) => {
     "use server";
