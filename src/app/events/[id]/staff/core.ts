@@ -117,6 +117,10 @@ export async function removeEventStaffCore(
   assertIds(eventId);
   await requirePermissionForUser(actorUserId, PermissionResource.EVENTS, "WRITE", eventId);
   assertIds(staffId);
+  // Removing your own capped row would drop you to UNASSIGNED scope, where the
+  // cap doesn't apply: the same as lifting it.
+  const row = await prisma.eventStaff.findFirst({ where: { id: staffId, eventId }, select: { userId: true, accessLevel: true } });
+  if (row && row.userId === actorUserId && row.accessLevel != null) await refuseOwnCapChange(actorUserId);
   await prisma.eventStaff.deleteMany({ where: { id: staffId, eventId } });
 }
 
