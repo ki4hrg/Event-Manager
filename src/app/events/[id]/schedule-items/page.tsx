@@ -11,6 +11,7 @@ import {
 } from "../../schedule-items/actions";
 import { ScheduleItemList } from "../../schedule-items/ScheduleItemList";
 import { getHiddenColumns } from "@/app/events/table-columns-actions";
+import { formRequiredId } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function ScheduleItemsPage({
 
   const deleteScheduleItemAction = async (formData: FormData) => {
     "use server";
-    await deleteScheduleItem(formData.get("scheduleItemId") as string, eventId);
+    await deleteScheduleItem(formRequiredId(formData, "scheduleItemId", "schedule item"), eventId);
   };
 
   const deleteScheduleItemsAction = async (ids: string[]) => {

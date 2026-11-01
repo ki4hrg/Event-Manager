@@ -154,7 +154,7 @@ export async function setSpecSectionNaCore(eventId: string, letter: string, na: 
   if (!ESG_SECTION_LETTERS.includes(letter)) throw new Error(`Unknown ESG section: ${letter}`);
   const existing = await prisma.eventSpecification.findUnique({ where: { eventId }, select: { naSections: true } });
   const set = new Set(existing?.naSections ?? []);
-  if (na) set.add(letter);
+  if (na === true) set.add(letter);
   else set.delete(letter);
   const naSections = ESG_SECTION_LETTERS.filter((l) => set.has(l));
   return prisma.eventSpecification.upsert({
@@ -311,7 +311,7 @@ export async function setPostEventSectionNaCore(eventId: string, letter: string,
   if (!PER_SECTION_LETTERS.includes(letter)) throw new Error(`Unknown PER section: ${letter}`);
   const existing = await prisma.eventPostEvent.findUnique({ where: { eventId }, select: { naSections: true } });
   const set = new Set(existing?.naSections ?? []);
-  if (na) set.add(letter);
+  if (na === true) set.add(letter);
   else set.delete(letter);
   const naSections = PER_SECTION_LETTERS.filter((l) => set.has(l));
   return prisma.eventPostEvent.upsert({

@@ -364,7 +364,8 @@ export async function createScheduleCore(
   const created = await prisma.functionSchedule.create({
     data: {
       functionId,
-      type: args.type,
+      // A blank type takes the tenant's default label, so the row stays in filters.
+      type: args.type || (await defaultScheduleType(eventId)),
       startTime: parsedStart,
       endTime: parsedEnd,
       notes: args.notes,
@@ -410,7 +411,7 @@ export async function updateScheduleCore(
   await prisma.functionSchedule.update({
     where: { id: scheduleId, function: { eventId } },
     data: {
-      type: args.type,
+      type: args.type || (await defaultScheduleType(eventId)),
       startTime: parsedStart,
       endTime: parsedEnd,
       notes: args.notes,

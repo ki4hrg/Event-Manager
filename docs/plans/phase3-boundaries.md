@@ -67,10 +67,10 @@ them, not ahead of time.
    awards; inbox pickup and BEO): #282 (`parseArgs`).
 7. Admin and account. Done: #285 (workflow templates, users, settings options, roles,
    tenants, API keys, event access).
-8. Order types (catering, AV, setup, print, supply, media deliverables). Done in one PR, this
-   one: the forms share `formInt`/`formNumber`/`formId`/`formEnum`/`formNote` (`src/lib/validation.ts`),
+8. Order types (catering, AV, setup, print, supply, media deliverables). Done in one PR, #286: the forms share `formInt`/`formNumber`/`formId`/`formEnum`/`formNote` (`src/lib/validation.ts`),
    and their MCP tools are covered by #279.
 9. Event core: events, functions, breakout schedule, schedule items, specifications, staff.
+   Done: this PR (bulk function updates: #287).
 10. Presentations, speakers, exhibits.
 11. Hotels (most casts).
 12. Directory: vendors, venues, contacts, equipment, storage locations, files.

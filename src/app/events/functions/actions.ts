@@ -1,6 +1,5 @@
 "use server";
 
-import { idList, parseArgs } from "@/lib/validation";
 
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
@@ -28,6 +27,7 @@ import {
   renumberFunctionsCore,
   type BulkFunctionUpdates,
 } from "./core";
+import { formId, formIds, formInt, formName, formNote, formRequiredId, formValue, idList, parseArgs } from "@/lib/validation";
 
 export async function getFunctions(eventId: string) {
   await requirePermission("FUNCTIONS", "VIEW", eventId);
@@ -163,19 +163,19 @@ export async function getFunction(id: string) {
 
 export async function createFunction(eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const type = formData.get("type") as string;
+  const type = formValue(formData, "type");
   const fn = await createFunctionCore(
     eventId,
     {
-      name: formData.get("name") as string,
-      description: (formData.get("description") as string) || null,
-      type: type || "",
-      notes: (formData.get("notes") as string) || null,
-      offSiteLocation: (formData.get("offSiteLocation") as string)?.trim() || null,
-      roomIds: formData.getAll("roomIds") as string[],
-      breakoutGroupId: (formData.get("breakoutGroupId") as string) || null,
-      startTime: (formData.get("startTime") as string) || null,
-      endTime: (formData.get("endTime") as string) || null,
+      name: formName(formData, "name"),
+      description: formNote(formData, "description"),
+      type,
+      notes: formNote(formData, "notes"),
+      offSiteLocation: formNote(formData, "offSiteLocation"),
+      roomIds: formIds(formData, "roomIds"),
+      breakoutGroupId: formId(formData, "breakoutGroupId"),
+      startTime: formNote(formData, "startTime"),
+      endTime: formNote(formData, "endTime"),
     },
     session.user.id,
   );
@@ -195,13 +195,13 @@ export async function updateFunction(id: string, eventId: string, formData: Form
     id,
     eventId,
     {
-      name: formData.get("name") as string,
-      description: (formData.get("description") as string) || null,
-      type: (formData.get("type") as string) || "",
-      notes: (formData.get("notes") as string) || null,
-      offSiteLocation: (formData.get("offSiteLocation") as string)?.trim() || null,
-      roomIds: formData.getAll("roomIds") as string[],
-      breakoutGroupId: (formData.get("breakoutGroupId") as string) || null,
+      name: formName(formData, "name"),
+      description: formNote(formData, "description"),
+      type: formValue(formData, "type"),
+      notes: formNote(formData, "notes"),
+      offSiteLocation: formNote(formData, "offSiteLocation"),
+      roomIds: formIds(formData, "roomIds"),
+      breakoutGroupId: formId(formData, "breakoutGroupId"),
     },
     session.user.id,
   );
@@ -214,25 +214,25 @@ export async function updateFunction(id: string, eventId: string, formData: Form
 
 export async function updateFunctionEsg(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const post = formData.get("postToReaderBoard") as string;
-  const intOrNull = (field: string) => (formData.get(field) ? parseInt(formData.get(field) as string) : null);
+  const post = formValue(formData, "postToReaderBoard");
+  const intOrNull = (field: string) => formInt(formData, field, { min: 0 }); // ESG counts
   await updateFunctionEsgCore(
     id,
     eventId,
     {
-      functionNumber: (formData.get("functionNumber") as string) || null,
+      functionNumber: formNote(formData, "functionNumber"),
       postToReaderBoard: post === "true" ? true : post === "false" ? false : null,
-      readerBoardText: (formData.get("readerBoardText") as string) || null,
+      readerBoardText: formNote(formData, "readerBoardText"),
       hold24Hour: formData.get("hold24Hour") === "true",
-      defaultSetup: (formData.get("defaultSetup") as string) || null,
+      defaultSetup: formNote(formData, "defaultSetup"),
       expectedAttendance: intOrNull("expectedAttendance"),
       setForCount: intOrNull("setForCount"),
       actualAttendance: intOrNull("actualAttendance"),
-      decorNotes: (formData.get("decorNotes") as string) || null,
-      securityNotes: (formData.get("securityNotes") as string) || null,
-      signageNotes: (formData.get("signageNotes") as string) || null,
-      billingNotes: (formData.get("billingNotes") as string) || null,
-      costCenter: (formData.get("costCenter") as string) || null,
+      decorNotes: formNote(formData, "decorNotes"),
+      securityNotes: formNote(formData, "securityNotes"),
+      signageNotes: formNote(formData, "signageNotes"),
+      billingNotes: formNote(formData, "billingNotes"),
+      costCenter: formNote(formData, "costCenter"),
     },
     session.user.id,
   );
@@ -256,7 +256,7 @@ export async function deleteFunction(id: string, eventId: string) {
 
 export async function deleteFunctions(ids: string[], eventId: string) {
   const session = await requirePermission("FUNCTIONS", "DELETE", eventId);
-  await deleteFunctionsCore(ids, eventId, session.user.id);
+  await deleteFunctionsCore(parseArgs(idList(5_000), ids), eventId, session.user.id);
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/functions`);
   revalidatePath(`/events/${eventId}/agenda`);
@@ -301,10 +301,10 @@ export async function createSchedule(
     functionId,
     eventId,
     {
-      type: formData.get("type") as string,
-      startTime: formData.get("startTime") as string,
-      endTime: formData.get("endTime") as string,
-      notes: (formData.get("notes") as string) || null,
+      type: formValue(formData, "type"),
+      startTime: formValue(formData, "startTime"),
+      endTime: formValue(formData, "endTime"),
+      notes: formNote(formData, "notes"),
       isPublic: formData.get("isPublic") === "true",
       force: formData.get("force") === "true",
     },
@@ -326,10 +326,10 @@ export async function updateSchedule(
     functionId,
     eventId,
     {
-      type: formData.get("type") as string,
-      startTime: formData.get("startTime") as string,
-      endTime: formData.get("endTime") as string,
-      notes: (formData.get("notes") as string) || null,
+      type: formValue(formData, "type"),
+      startTime: formValue(formData, "startTime"),
+      endTime: formValue(formData, "endTime"),
+      notes: formNote(formData, "notes"),
       isPublic: formData.get("isPublic") === "true",
       force: formData.get("force") === "true",
     },
@@ -375,8 +375,8 @@ export async function addFunctionContact(functionId: string, eventId: string, fo
   await addFunctionContactCore(
     functionId,
     eventId,
-    formData.get("contactId") as string,
-    (formData.get("role") as string) || null,
+    formRequiredId(formData, "contactId", "contact"),
+    formNote(formData, "role"),
     session.user.id,
   );
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
@@ -393,7 +393,7 @@ export async function updateFunctionContact(
     contactId,
     functionId,
     eventId,
-    (formData.get("role") as string) || null,
+    formNote(formData, "role"),
     session.user.id,
   );
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
@@ -415,12 +415,12 @@ export async function createAndAddFunctionContact(
     {
       functionId,
       eventId,
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      email: (formData.get("email") as string) || null,
-      phone: (formData.get("phone") as string) || null,
-      organization: (formData.get("organization") as string) || null,
-      role: (formData.get("role") as string) || null,
+      firstName: formValue(formData, "firstName"),
+      lastName: formValue(formData, "lastName"),
+      email: formNote(formData, "email"),
+      phone: formNote(formData, "phone"),
+      organization: formNote(formData, "organization"),
+      role: formNote(formData, "role"),
     },
     session.user.id,
   );

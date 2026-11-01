@@ -10,6 +10,7 @@ import {
   updateEventSeriesCore,
   deleteEventSeriesCore,
 } from "./core";
+import { formName } from "@/lib/validation";
 
 export async function getEventSeries() {
   const session = await requirePermission("EVENTS", "VIEW");
@@ -43,7 +44,7 @@ function revalidateSeries() {
 export async function createEventSeries(formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
   return withUserErrors(async () => {
-    await createEventSeriesCore((formData.get("name") as string) || "", session.user.id, session.tenantId);
+    await createEventSeriesCore(formName(formData, "name"), session.user.id, session.tenantId);
     revalidateSeries();
   });
 }
@@ -51,7 +52,7 @@ export async function createEventSeries(formData: FormData) {
 export async function updateEventSeries(id: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
   return withUserErrors(async () => {
-    await updateEventSeriesCore(id, (formData.get("name") as string) || "", session.user.id, session.tenantId);
+    await updateEventSeriesCore(id, formName(formData, "name"), session.user.id, session.tenantId);
     revalidateSeries();
   });
 }

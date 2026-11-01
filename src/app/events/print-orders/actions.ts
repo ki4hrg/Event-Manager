@@ -25,7 +25,7 @@ import {
   type PrintItemWriteArgs,
   type BulkPrintOrderUpdates,
 } from "./core";
-import { formEnum, formId, formInt, formNote, formValue } from "@/lib/validation";
+import { formEnum, formId, formInt, formName, formNote, formValue } from "@/lib/validation";
 
 export async function getPrintOrders(eventId: string) {
   await requirePermission("PRINT_ORDERS", "VIEW", eventId);
@@ -86,7 +86,7 @@ export async function createPrintOrder(eventId: string, formData: FormData) {
   const printOrder = await createPrintOrderCore(
     eventId,
     {
-      name: formValue(formData, "name")?.trim(),
+      name: formName(formData, "name")?.trim(),
       notes: formNote(formData, "notes"),
       roomId: formId(formData, "roomId"),
       specificLocation: formNote(formData, "specificLocation"),
@@ -106,7 +106,7 @@ export async function updatePrintOrder(id: string, eventId: string, formData: Fo
     id,
     eventId,
     {
-      name: formValue(formData, "name")?.trim(),
+      name: formName(formData, "name")?.trim(),
       notes: formNote(formData, "notes"),
       roomId: formId(formData, "roomId"),
       specificLocation: formNote(formData, "specificLocation"),

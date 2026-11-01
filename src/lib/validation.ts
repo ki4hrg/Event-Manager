@@ -184,3 +184,16 @@ export function formEnum<T extends string>(formData: FormData, key: string, valu
   if (!allowed.includes(raw)) throw new UserFacingError(`Pick a ${fieldLabel(key).toLowerCase()} from the list`);
   return raw as T;
 }
+
+/** A required name or label from a form field, bounded; blank or spaces only is refused. */
+export function formName(formData: FormData, key: string, max = 1_000): string {
+  return formText(formData, key, { label: fieldLabel(key), max, required: true });
+}
+
+/** A required YYYY-MM-DD date from a date input, as a Date; anything else is refused. */
+export function formDate(formData: FormData, key: string): Date {
+  const raw = formString(formData, key);
+  const date = dateKeySchema.safeParse(raw).success ? new Date(raw) : null;
+  if (!date || Number.isNaN(date.getTime())) throw new UserFacingError(`${fieldLabel(key)} must be a date`);
+  return date;
+}

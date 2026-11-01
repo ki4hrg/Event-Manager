@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { eventVenuesInclude } from "@/lib/eventVenues";
@@ -16,6 +18,7 @@ import {
   createContactAndAddKeyStaffCore,
   type EventWriteArgs,
 } from "./core";
+import { formDate, formId, formIds, formInt, formName, formNote, formRequiredId, formValue, parseArgs } from "@/lib/validation";
 
 // `series`: undefined/"" = all, "__blank__" = events with no series, otherwise a series id.
 export async function getEvents(series?: string) {
@@ -42,23 +45,21 @@ export async function getEventSeriesOptions() {
 
 function readEventArgs(formData: FormData): EventWriteArgs {
   return {
-    name: formData.get("name") as string,
-    description: (formData.get("description") as string) || null,
-    startDate: new Date(formData.get("startDate") as string),
-    endDate: new Date(formData.get("endDate") as string),
-    timezone: (formData.get("timezone") as string) || "America/Chicago",
-    venueIds: formData.getAll("venueIds") as string[],
-    seriesId: (formData.get("seriesId") as string) || null,
+    name: formName(formData, "name"),
+    description: formNote(formData, "description"),
+    startDate: formDate(formData, "startDate"),
+    endDate: formDate(formData, "endDate"),
+    timezone: formValue(formData, "timezone", 100),
+    venueIds: formIds(formData, "venueIds"),
+    seriesId: formId(formData, "seriesId"),
     isMembershipBased: formData.get("isMembershipBased") === "true",
-    membershipCount: intOrNull(formData, "membershipCount"),
-    expectedAttendance: intOrNull(formData, "expectedAttendance"),
-    actualAttendance: intOrNull(formData, "actualAttendance"),
+    // No floor: the form resends a stored count, which may predate these checks.
+    membershipCount: formInt(formData, "membershipCount"),
+    expectedAttendance: formInt(formData, "expectedAttendance"),
+    actualAttendance: formInt(formData, "actualAttendance"),
   };
 }
 
-function intOrNull(formData: FormData, field: string) {
-  return formData.get(field) ? parseInt(formData.get(field) as string) : null;
-}
 
 export async function createEvent(formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
@@ -105,9 +106,9 @@ export async function addEventKeyStaff(eventId: string, formData: FormData) {
   await addEventKeyStaffCore(
     {
       eventId,
-      contactId: formData.get("contactId") as string,
-      title: (formData.get("title") as string) || null,
-      models: formData.getAll("models") as string[],
+      contactId: formRequiredId(formData, "contactId", "contact"),
+      title: formNote(formData, "title"),
+      models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
       ...keyStaffEsgFromForm(formData),
     },
     session.user.id,
@@ -125,8 +126,8 @@ export async function updateEventKeyStaff(
     {
       keyStaffId,
       eventId,
-      title: (formData.get("title") as string) || null,
-      models: formData.getAll("models") as string[],
+      title: formNote(formData, "title"),
+      models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
       ...keyStaffEsgFromForm(formData),
     },
     session.user.id,
@@ -139,12 +140,12 @@ export async function updateEventKeyStaff(
 // callers) the ESG columns are left alone.
 function keyStaffEsgFromForm(formData: FormData) {
   if (!formData.has("esgFields")) return {};
-  const onSite = formData.get("onSite") as string;
+  const onSite = formValue(formData, "onSite");
   return {
-    responsibilities: (formData.get("responsibilities") as string) || null,
+    responsibilities: formNote(formData, "responsibilities"),
     onSite: onSite === "true" ? true : onSite === "false" ? false : null,
     isEmergencyContact: formData.get("isEmergencyContact") === "true",
-    approvalAuthority: (formData.get("approvalAuthority") as string) || null,
+    approvalAuthority: formNote(formData, "approvalAuthority"),
   };
 }
 
@@ -159,12 +160,12 @@ export async function createContactAndAddKeyStaff(eventId: string, formData: For
   await createContactAndAddKeyStaffCore(
     {
       eventId,
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      email: (formData.get("email") as string) || null,
-      organization: (formData.get("organization") as string) || null,
-      title: (formData.get("title") as string) || null,
-      models: formData.getAll("models") as string[],
+      firstName: formValue(formData, "firstName"),
+      lastName: formValue(formData, "lastName"),
+      email: formNote(formData, "email"),
+      organization: formNote(formData, "organization"),
+      title: formNote(formData, "title"),
+      models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
       ...keyStaffEsgFromForm(formData),
     },
     session.user.id,
@@ -176,6 +177,8 @@ export async function createContactAndAddKeyStaff(eventId: string, formData: For
 // single areas (an RFP may set its own).
 export async function updateEventAreas(id: string, scope: { regions: string[]; areas: string[] }) {
   const session = await requirePermission("EVENTS", "WRITE", id);
+  const list = z.array(z.string().max(1_000)).max(1_000);
+  scope = parseArgs(z.object({ regions: list, areas: list }), scope);
   const clean = (list: string[]) => Array.from(new Set(list.filter(Boolean)));
   await prisma.event.update({ where: { id, tenantId: session.tenantId }, data: { regions: clean(scope.regions), areas: clean(scope.areas), updatedById: session.user.id } });
   revalidatePath(`/events/${id}/settings`);

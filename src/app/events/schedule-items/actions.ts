@@ -1,10 +1,13 @@
 "use server";
 
+import { z } from "zod";
+
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { syncFunctionNumbers } from "@/lib/functionNumbering";
 import { refreshWorkflowStatusForFunctions } from "@/app/events/workflows/core";
+import { idList, parseArgs } from "@/lib/validation";
 
 export async function getScheduleItems(eventId: string) {
   await requirePermission("FUNCTIONS", "VIEW", eventId);
@@ -37,6 +40,7 @@ export async function deleteScheduleItem(id: string, eventId: string) {
 
 export async function deleteScheduleItems(ids: string[], eventId: string) {
   await requirePermission("FUNCTIONS", "DELETE", eventId);
+  ids = parseArgs(idList(5_000), ids);
   const affected = await prisma.functionSchedule.findMany({
     where: { id: { in: ids }, function: { eventId } },
     select: { functionId: true },
@@ -53,6 +57,8 @@ export async function bulkUpdateScheduleItems(
   updates: { type?: string; isPublic?: boolean }
 ) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
+  ids = parseArgs(idList(5_000), ids);
+  updates = parseArgs(z.strictObject({ type: z.string().max(1_000).optional(), isPublic: z.boolean().optional() }), updates);
   const data: { type?: string; isPublic?: boolean } = {};
   if (updates.type !== undefined) data.type = updates.type;
   if (updates.isPublic !== undefined) data.isPublic = updates.isPublic;

@@ -9,6 +9,7 @@ import {
   removeEventStaffCore,
   parseAccessCap,
 } from "./core";
+import { formRequiredId } from "@/lib/validation";
 
 // A user's role is per tenant now, so the badge shows their role in the
 // event's tenant — the one that governs what they can do on this event.
@@ -87,7 +88,7 @@ export async function addEventStaff(eventId: string, formData: FormData) {
   await addEventStaffCore(
     {
       eventId,
-      userId: formData.get("userId") as string,
+      userId: formRequiredId(formData, "userId", "user"),
       // New assignments default to View — the safe end of the range, and the
       // common case for someone being added to an event they don't run.
       accessLevel: parseAccessCap(formData.get("accessLevel") ?? "VIEW"),
