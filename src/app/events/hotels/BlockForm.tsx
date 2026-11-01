@@ -10,6 +10,7 @@ import { OptionSelect } from "@/components/ui/OptionSelect";
 import { useAutosave } from "@/lib/useAutosave";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { NightPickup } from "@/lib/hotelPickup";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 export type BlockValues = {
   contractType: string | null;
@@ -168,7 +169,7 @@ export function BlockForm({
   guestTypes: string[];
   // The block contract type's kind: whether its attrition applies.
   contractKind: ContractKind | null;
-  action: (formData: FormData) => Promise<{ id: string; night: string; roomType: string | null }[]>;
+  action: (formData: FormData) => Promise<{ id: string; night: string; roomType: string | null }[] | UserError>;
 }) {
   const canWrite = useCanWrite("HOTELS");
   // Uncontrolled and autosaving, so it keeps the values it mounted with; the
@@ -249,6 +250,8 @@ export function BlockForm({
     async () => {
       if (!payload.current) return;
       const saved = await action(payload.current);
+      // Thrown here, on the client, so useAutosave shows the server's message.
+      if (isUserError(saved)) throw new Error(saved.error);
       const idOf = new Map(saved.map((n) => [`${n.night}|${n.roomType ?? ""}`, n.id]));
       setNights((prev) => prev.map((n) => (n.id ? n : { ...n, id: idOf.get(`${n.night}|${n.roomType ?? ""}`) ?? null })));
     },

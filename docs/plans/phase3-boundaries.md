@@ -71,8 +71,8 @@ them, not ahead of time.
    and their MCP tools are covered by #279.
 9. Event core: events, functions, breakout schedule, schedule items, specifications, staff.
    Done: #288 (bulk function updates: #287).
-10. Presentations, speakers, exhibits. Done: this PR.
-11. Hotels (most casts).
+10. Presentations, speakers, exhibits. Done: #289.
+11. Hotels (most casts). Done: this PR (the MCP casts are behind #279's gate).
 12. Directory: vendors, venues, contacts, equipment, storage locations, files.
 13. Inbound mail model output: a zod schema for each proposal kind.
 

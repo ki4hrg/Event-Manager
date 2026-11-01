@@ -5,7 +5,7 @@
 import { HotelChargeScope } from "@prisma/client";
 import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
-import { readJsonList } from "@/lib/validation";
+import { formDateKey, formId, formInt, formNote, formNumber, formRawNote, formRequiredId, formValue, readJsonList } from "@/lib/validation";
 import {
   ProposalAmenitySchema,
   ProposalChargeSchema,
@@ -29,29 +29,30 @@ function scopeOrNull(v: FormDataEntryValue | null): HotelChargeScope | null {
 }
 
 export function readProposal(formData: FormData): ProposalWriteArgs {
-  const str = (k: string) => (formData.get(k) as string) || null;
-  const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
+  const str = (k: string) => formNote(formData, k);
+  const num = (k: string) => formNumber(formData, k);
   // Fields the form may leave out: absent leaves what the proposal has.
   const optional = <T>(k: string, read: (k: string) => T) => (formData.has(k) ? read(k) : undefined);
   return {
-    venueId: formData.get("venueId") as string,
-    status: formData.get("status") as string,
+    // A venue id, or NEW_HOTEL for one created on save.
+    venueId: formRequiredId(formData, "venueId", "hotel"),
+    status: formValue(formData, "status", 1_000),
     // "" not set, LEAD_SOURCE_DIRECT, or a lead-source vendor's id.
     leadSourceDirect: formData.get("leadSource") === LEAD_SOURCE_DIRECT,
-    leadSourceVendorId: formData.get("leadSource") === LEAD_SOURCE_DIRECT ? null : str("leadSource"),
-    leadSourceContactId: str("leadSourceContactId"),
+    leadSourceVendorId: formData.get("leadSource") === LEAD_SOURCE_DIRECT ? null : formId(formData, "leadSource"),
+    leadSourceContactId: formId(formData, "leadSourceContactId"),
     contractType: str("contractType"),
     guestType: str("guestType"),
-    submittedOn: str("submittedOn"),
-    checkIn: str("checkIn"),
-    checkOut: str("checkOut"),
-    declinedReason: str("declinedReason"),
-    notes: str("notes"),
-    revision: formData.get("revision") ? parseInt(formData.get("revision") as string) : 1,
-    revisionSummary: str("revisionSummary"),
+    submittedOn: formDateKey(formData, "submittedOn"),
+    checkIn: formDateKey(formData, "checkIn"),
+    checkOut: formDateKey(formData, "checkOut"),
+    declinedReason: formRawNote(formData, "declinedReason"),
+    notes: formRawNote(formData, "notes"),
+    revision: formInt(formData, "revision", { min: 1 }) ?? 1,
+    revisionSummary: formRawNote(formData, "revisionSummary"),
     allowedAttrition: num("allowedAttrition"),
     guaranteedRevenue: num("guaranteedRevenue"),
-    validUntil: str("validUntil"),
+    validUntil: formDateKey(formData, "validUntil"),
     // "true" / "false"; blank = not stated.
     taxIncluded: formData.get("taxIncluded") === "true" ? true : formData.get("taxIncluded") === "false" ? false : null,
     amenities: readJsonList(formData, "amenities", ProposalAmenitySchema),
@@ -61,14 +62,14 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     spaces: optional("spaces", (k) => readJsonList(formData, k, ProposalSpaceSchema)),
     fbMinimum: optional("fbMinimum", num),
     fbMinimumScope: optional("fbMinimumScope", (k) => scopeOrNull(formData.get(k))),
-    fbMinimumNote: optional("fbMinimumNote", str),
+    fbMinimumNote: optional("fbMinimumNote", (k) => formRawNote(formData, k)),
     fbTaxRate: optional("fbTaxRate", num),
     fbServiceCharge: optional("fbServiceCharge", num),
     meals: optional("meals", (k) => readJsonList(formData, k, ProposalMealSchema)),
     // The form also posts the link it shows as saved: an untouched picker
     // leaves the link alone, so a form loaded before a link made elsewhere
     // can't undo it.
-    rfpBlockId: formData.has("rfpBlockId") && formData.get("rfpBlockId") !== formData.get("rfpBlockWas") ? str("rfpBlockId") : undefined,
+    rfpBlockId: formData.has("rfpBlockId") && formData.get("rfpBlockId") !== formData.get("rfpBlockWas") ? formId(formData, "rfpBlockId") : undefined,
     concessions: formData.has("concessions") ? readJsonList(formData, "concessions", ProposalConcessionSchema) : undefined,
     offeredConcessions: formData.has("offeredConcessions") ? readJsonList(formData, "offeredConcessions", ProposalOfferedConcessionSchema) : undefined,
   };
