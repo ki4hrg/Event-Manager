@@ -65,10 +65,11 @@ them, not ahead of time.
    covered by #279). Structured action arguments in the same files (RFP line items,
    concessions, space, recipients, history, pattern fill; pickup counts and guest lists; quote
    awards; inbox pickup and BEO): #282 (`parseArgs`).
-7. Admin and account. Done: this PR (workflow templates, users, settings options, roles,
+7. Admin and account. Done: #285 (workflow templates, users, settings options, roles,
    tenants, API keys, event access).
-8. Order types, one PR each (catering, AV, setup, print, supply, media deliverables) with their
-   slice of `mcpTools/orders.ts`.
+8. Order types (catering, AV, setup, print, supply, media deliverables). Done in one PR, this
+   one: the forms share `formInt`/`formNumber`/`formId`/`formEnum`/`formNote` (`src/lib/validation.ts`),
+   and their MCP tools are covered by #279.
 9. Event core: events, functions, breakout schedule, schedule items, specifications, staff.
 10. Presentations, speakers, exhibits.
 11. Hotels (most casts).

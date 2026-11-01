@@ -29,6 +29,8 @@ import {
   type SetupEquipmentItemWriteArgs,
   type BulkSetupOrderUpdates,
 } from "./core";
+import { formId, formInt, formNote, formValue } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
 
 export async function getSetupOrders(eventId: string) {
   await requirePermission("SETUP_ORDERS", "VIEW", eventId);
@@ -78,18 +80,18 @@ export async function getSetupOrder(id: string) {
 
 export async function createSetupOrder(eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  const functionId = (formData.get("functionId") as string) || null;
-  const presentationId = (formData.get("presentationId") as string) || null;
+  const functionId = formId(formData, "functionId");
+  const presentationId = formId(formData, "presentationId");
   const setupOrder = await createSetupOrderCore(
     eventId,
     {
-      name: (formData.get("name") as string)?.trim() || null,
-      setupType: (formData.get("setupType") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-      roomId: (formData.get("roomId") as string) || null,
+      name: (formValue(formData, "name"))?.trim() || null,
+      setupType: formNote(formData, "setupType"),
+      notes: formNote(formData, "notes"),
+      roomId: formId(formData, "roomId"),
       functionId,
       presentationId,
-      vendorId: (formData.get("vendorId") as string) || null,
+      vendorId: formId(formData, "vendorId"),
     },
     session.user.id,
   );
@@ -106,10 +108,10 @@ export async function updateSetupOrder(id: string, eventId: string, formData: Fo
     id,
     eventId,
     {
-      name: (formData.get("name") as string)?.trim() || null,
-      setupType: (formData.get("setupType") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-      roomId: (formData.get("roomId") as string) || null,
+      name: (formValue(formData, "name"))?.trim() || null,
+      setupType: formNote(formData, "setupType"),
+      notes: formNote(formData, "notes"),
+      roomId: formId(formData, "roomId"),
     },
     session.user.id,
   );
@@ -214,14 +216,21 @@ export async function unlinkSetupOrderFromPresentationPage(setupOrderId: string,
 }
 
 // SetupTable CRUD
+function requireQuantity(formData: FormData): number {
+  const quantity = formInt(formData, "quantity", { min: 0 });
+  if (quantity === null) throw new UserFacingError("Quantity is required");
+  return quantity;
+}
+
 function parseSetupTableData(formData: FormData): SetupTableWriteArgs {
   return {
-    quantity: parseInt(formData.get("quantity") as string),
-    tableType: (formData.get("tableType") as string) || null,
-    chairCount: formData.get("chairCount") ? parseInt(formData.get("chairCount") as string) : null,
-    chairType: (formData.get("chairType") as string) || null,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    // Required: a missing quantity used to become NaN.
+    quantity: requireQuantity(formData),
+    tableType: formNote(formData, "tableType"),
+    chairCount: formInt(formData, "chairCount"),
+    chairType: formNote(formData, "chairType"),
+    providerVendorId: formId(formData, "providerVendorId"),
+    notes: formNote(formData, "notes"),
   };
 }
 
@@ -246,9 +255,9 @@ export async function deleteSetupTable(id: string, setupOrderId: string, eventId
 // SetupOrderDetail CRUD
 function parseSetupDetailData(formData: FormData): SetupOrderDetailWriteArgs {
   return {
-    headline: (formData.get("headline") as string)?.trim() || null,
-    description: formData.get("description") as string,
-    responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
+    headline: (formValue(formData, "headline"))?.trim() || null,
+    description: formValue(formData, "description"),
+    responsiblePartyVendorId: formId(formData, "responsiblePartyVendorId"),
   };
 }
 
@@ -273,14 +282,14 @@ export async function deleteSetupOrderDetail(id: string, setupOrderId: string, e
 // EquipmentItem CRUD for Setup Orders
 function parseSetupEquipmentItemData(formData: FormData): SetupEquipmentItemWriteArgs {
   return {
-    equipmentId: (formData.get("equipmentId") as string) || null,
-    item: (formData.get("item") as string) || "",
-    quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
-    providerContactId: (formData.get("providerContactId") as string) || null,
-    operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-    operatorContactId: (formData.get("operatorContactId") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    equipmentId: formId(formData, "equipmentId"),
+    item: (formValue(formData, "item")) || "",
+    quantity: formInt(formData, "quantity"),
+    providerVendorId: formId(formData, "providerVendorId"),
+    providerContactId: formId(formData, "providerContactId"),
+    operatorVendorId: formId(formData, "operatorVendorId"),
+    operatorContactId: formId(formData, "operatorContactId"),
+    notes: formNote(formData, "notes"),
   };
 }
 

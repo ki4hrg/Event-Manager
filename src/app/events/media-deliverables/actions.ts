@@ -11,7 +11,7 @@ import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { getResponsibleParties, type ResponsiblePartyPool } from "@/lib/responsibleParties";
 import { createMediaDeliverableCore } from "./core";
 import { assertEventRefs } from "@/lib/eventRefs";
-import { assertIds } from "@/lib/validation";
+import { assertIds, formId, formIds, formNote, formValue } from "@/lib/validation";
 
 async function assertMediaDeliverableInEvent(mediaDeliverableId: string, eventId: string) {
   assertIds(mediaDeliverableId);
@@ -30,13 +30,13 @@ async function bumpMediaDeliverable(mediaDeliverableId: string, eventId: string,
 }
 
 function parseDeliverableData(formData: FormData) {
-  const providerVendorId = (formData.get("providerVendorId") as string) || null;
-  const providerContactId = (formData.get("providerContactId") as string) || null;
+  const providerVendorId = formId(formData, "providerVendorId");
+  const providerContactId = formId(formData, "providerContactId");
   return {
-    mediaType: (formData.get("mediaType") as string) || null,
-    description: (formData.get("description") as string)?.trim() || null,
-    delivery: (formData.get("delivery") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    mediaType: formNote(formData, "mediaType"),
+    description: (formValue(formData, "description"))?.trim() || null,
+    delivery: formNote(formData, "delivery"),
+    notes: formNote(formData, "notes"),
     providerVendorId,
     providerContactId,
   };
@@ -109,12 +109,12 @@ export async function getMediaDeliverable(id: string) {
 
 export async function createMediaDeliverable(eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  const functionIds = (formData.getAll("functionIds") as string[]).filter(Boolean);
-  const presentationIds = (formData.getAll("presentationIds") as string[]).filter(Boolean);
+  const functionIds = formIds(formData, "functionIds");
+  const presentationIds = formIds(formData, "presentationIds");
   const deliverable = await createMediaDeliverableCore(
     eventId,
     {
-      name: (formData.get("name") as string)?.trim() ?? "",
+      name: (formValue(formData, "name"))?.trim() ?? "",
       ...parseDeliverableData(formData),
       functionIds,
       presentationIds,
@@ -130,7 +130,7 @@ export async function createMediaDeliverable(eventId: string, formData: FormData
 
 export async function updateMediaDeliverable(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  const name = (formData.get("name") as string)?.trim();
+  const name = (formValue(formData, "name"))?.trim();
   const data = parseDeliverableData(formData);
   await assertEventRefs(eventId, { vendorIds: [data.providerVendorId], contactIds: [data.providerContactId] });
 
@@ -279,8 +279,8 @@ export async function unlinkMediaDeliverableFromPresentationPage(
 export async function addMediaDeliverableContact(mediaDeliverableId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
-  const contactId = formData.get("contactId") as string;
-  const role = formData.get("role") as string;
+  const contactId = (formId(formData, "contactId") ?? "");
+  const role = formValue(formData, "role");
   await assertEventRefs(eventId, { contactIds: [contactId] });
 
   await prisma.mediaDeliverableContact.create({
@@ -299,7 +299,7 @@ export async function updateMediaDeliverableContact(
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   await prisma.mediaDeliverableContact.update({
     where: { id, mediaDeliverable: { eventId } },
-    data: { role: (formData.get("role") as string) || null },
+    data: { role: formNote(formData, "role") },
   });
   await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
@@ -319,11 +319,11 @@ export async function createAndAddMediaDeliverableContact(
 ) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
-  const firstName = formData.get("firstName") as string;
-  const lastName = formData.get("lastName") as string;
-  const email = formData.get("email") as string;
-  const organization = formData.get("organization") as string;
-  const role = formData.get("role") as string;
+  const firstName = formValue(formData, "firstName");
+  const lastName = formValue(formData, "lastName");
+  const email = formValue(formData, "email");
+  const organization = formValue(formData, "organization");
+  const role = formValue(formData, "role");
 
   const contact = await prisma.contact.create({
     data: {
