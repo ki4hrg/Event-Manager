@@ -1,3 +1,4 @@
+import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicApiKey } from "@/lib/email";
 import type { HotelChargeScope } from "@prisma/client";
@@ -784,12 +785,38 @@ async function callJson(
   if (message.stop_reason === "max_tokens") throw new ParseError("The message was too long to read in one pass");
   const text = message.content.find((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")?.text;
   if (!text) throw new ParseError("Claude returned no proposal");
+  let data: unknown;
   try {
-    return { data: JSON.parse(text) as Record<string, unknown>, model: message.model };
+    data = JSON.parse(text);
   } catch {
     throw new ParseError("Claude's proposal wasn't valid JSON");
   }
+  // The output is constrained to the schema, but a fallback model may run, and
+  // this text was written while reading an untrusted email: check its shape
+  // before anything reads it. Ids and dates are checked against the event
+  // afterwards (checkProposal).
+  if (!shapeOf(schema).safeParse(data).success) throw new ParseError("Claude's proposal didn't match the expected shape");
+  return { data: data as Record<string, unknown>, model: message.model };
 }
+
+// The response schemas as zod, built once from the same JSON Schemas sent to
+// the API, so the check can't drift from what the model was asked for.
+const shapes = new WeakMap<Record<string, unknown>, z.ZodType>();
+function shapeOf(schema: Record<string, unknown>): z.ZodType {
+  let shape = shapes.get(schema);
+  if (!shape) {
+    shape = z.fromJSONSchema(schema as never);
+    shapes.set(schema, shape);
+  }
+  return shape;
+}
+
+/** Every response schema, for the test that each converts and checks. */
+export const INBOUND_RESPONSE_SCHEMAS: Record<string, Record<string, unknown>> = {
+  classify: CLASSIFY_SCHEMA,
+  space: SPACE_SCHEMA,
+  ...DETAIL_SCHEMAS,
+};
 
 export async function parseInboundMessage(input: ParseInput): Promise<{ proposal: InboundProposal; model: string }> {
   const apiKey = getAnthropicApiKey();

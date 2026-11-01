@@ -73,8 +73,9 @@ them, not ahead of time.
    Done: #288 (bulk function updates: #287).
 10. Presentations, speakers, exhibits. Done: #289.
 11. Hotels (most casts). Done: #290 (the MCP casts are behind #279's gate).
-12. Directory: vendors, venues, contacts, equipment, storage locations, files. Done: this PR.
-13. Inbound mail model output: a zod schema for each proposal kind.
+12. Directory: vendors, venues, contacts, equipment, storage locations, files. Done: #291.
+13. Inbound mail model output: a zod schema for each proposal kind. Done: this PR (built from
+    the JSON Schemas sent to the API; ids and dates were already checked by `checkProposal`).
 
 Across every area: an id argument is checked to be an id before it reaches a Prisma `where`
 (`assertIds` in `src/lib/validation.ts`; the single-id `assert…In(Event|Tenant|Venue)` helpers
