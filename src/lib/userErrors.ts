@@ -26,15 +26,18 @@ export function isUserError(result: unknown): result is UserError {
   return typeof result === "object" && result !== null && "error" in result && typeof result.error === "string";
 }
 
-// What a client shows for an error a Server Action threw (#252). In production
-// React replaces a thrown action's message ("Minified React error #441", "An
-// error occurred in the Server Components render"), which tells the person
-// nothing; those read as the caller's own `fallback` sentence. Any other
-// message (an error thrown in the browser, or any message in development)
-// is shown as is. Refusals meant for the person still come back as { error }.
-const REDACTED = /Minified React error|An error occurred in the Server Components render|react\.dev\/errors\/441/;
+// What a client shows for an error a Server Action threw (#252). A thrown
+// action error reaches the client with a `digest` and, in production, a
+// placeholder message ("Minified React error #441"); its text means nothing to
+// staff either way, so it reads as the caller's own `fallback` sentence, in
+// development too (so an unwrapped refusal is caught while testing). So do
+// network and framework failures ("Failed to fetch", a Server Action missing
+// after a deploy). An error thrown in the browser (a file that won't parse)
+// shows its message. Refusals meant for the person come back as { error }
+// through withUserErrors instead.
+const FRAMEWORK = /Minified React error|Server Components render|Failed to fetch|Server Action .* was not found|unexpected response was received|^NEXT_/;
 
 export function actionErrorMessage(e: unknown, fallback: string): string {
-  if (!(e instanceof Error) || !e.message || REDACTED.test(e.message)) return fallback;
+  if (!(e instanceof Error) || !e.message || "digest" in e || FRAMEWORK.test(e.message)) return fallback;
   return e.message;
 }
