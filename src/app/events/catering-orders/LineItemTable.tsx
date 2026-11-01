@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { FormError, useActionError } from "@/components/FormError";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import type { UserError } from "@/lib/userErrors";
 import type { CateringOrderLineItem } from "@prisma/client";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
@@ -43,19 +42,6 @@ export function LineItemTable({ items, units, createItem, updateItem, deleteItem
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const createError = useActionError();
-  const updateError = useActionError();
-
-  const handleCreate = async (formData: FormData) => {
-    if (!(await createError.run(() => createItem(formData)))) return;
-    setShowAddForm(false);
-  };
-
-  const handleUpdate = async (id: string, formData: FormData) => {
-    if (!(await updateError.run(() => updateItem(id, formData)))) return;
-    setEditingId(null);
-  };
-
   const total = items.reduce((sum, item) => {
     if (item.unitPrice == null) return sum;
     const price = Number(item.unitPrice);
@@ -69,7 +55,7 @@ export function LineItemTable({ items, units, createItem, updateItem, deleteItem
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Pricing</h2>
         {canWrite && (
           <button
-            onClick={() => { createError.setError(null); setShowAddForm(true); }}
+            onClick={() => setShowAddForm(true)}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
           >
             Add Line Item
@@ -78,7 +64,7 @@ export function LineItemTable({ items, units, createItem, updateItem, deleteItem
       </div>
 
       {showAddForm && (
-        <form action={handleCreate} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+        <ActionForm action={createItem} onDone={() => setShowAddForm(false)} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description *</label>
@@ -124,18 +110,18 @@ export function LineItemTable({ items, units, createItem, updateItem, deleteItem
               />
             </div>
           </div>
-          <FormError error={createError.error} />
+          <ActionFormError />
           <div className="flex gap-2">
             <SubmitButton label="Add" />
             <button
               type="button"
-              onClick={() => { createError.setError(null); setShowAddForm(false); }}
+              onClick={() => setShowAddForm(false)}
               className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
             >
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       {items.length === 0 ? (
@@ -146,7 +132,7 @@ export function LineItemTable({ items, units, createItem, updateItem, deleteItem
             {items.map((item) => (
               <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 {editingId === item.id ? (
-                  <form action={(fd) => handleUpdate(item.id, fd)} onReset={keepFormValues} className="space-y-3">
+                  <ActionForm action={(fd) => updateItem(item.id, fd)} onDone={() => setEditingId(null)} className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="md:col-span-2">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description *</label>
@@ -196,18 +182,18 @@ export function LineItemTable({ items, units, createItem, updateItem, deleteItem
                         />
                       </div>
                     </div>
-                    <FormError error={updateError.error} />
+                    <ActionFormError />
                     <div className="flex gap-2">
                       <SubmitButton label="Save" />
                       <button
                         type="button"
-                        onClick={() => { updateError.setError(null); setEditingId(null); }}
+                        onClick={() => setEditingId(null)}
                         className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
                       >
                         Cancel
                       </button>
                     </div>
-                  </form>
+                  </ActionForm>
                 ) : (
                   <div className="flex items-start justify-between">
                     <div>
@@ -230,7 +216,7 @@ export function LineItemTable({ items, units, createItem, updateItem, deleteItem
                     </div>
                     <div className="flex gap-2 ml-2 shrink-0">
                       {canWrite && (
-                        <button onClick={() => { updateError.setError(null); setEditingId(item.id); }} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
+                        <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                       )}
                       {canDelete && (
                         <InlineConfirmButton

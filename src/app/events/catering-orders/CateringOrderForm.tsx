@@ -8,8 +8,7 @@ import { VendorLinkControl, type AssignedVendor, type AvailableVendor } from "@/
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import { useCanWrite } from "@/components/PermissionsProvider";
-import { FormError, useActionError } from "@/components/FormError";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import type { UserError } from "@/lib/userErrors";
 
 type CateringOrderFormProps = {
@@ -61,7 +60,6 @@ export function CateringOrderForm({
   // Read-only users get the detail view with no way back into edit mode.
   const canWrite = useCanWrite("CATERING_ORDERS");
   const [editing, setEditing] = useState(false);
-  const { error, setError, run } = useActionError();
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
@@ -72,7 +70,7 @@ export function CateringOrderForm({
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Details</h2>
           {canWrite && (
             <button
-              onClick={() => { setError(null); setEditing(true); }}
+              onClick={() => setEditing(true)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               Edit
@@ -100,11 +98,9 @@ export function CateringOrderForm({
   }
 
   return (
-    <form
-      action={async (formData) => {
-        if ((await run(() => action(formData))) && isEdit) setEditing(false);
-      }}
-      onReset={keepFormValues}
+    <ActionForm
+      action={action}
+      onDone={() => isEdit && setEditing(false)}
       className={noCard ? "space-y-0" : "space-y-6 max-w-2xl"}
     >
       <div className={cardClass}>
@@ -210,13 +206,13 @@ export function CateringOrderForm({
         </div>
       </div>
 
-      <FormError error={error} className={noCard ? "my-4" : ""} />
+      <ActionFormError className={noCard ? "my-4" : ""} />
       <div className="flex gap-4">
         <SaveButton isEdit={isEdit} />
         {isEdit ? (
           <button
             type="button"
-            onClick={() => { setError(null); setEditing(false); }}
+            onClick={() => setEditing(false)}
             className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel
@@ -230,6 +226,6 @@ export function CateringOrderForm({
           </a>
         )}
       </div>
-    </form>
+    </ActionForm>
   );
 }

@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { FormError, useActionError } from "@/components/FormError";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import type { UserError } from "@/lib/userErrors";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { computeServiceLocationCounts } from "@/lib/cateringServiceLocations";
@@ -81,19 +80,6 @@ export function AdditionalServiceLocationTable({
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const createError = useActionError();
-  const updateError = useActionError();
-
-  const handleCreate = async (formData: FormData) => {
-    if (!(await createError.run(() => createLocation(formData)))) return;
-    setShowAddForm(false);
-  };
-
-  const handleUpdate = async (id: string, formData: FormData) => {
-    if (!(await updateError.run(() => updateLocation(id, formData)))) return;
-    setEditingId(null);
-  };
-
   const { sumKnown, uncountedCount, primaryRemaining, exceedsExpected, exceedsConfirmed } =
     computeServiceLocationCounts(locations, orderExpectedCount, orderConfirmedCount);
 
@@ -106,7 +92,7 @@ export function AdditionalServiceLocationTable({
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Service Locations</h2>
         {canWrite && (
           <button
-            onClick={() => { createError.setError(null); setShowAddForm(true); }}
+            onClick={() => setShowAddForm(true)}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
           >
             Add Location
@@ -139,9 +125,9 @@ export function AdditionalServiceLocationTable({
           mode="create"
           functions={functions}
           orderExpectedCount={orderExpectedCount}
-          onSubmit={handleCreate}
-          error={createError.error}
-          onCancel={() => { createError.setError(null); setShowAddForm(false); }}
+          onSubmit={createLocation}
+          onDone={() => setShowAddForm(false)}
+          onCancel={() => setShowAddForm(false)}
         />
       )}
 
@@ -176,9 +162,9 @@ export function AdditionalServiceLocationTable({
                   initial={loc}
                   functions={functions}
                   orderExpectedCount={orderExpectedCount}
-                  onSubmit={(fd) => handleUpdate(loc.id, fd)}
-                  error={updateError.error}
-                  onCancel={() => { updateError.setError(null); setEditingId(null); }}
+                  onSubmit={(fd) => updateLocation(loc.id, fd)}
+                  onDone={() => setEditingId(null)}
+                  onCancel={() => setEditingId(null)}
                 />
               ) : (
                 <div>
@@ -200,7 +186,7 @@ export function AdditionalServiceLocationTable({
                     <div className="flex gap-2 ml-2 shrink-0">
                       {canWrite && (
                         <button
-                          onClick={() => { updateError.setError(null); setEditingId(loc.id); }}
+                          onClick={() => setEditingId(loc.id)}
                           className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                         >
                           Edit
@@ -239,8 +225,8 @@ type LocationFormProps = {
   initial?: ServiceLocation;
   functions: FunctionOption[];
   orderExpectedCount: number | null;
-  onSubmit: (formData: FormData) => Promise<void> | void;
-  error: string | null;
+  onSubmit: (formData: FormData) => Promise<void | UserError>;
+  onDone: () => void;
   onCancel: () => void;
 };
 
@@ -250,11 +236,11 @@ function LocationForm({
   functions,
   orderExpectedCount,
   onSubmit,
-  error,
+  onDone,
   onCancel,
 }: LocationFormProps) {
   return (
-    <form action={onSubmit} onReset={keepFormValues} className={mode === "create" ? "mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3" : "space-y-3"}>
+    <ActionForm action={onSubmit} onDone={onDone} className={mode === "create" ? "mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3" : "space-y-3"}>
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
           Name <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
@@ -303,7 +289,7 @@ function LocationForm({
           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
         />
       </div>
-      <FormError error={error} />
+      <ActionFormError />
       <div className="flex gap-2">
         <SubmitButton label={mode === "create" ? "Add" : "Save"} />
         <button
@@ -314,6 +300,6 @@ function LocationForm({
           Cancel
         </button>
       </div>
-    </form>
+    </ActionForm>
   );
 }

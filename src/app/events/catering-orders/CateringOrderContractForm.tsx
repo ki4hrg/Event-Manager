@@ -3,7 +3,7 @@
 import { useFormStatus } from "react-dom";
 import type { CateringOrder } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
-import { FormError, useActionError } from "@/components/FormError";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import type { UserError } from "@/lib/userErrors";
 
 type CateringOrderContractFormProps = {
@@ -32,14 +32,10 @@ function formatDateForInput(date: Date | null | undefined): string {
 export function CateringOrderContractForm({ cateringOrder, action }: CateringOrderContractFormProps) {
   // No view/edit toggle here either — see CateringOrderServiceForm.
   const canWrite = useCanWrite("CATERING_ORDERS");
-  const { error, run, keepOnRefusal } = useActionError();
 
   return (
-    <form
-      action={async (formData) => {
-        await run(() => action(formData));
-      }}
-      onReset={keepOnRefusal}
+    <ActionForm
+      action={action}
       className="space-y-6"
     >
       <fieldset disabled={!canWrite} className="space-y-6">
@@ -140,9 +136,9 @@ export function CateringOrderContractForm({ cateringOrder, action }: CateringOrd
         </div>
       </fieldset>
 
-      <FormError error={error} />
+      <ActionFormError />
 
       {canWrite && <SaveButton />}
-    </form>
+    </ActionForm>
   );
 }

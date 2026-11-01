@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { FormError, useActionError } from "@/components/FormError";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import type { UserError } from "@/lib/userErrors";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
@@ -59,7 +58,6 @@ export function PrintOrderForm({
   // Read-only users get the detail view with no way back into edit mode.
   const canWrite = useCanWrite("PRINT_ORDERS");
   const [editing, setEditing] = useState(false);
-  const { error, setError, run } = useActionError();
 
   const roomBuckets = useMemo(() => groupRoomsByGroup(rooms), [rooms]);
   const hasRoomGroups = roomBuckets.some((b) => b.named);
@@ -73,7 +71,7 @@ export function PrintOrderForm({
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Print Order Details</h2>
           {canWrite && (
             <button
-              onClick={() => { setError(null); setEditing(true); }}
+              onClick={() => setEditing(true)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               Edit
@@ -92,11 +90,9 @@ export function PrintOrderForm({
   }
 
   return (
-    <form
-      action={async (formData) => {
-        if ((await run(() => action(formData))) && isEdit) setEditing(false);
-      }}
-      onReset={keepFormValues}
+    <ActionForm
+      action={action}
+      onDone={() => isEdit && setEditing(false)}
     >
       <div className={cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Print Order Details</h2>
@@ -181,13 +177,13 @@ export function PrintOrderForm({
         </div>
       </div>
 
-      <FormError error={error} className="mt-6" />
+      <ActionFormError className="mt-6" />
       <div className="flex gap-4 mt-6">
         <SubmitButton isEdit={isEdit} />
         {isEdit ? (
           <button
             type="button"
-            onClick={() => { setError(null); setEditing(false); }}
+            onClick={() => setEditing(false)}
             className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel
@@ -201,6 +197,6 @@ export function PrintOrderForm({
           </a>
         )}
       </div>
-    </form>
+    </ActionForm>
   );
 }
