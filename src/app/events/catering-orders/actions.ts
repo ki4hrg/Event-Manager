@@ -41,7 +41,7 @@ import {
   type ServiceLocationWriteArgs,
   type BulkCateringOrderUpdates,
 } from "./core";
-import { formId, formInt, formNote, formNumber, formValue } from "@/lib/validation";
+import { formId, formInt, formNote, formNumber, formRequiredId, formValue, parseWhole } from "@/lib/validation";
 import { UserFacingError } from "@/lib/userErrors";
 
 export async function getCateringOrders(eventId: string) {
@@ -118,9 +118,9 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
       functionId: formId(formData, "functionId"),
       serviceStyle: formNote(formData, "serviceStyle"),
       mealType: formNote(formData, "mealType"),
-      expectedCount: formInt(formData, "expectedCount"),
-      confirmedCount: formInt(formData, "confirmedCount"),
-      guaranteeCount: formInt(formData, "guaranteeCount"),
+      expectedCount: formInt(formData, "expectedCount", { min: 0 }),
+      confirmedCount: formInt(formData, "confirmedCount", { min: 0 }),
+      guaranteeCount: formInt(formData, "guaranteeCount", { min: 0 }),
       staffingNotes: formNote(formData, "staffingNotes"),
       rentalMinimum: formNumber(formData, "rentalMinimum"),
       fbMinimum: formNumber(formData, "fbMinimum"),
@@ -162,10 +162,10 @@ export async function updateCateringOrderGuestCounts(id: string, eventId: string
     id,
     eventId,
     {
-      expectedCount: formInt(formData, "expectedCount"),
-      confirmedCount: formInt(formData, "confirmedCount"),
-      guaranteeCount: formInt(formData, "guaranteeCount"),
-      actualCount: formInt(formData, "actualCount"),
+      expectedCount: formInt(formData, "expectedCount", { min: 0 }),
+      confirmedCount: formInt(formData, "confirmedCount", { min: 0 }),
+      guaranteeCount: formInt(formData, "guaranteeCount", { min: 0 }),
+      actualCount: formInt(formData, "actualCount", { min: 0 }),
     },
     session.user.id,
   );
@@ -181,9 +181,7 @@ function readDietaryCounts(formData: FormData) {
   if (labels.length > 200 || labels.some((l) => l.length > 1_000)) throw new UserFacingError("Too many or too long dietary labels");
   return labels.map((label, i) => {
     const raw = counts[i]?.trim();
-    const count = raw ? Number(raw) : 0;
-    if (!Number.isInteger(count) || count < 0) throw new UserFacingError("Dietary counts must be whole numbers");
-    return { label, count };
+    return { label, count: raw ? parseWhole(raw, "Dietary count", { min: 0, max: 1_000_000 }) : 0 };
   });
 }
 
@@ -301,7 +299,7 @@ function parseEquipmentItemData(formData: FormData): CateringEquipmentItemWriteA
   return {
     equipmentId: formId(formData, "equipmentId"),
     item: formValue(formData, "item"),
-    quantity: formInt(formData, "quantity"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
     providerVendorId: formId(formData, "providerVendorId"),
     providerContactId: formId(formData, "providerContactId"),
     operatorVendorId: formId(formData, "operatorVendorId"),
@@ -333,7 +331,7 @@ function parseLineItemData(formData: FormData): LineItemWriteArgs {
     description: formValue(formData, "description"),
     unitType: formNote(formData, "unitType"),
     unitPrice: formNumber(formData, "unitPrice"),
-    quantity: formInt(formData, "quantity"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
     notes: formNote(formData, "notes"),
   };
 }
@@ -456,7 +454,7 @@ export async function addCateringOrderContact(cateringOrderId: string, eventId: 
   await addCateringOrderContactCore(
     cateringOrderId,
     eventId,
-    (formId(formData, "contactId") ?? ""),
+    formRequiredId(formData, "contactId", "contact"),
     formNote(formData, "role"),
     session.user.id,
   );

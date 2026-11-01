@@ -86,7 +86,7 @@ export async function createPrintOrder(eventId: string, formData: FormData) {
   const printOrder = await createPrintOrderCore(
     eventId,
     {
-      name: (formValue(formData, "name"))?.trim(),
+      name: formValue(formData, "name")?.trim(),
       notes: formNote(formData, "notes"),
       roomId: formId(formData, "roomId"),
       specificLocation: formNote(formData, "specificLocation"),
@@ -106,7 +106,7 @@ export async function updatePrintOrder(id: string, eventId: string, formData: Fo
     id,
     eventId,
     {
-      name: (formValue(formData, "name"))?.trim(),
+      name: formValue(formData, "name")?.trim(),
       notes: formNote(formData, "notes"),
       roomId: formId(formData, "roomId"),
       specificLocation: formNote(formData, "specificLocation"),
@@ -224,7 +224,7 @@ export async function unlinkPrintOrderFromPresentationPage(presentationId: strin
 function parsePrintItemData(formData: FormData): PrintItemWriteArgs {
   return {
     description: formValue(formData, "description"),
-    quantity: formInt(formData, "quantity"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
     acquisitionState: formEnum(formData, "acquisitionState", AcquisitionState, "TO_PROCURE"),
     packingStatus: formEnum(formData, "packingStatus", PackingStatus, "NEEDED"),
     // Absent when the status has no sub-states: kept only while the status stays put.

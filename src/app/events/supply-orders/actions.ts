@@ -101,7 +101,7 @@ export async function createSupplyOrder(eventId: string, formData: FormData) {
   const supplyOrder = await createSupplyOrderCore(
     eventId,
     {
-      name: (formValue(formData, "name"))?.trim(),
+      name: formValue(formData, "name")?.trim(),
       roomId: formId(formData, "roomId"),
       specificLocation: formNote(formData, "specificLocation"),
       notes: formNote(formData, "notes"),
@@ -125,7 +125,7 @@ export async function updateSupplyOrder(id: string, eventId: string, formData: F
     id,
     eventId,
     {
-      name: (formValue(formData, "name"))?.trim(),
+      name: formValue(formData, "name")?.trim(),
       roomId: formId(formData, "roomId"),
       specificLocation: formNote(formData, "specificLocation"),
       notes: formNote(formData, "notes"),
@@ -275,9 +275,9 @@ export async function getAvailableSupplyOrdersForPresentation(eventId: string, p
 
 function parseSupplyItemData(formData: FormData): SupplyItemWriteArgs {
   return {
-    description: (formValue(formData, "description"))?.trim() || null,
+    description: formNote(formData, "description"),
     equipmentId: formId(formData, "equipmentId"),
-    quantity: formInt(formData, "quantity"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
     acquisitionState: formEnum(formData, "acquisitionState", AcquisitionState, "ON_HAND"),
     providerVendorId: formId(formData, "providerVendorId"),
     providerContactId: formId(formData, "providerContactId"),

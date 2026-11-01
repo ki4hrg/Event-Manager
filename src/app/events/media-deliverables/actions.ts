@@ -11,7 +11,7 @@ import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { getResponsibleParties, type ResponsiblePartyPool } from "@/lib/responsibleParties";
 import { createMediaDeliverableCore } from "./core";
 import { assertEventRefs } from "@/lib/eventRefs";
-import { assertIds, formId, formIds, formNote, formValue } from "@/lib/validation";
+import { assertIds, formId, formIds, formNote, formRequiredId, formValue } from "@/lib/validation";
 
 async function assertMediaDeliverableInEvent(mediaDeliverableId: string, eventId: string) {
   assertIds(mediaDeliverableId);
@@ -34,7 +34,7 @@ function parseDeliverableData(formData: FormData) {
   const providerContactId = formId(formData, "providerContactId");
   return {
     mediaType: formNote(formData, "mediaType"),
-    description: (formValue(formData, "description"))?.trim() || null,
+    description: formNote(formData, "description"),
     delivery: formNote(formData, "delivery"),
     notes: formNote(formData, "notes"),
     providerVendorId,
@@ -114,7 +114,7 @@ export async function createMediaDeliverable(eventId: string, formData: FormData
   const deliverable = await createMediaDeliverableCore(
     eventId,
     {
-      name: (formValue(formData, "name"))?.trim() ?? "",
+      name: formValue(formData, "name"),
       ...parseDeliverableData(formData),
       functionIds,
       presentationIds,
@@ -130,7 +130,7 @@ export async function createMediaDeliverable(eventId: string, formData: FormData
 
 export async function updateMediaDeliverable(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  const name = (formValue(formData, "name"))?.trim();
+  const name = formValue(formData, "name")?.trim();
   const data = parseDeliverableData(formData);
   await assertEventRefs(eventId, { vendorIds: [data.providerVendorId], contactIds: [data.providerContactId] });
 
@@ -279,7 +279,7 @@ export async function unlinkMediaDeliverableFromPresentationPage(
 export async function addMediaDeliverableContact(mediaDeliverableId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
-  const contactId = (formId(formData, "contactId") ?? "");
+  const contactId = formRequiredId(formData, "contactId", "contact");
   const role = formValue(formData, "role");
   await assertEventRefs(eventId, { contactIds: [contactId] });
 

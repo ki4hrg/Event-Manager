@@ -85,7 +85,7 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
   const setupOrder = await createSetupOrderCore(
     eventId,
     {
-      name: (formValue(formData, "name"))?.trim() || null,
+      name: formNote(formData, "name"),
       setupType: formNote(formData, "setupType"),
       notes: formNote(formData, "notes"),
       roomId: formId(formData, "roomId"),
@@ -108,7 +108,7 @@ export async function updateSetupOrder(id: string, eventId: string, formData: Fo
     id,
     eventId,
     {
-      name: (formValue(formData, "name"))?.trim() || null,
+      name: formNote(formData, "name"),
       setupType: formNote(formData, "setupType"),
       notes: formNote(formData, "notes"),
       roomId: formId(formData, "roomId"),
@@ -227,7 +227,7 @@ function parseSetupTableData(formData: FormData): SetupTableWriteArgs {
     // Required: a missing quantity used to become NaN.
     quantity: requireQuantity(formData),
     tableType: formNote(formData, "tableType"),
-    chairCount: formInt(formData, "chairCount"),
+    chairCount: formInt(formData, "chairCount", { min: 0 }),
     chairType: formNote(formData, "chairType"),
     providerVendorId: formId(formData, "providerVendorId"),
     notes: formNote(formData, "notes"),
@@ -255,7 +255,7 @@ export async function deleteSetupTable(id: string, setupOrderId: string, eventId
 // SetupOrderDetail CRUD
 function parseSetupDetailData(formData: FormData): SetupOrderDetailWriteArgs {
   return {
-    headline: (formValue(formData, "headline"))?.trim() || null,
+    headline: formNote(formData, "headline"),
     description: formValue(formData, "description"),
     responsiblePartyVendorId: formId(formData, "responsiblePartyVendorId"),
   };
@@ -283,8 +283,8 @@ export async function deleteSetupOrderDetail(id: string, setupOrderId: string, e
 function parseSetupEquipmentItemData(formData: FormData): SetupEquipmentItemWriteArgs {
   return {
     equipmentId: formId(formData, "equipmentId"),
-    item: (formValue(formData, "item")) || "",
-    quantity: formInt(formData, "quantity"),
+    item: formValue(formData, "item"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
     providerVendorId: formId(formData, "providerVendorId"),
     providerContactId: formId(formData, "providerContactId"),
     operatorVendorId: formId(formData, "operatorVendorId"),

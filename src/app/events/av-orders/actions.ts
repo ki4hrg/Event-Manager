@@ -291,7 +291,7 @@ export async function createInputGroup(audioSectionId: string, avOrderId: string
     avOrderId,
     eventId,
     {
-      name: (formValue(formData, "name")) || "Default",
+      name: formValue(formData, "name") || "Default",
       notes: formNote(formData, "notes"),
     },
     session.user.id,
@@ -331,7 +331,7 @@ export async function deleteInputGroup(id: string, avOrderId: string, eventId: s
 function parseInputItemData(formData: FormData): InputItemWriteArgs {
   return {
     description: formValue(formData, "description"),
-    quantity: formInt(formData, "quantity") ?? 1,
+    quantity: formInt(formData, "quantity", { min: 0 }) ?? 1,
     equipmentId: formId(formData, "equipmentId"),
     providerVendorId: formId(formData, "providerVendorId"),
     providerContactId: formId(formData, "providerContactId"),
@@ -396,7 +396,7 @@ export async function deleteMonitorMix(id: string, avOrderId: string, eventId: s
 function parseMonitorOutputData(formData: FormData): MonitorOutputWriteArgs {
   return {
     equipmentId: formId(formData, "equipmentId"),
-    quantity: formInt(formData, "quantity") ?? 1,
+    quantity: formInt(formData, "quantity", { min: 0 }) ?? 1,
     providerVendorId: formId(formData, "providerVendorId"),
     providerContactId: formId(formData, "providerContactId"),
     operatorVendorId: formId(formData, "operatorVendorId"),
@@ -436,8 +436,8 @@ export async function updateVideoSection(id: string, avOrderId: string, eventId:
 function parseAVEquipmentItemData(formData: FormData): AVEquipmentItemWriteArgs {
   return {
     equipmentId: formId(formData, "equipmentId"),
-    item: (formValue(formData, "item")) || "",
-    quantity: formInt(formData, "quantity"),
+    item: formValue(formData, "item"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
     providerVendorId: formId(formData, "providerVendorId"),
     providerContactId: formId(formData, "providerContactId"),
     operatorVendorId: formId(formData, "operatorVendorId"),

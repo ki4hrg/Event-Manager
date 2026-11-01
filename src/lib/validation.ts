@@ -103,7 +103,11 @@ export function formText(formData: FormData, key: string, opts: { label: string;
 
 // "expectedCount" → "Expected count", for refusals that name a form field.
 const fieldLabel = (key: string) => {
-  const words = key.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+  const words = key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/\bfb\b/g, "F&B")
+    .replace(/\bav\b/g, "AV");
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 const formString = (formData: FormData, key: string) => {
@@ -114,11 +118,15 @@ const formString = (formData: FormData, key: string) => {
 /** A whole number from a form field; blank is null. Refuses text, fractions and out-of-range values. */
 export function formInt(formData: FormData, key: string, opts: { min?: number; max?: number } = {}): number | null {
   const raw = formString(formData, key);
-  if (!raw) return null;
-  const n = Number(raw);
-  if (!Number.isInteger(n)) throw new UserFacingError(`${fieldLabel(key)} must be a whole number`);
+  return raw ? parseWhole(raw, fieldLabel(key), opts) : null;
+}
+
+/** `raw` as a whole number within an Int column's range (or `opts`), refused by `label`. */
+export function parseWhole(raw: string, label: string, opts: { min?: number; max?: number } = {}): number {
+  const n = Number(raw.trim());
+  if (!raw.trim() || !Number.isInteger(n)) throw new UserFacingError(`${label} must be a whole number`);
   const { min = -2_147_483_647, max = 2_147_483_647 } = opts;
-  if (n < min || n > max) throw new UserFacingError(`${fieldLabel(key)} must be between ${min} and ${max}`);
+  if (n < min || n > max) throw new UserFacingError(`${label} must be between ${min} and ${max}`);
   return n;
 }
 
@@ -130,6 +138,13 @@ export function formNumber(formData: FormData, key: string, opts: { min?: number
   if (!Number.isFinite(n)) throw new UserFacingError(`${fieldLabel(key)} must be a number`);
   if (opts.min !== undefined && n < opts.min) throw new UserFacingError(`${fieldLabel(key)} can't be below ${opts.min}`);
   return n;
+}
+
+/** An id from a select that must be picked; refused as "Pick a <label>" when blank. */
+export function formRequiredId(formData: FormData, key: string, label: string): string {
+  const id = formId(formData, key);
+  if (!id) throw new UserFacingError(`Pick a ${label}`);
+  return id;
 }
 
 /** An id from a select; blank (or `__blank__`, the "none" sentinel) is null, anything else must be an id. */
@@ -145,11 +160,6 @@ export function formNote(formData: FormData, key: string, max = 100_000): string
   return formText(formData, key, { label: fieldLabel(key), max });
 }
 
-/** A required name or label from a form field, bounded. */
-export function formName(formData: FormData, key: string, max = 1_000): string {
-  return formText(formData, key, { label: fieldLabel(key), max, required: true });
-}
-
 /** A text field as the core expects it: "" when blank (the core decides if that's allowed), bounded. */
 export function formValue(formData: FormData, key: string, max = 100_000): string {
   return formText(formData, key, { label: fieldLabel(key), max }) ?? "";
@@ -157,7 +167,10 @@ export function formValue(formData: FormData, key: string, max = 100_000): strin
 
 /** The ids a multi-select or checkbox group posts under one key; blanks dropped, each an id. */
 export function formIds(formData: FormData, key: string, max = 1_000): string[] {
-  const values = formData.getAll(key).filter((v) => v !== "");
+  const values = formData
+    .getAll(key)
+    .map((v) => (typeof v === "string" ? v.trim() : v))
+    .filter((v) => v !== "" && v !== "__blank__");
   if (values.length > max) throw new UserFacingError(`Too many ${fieldLabel(key).toLowerCase()}`);
   assertIds(...values);
   return values as string[];
