@@ -32,7 +32,7 @@ type UserSearchResult = {
 type Props = {
   staff: StaffEntry[];
   addStaff: (formData: FormData) => Promise<void | UserError>;
-  removeStaff: (staffId: string) => Promise<void>;
+  removeStaff: (staffId: string) => Promise<void | UserError>;
   setLevel: (staffId: string, accessLevel: string) => Promise<void | UserError>;
   searchUsers: (query: string) => Promise<UserSearchResult[]>;
 };
@@ -242,9 +242,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
                 <InlineDeleteButton
                   resource="EVENTS"
                   requiredLevel="WRITE"
-                  action={async () => {
-                    await removeStaff(entry.id);
-                  }}
+                  action={() => removeStaff(entry.id)}
                   hiddenInputs={{}}
                   label="Remove"
                 />

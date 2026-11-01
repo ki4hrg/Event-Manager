@@ -118,6 +118,8 @@ export async function setEventStaffLevel(
 
 export async function removeEventStaff(staffId: string, eventId: string) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  await removeEventStaffCore(staffId, eventId, session.user.id);
-  revalidateStaff(eventId);
+  return withUserErrors(async () => {
+    await removeEventStaffCore(staffId, eventId, session.user.id);
+    revalidateStaff(eventId);
+  });
 }

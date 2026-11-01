@@ -107,8 +107,10 @@ export async function setStorageLocationArchived(id: string, archived: boolean) 
 
 export async function deleteStorageLocation(id: string) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "DELETE");
-  await deleteStorageLocationCore(id, session.user.id, session.tenantId);
-  revalidatePath("/storage-locations");
+  return withUserErrors(async () => {
+    await deleteStorageLocationCore(id, session.user.id, session.tenantId);
+    revalidatePath("/storage-locations");
+  });
 }
 
 export async function reorderStorageLocations(orderedIds: string[]) {

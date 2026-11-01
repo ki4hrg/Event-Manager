@@ -12,7 +12,7 @@ type EquipmentListProps = {
   categories: CustomOption[];
   createEquipment: (formData: FormData) => Promise<void | UserError>;
   updateEquipment: (id: string, formData: FormData) => Promise<void | UserError>;
-  deleteEquipment: (id: string) => Promise<void>;
+  deleteEquipment: (id: string) => Promise<void | UserError>;
 };
 
 function SubmitButton({ label }: { label: string }) {

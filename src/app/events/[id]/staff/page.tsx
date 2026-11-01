@@ -33,7 +33,7 @@ export default async function EventStaffPage({
 
   const removeStaffAction = async (staffId: string) => {
     "use server";
-    await removeEventStaff(staffId, id);
+    return removeEventStaff(staffId, id);
   };
 
   const setLevelAction = async (staffId: string, accessLevel: string) => {
