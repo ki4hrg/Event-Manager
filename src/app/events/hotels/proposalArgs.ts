@@ -11,7 +11,7 @@ export const NEW_HOTEL = "__new__";
 // ProposalForm's lead-source value for a lead the hotel generated itself.
 export const LEAD_SOURCE_DIRECT = "__direct__";
 
-const NEW_HOTEL_KEYS = [
+export const NEW_HOTEL_KEYS = [
   "name",
   "address",
   "city",

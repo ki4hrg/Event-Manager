@@ -61,7 +61,10 @@ const anyNumber = z.custom<number>((v) => typeof v === "number", "Expected a num
 export const looseNumber = anyNumber.nullish().transform((n) => (n == null || !Number.isFinite(n) ? null : n));
 /** A number where none means 0 (a count): NaN and Infinity read as 0. */
 export const looseCount = anyNumber.transform((n) => (Number.isFinite(n) ? n : 0));
-export const looseText = (max = 10_000) =>
+// Bounds stay loose: an editor resends its stored rows on every autosave, so a
+// value stored before these checks must still pass (Server Action bodies are
+// capped at 1MB anyway).
+export const looseText = (max = 100_000) =>
   z
     .string()
     .max(max)

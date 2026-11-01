@@ -74,9 +74,10 @@ describe("RFP actions: structured arguments from the page", () => {
     ).rejects.toBeInstanceOf(UserFacingError);
   });
 
-  it("refuses an RFP history query that isn't exactly one vendor or venue id", async () => {
+  it("treats an RFP history query that isn't exactly one vendor or venue id as not found", async () => {
     await setup();
-    await expect(getRfpHistory({ vendorId: { not: "" } } as never)).rejects.toBeInstanceOf(UserFacingError);
-    await expect(getRfpHistory({ vendorId: "v1", rfpId: "x" } as never)).rejects.toBeInstanceOf(UserFacingError);
+    const NOT_FOUND = { digest: expect.stringContaining("404") };
+    await expect(getRfpHistory({ vendorId: { not: "" } } as never)).rejects.toMatchObject(NOT_FOUND);
+    await expect(getRfpHistory({ vendorId: "v1", rfpId: "x" } as never)).rejects.toMatchObject(NOT_FOUND);
   });
 });

@@ -18,6 +18,7 @@ import { cateringSpaceRows, functionSpaceRows, sortSpaceRows } from "@/lib/rfp/s
 import { getPickupPattern } from "@/app/hotels/actions";
 import { eventScopeWhere } from "../core";
 import type { OfferHotel } from "@/lib/inboundParse";
+import { NEW_HOTEL_KEYS } from "@/app/events/hotels/proposalArgs";
 import {
   addNewRfpRecipientCore,
   addRfpRecipientsCore,
@@ -51,7 +52,7 @@ import {
 // checked before the cores see them (React's encoding keeps NaN and
 // undefined; see looseNumber). Each is held to the core's arg type.
 const idOrNull = idSchema.nullish().transform((v) => v ?? null);
-const short = looseText(500);
+const short = looseText(10_000);
 
 const LineItemSchema = z.object({
   id: idSchema.nullish(),
@@ -104,18 +105,10 @@ const RecipientSchema = z.object({
   notes: looseText(),
 }) satisfies z.ZodType<RfpRecipientArgs>;
 
-const NewHotelSchema = z.object({
-  name: short,
-  address: short,
-  city: short,
-  state: short,
-  zip: looseText(20),
-  contactFirstName: short,
-  contactLastName: short,
-  contactTitle: short,
-  contactEmail: looseText(254),
-  contactPhone: looseText(50),
-}) satisfies z.ZodType<OfferHotel>;
+// The new-hotel fields readNewHotel posts, one per NEW_HOTEL_KEYS entry.
+const NewHotelSchema = z.object(
+  Object.fromEntries(NEW_HOTEL_KEYS.map((k) => [k, looseText(1_000)])) as Record<(typeof NEW_HOTEL_KEYS)[number], ReturnType<typeof looseText>>,
+) satisfies z.ZodType<OfferHotel>;
 
 const FillSchema = z.object({
   seriesId: idOrNull,
@@ -123,9 +116,9 @@ const FillSchema = z.object({
   guestType: short,
   basis: z.enum(["average", "highest", "latest"]),
   adjust: z.number(),
-  city: z.string().max(200).optional(),
-  from: z.string().max(10).optional(),
-  to: z.string().max(10).optional(),
+  city: z.string().max(1_000).optional(),
+  from: z.string().max(40).optional(),
+  to: z.string().max(40).optional(),
 }) satisfies z.ZodType<RfpFillArgs & { city?: string; from?: string; to?: string }>;
 
 const PartySchema = z.union([z.strictObject({ vendorId: idSchema }), z.strictObject({ venueId: idSchema })]);
@@ -204,7 +197,10 @@ export async function getRfp(id: string, eventId: string) {
 // for the vendor and venue pages. Newest events first.
 export async function getRfpHistory(input: { vendorId: string } | { venueId: string }) {
   // Spread into a Prisma where below: exactly one id, never a filter object.
-  const party = parseArgs(PartySchema, input);
+  // The id comes from a vendor or venue route, so a malformed one is not found.
+  const checked = PartySchema.safeParse(input);
+  if (!checked.success) notFound();
+  const party = checked.data;
   const session = await requirePermission("vendorId" in party ? "VENDORS" : "VENUES", "VIEW");
   const [allowed, event] = await Promise.all([
     Promise.all(RFP_KINDS.map(async (k) => ((await hasPermission(resourceForKind(k), "VIEW")) ? k : null))),
@@ -409,7 +405,9 @@ export async function getRfpComparison(id: string, eventId: string, combine: str
   const rfp = await prisma.rfp.findFirst({ where: { id, eventId }, select: { kind: true } });
   if (!rfp) return null;
   const session = await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
-  return getRfpComparisonCore(id, eventId, session.user.id, parseArgs(idList(), combine));
+  // From the URL's ?combine=: entries that can't be ids are ignored.
+  const ids = Array.isArray(combine) ? combine.filter((c) => idSchema.safeParse(c).success).slice(0, 200) : [];
+  return getRfpComparisonCore(id, eventId, session.user.id, ids);
 }
 
 // A requested block filled from past pickup (src/lib/hotelPattern.ts), dated
