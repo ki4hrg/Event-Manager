@@ -6,7 +6,6 @@ import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { EntityStatus } from "@prisma/client";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 import {
   createTrackCore,
@@ -27,7 +26,7 @@ import {
   type PresentationUpdateArgs,
   type BulkPresentationUpdates,
 } from "./core";
-import { formId, formIds, formInt, formName, formNote, formRequiredId, formTexts, formValue, idList, idSchema, parseArgs, parseWhole } from "@/lib/validation";
+import { assertIds, formId, formInt, formName, formNote, formRequiredId, formTexts, formValue, idList, idSchema, parseArgs, parseWhole } from "@/lib/validation";
 
 // ============================================================================
 // Track CRUD (event-scoped)
@@ -177,6 +176,12 @@ export async function getPresentation(id: string) {
   };
 }
 
+function speakerIds(formData: FormData): string[] {
+  const ids = formTexts(formData, "speakerContactIds", { max: 100 });
+  assertIds(...ids);
+  return ids;
+}
+
 export async function createPresentation(eventId: string, formData: FormData) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const presentation = await createPresentationCore(
@@ -189,10 +194,11 @@ export async function createPresentation(eventId: string, formData: FormData) {
       internalNotes: formNote(formData, "internalNotes"),
       type: formValue(formData, "type"),
       breakoutGroupId: formId(formData, "breakoutGroupId"),
-      instanceCount: formInt(formData, "instanceCount", { min: 1, max: 100 }) ?? 1,
+      instanceCount: formInt(formData, "instanceCount", { min: 1, max: 10_000 }) ?? 1,
       advancerVendorId: formId(formData, "advancerVendorId"),
       advancerContactId: formId(formData, "advancerContactId"),
-      speakerContactIds: formIds(formData, "speakerContactIds"),
+      // Paired with speakerRoles by position: every entry kept, each an id.
+      speakerContactIds: speakerIds(formData),
       speakerRoles: formTexts(formData, "speakerRoles"),
       primarySpeakerId: formId(formData, "primarySpeakerId"),
     },
@@ -204,7 +210,7 @@ export async function createPresentation(eventId: string, formData: FormData) {
 
 export async function updatePresentationInstanceCount(id: string, eventId: string, count: number) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await updatePresentationInstanceCountCore(id, eventId, parseArgs(z.number().int().min(1).max(100), count), session.user.id);
+  await updatePresentationInstanceCountCore(id, eventId, parseArgs(z.number().int().min(1).max(10_000), count), session.user.id);
   revalidatePath(`/events/${eventId}/presentations/${id}`);
 }
 
@@ -221,7 +227,7 @@ export async function updatePresentation(id: string, eventId: string, formData: 
   };
   // Fields the form may leave out: absent leaves what the presentation has.
   if (formData.has("breakoutGroupId")) args.breakoutGroupId = formId(formData, "breakoutGroupId");
-  const instanceCount = formInt(formData, "instanceCount", { min: 1, max: 100 });
+  const instanceCount = formInt(formData, "instanceCount", { min: 1, max: 10_000 });
   if (instanceCount !== null) args.instanceCount = instanceCount;
   if (formData.has("advancerVendorId")) args.advancerVendorId = formId(formData, "advancerVendorId");
   if (formData.has("advancerContactId")) args.advancerContactId = formId(formData, "advancerContactId");
@@ -252,16 +258,7 @@ export async function bulkUpdatePresentations(
   updates: BulkPresentationUpdates,
 ) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  const parsed = parseArgs(
-    z.strictObject({
-      status: z.enum(EntityStatus).optional(),
-      substatus: z.string().max(1_000).nullable().optional(),
-      trackId: idSchema.nullable().optional(),
-      type: z.string().max(1_000).optional(),
-    }),
-    updates,
-  );
-  await bulkUpdatePresentationsCore(parseArgs(idList(5_000), ids), eventId, parsed, session.user.id);
+  await bulkUpdatePresentationsCore(parseArgs(idList(5_000), ids), eventId, updates, session.user.id);
   revalidatePath(`/events/${eventId}/presentations`);
 }
 
@@ -407,7 +404,9 @@ const IMPORT_DESTINATIONS = [
   "contact.email",
   "skip",
 ] as const satisfies readonly ImportDestination[];
-const ImportRowsSchema = z.array(z.record(z.string().max(500), z.string().max(100_000))).max(5_000);
+// A ragged row's extra cells arrive as an array under Papa's `__parsed_extra`.
+const ImportCell = z.union([z.string().max(100_000), z.array(z.string().max(100_000)).max(1_000)]);
+const ImportRowsSchema = z.array(z.record(z.string().max(500), ImportCell)).max(50_000);
 const ColumnMappingSchema = z.record(z.string().max(500), z.enum(IMPORT_DESTINATIONS));
 
 function splitFullName(name: string): { firstName: string; lastName: string } {
@@ -423,7 +422,10 @@ export async function importPresentationsFromCSV(
   mapping: ColumnMapping
 ): Promise<{ created: number; errors: Array<{ row: number; message: string }> }> {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  rows = parseArgs(ImportRowsSchema, rows);
+  // Text cells only: a ragged row's extra cells (an array) were never read.
+  rows = parseArgs(ImportRowsSchema, rows).map(
+    (r) => Object.fromEntries(Object.entries(r).filter((e): e is [string, string] => typeof e[1] === "string")),
+  );
   mapping = parseArgs(ColumnMappingSchema, mapping);
   const errors: Array<{ row: number; message: string }> = [];
   let created = 0;
@@ -466,6 +468,11 @@ export async function importPresentationsFromCSV(
         continue;
       }
 
+      // Before any write: a row whose count isn't a whole number is reported,
+      // and nothing of it (not even its contact) is created.
+      const instanceCountRaw = fields["presentation.instanceCount"]?.trim();
+      const instanceCount = instanceCountRaw ? parseWhole(instanceCountRaw, "Instance count", { min: 0, max: 10_000 }) : 1;
+
       let contactId: string | null = null;
       const email = fields["contact.email"]?.trim() || null;
       let firstName = fields["contact.firstName"]?.trim() || "";
@@ -492,10 +499,6 @@ export async function importPresentationsFromCSV(
         }
         contactId = contact.id;
       }
-
-      const instanceCountRaw = fields["presentation.instanceCount"]?.trim();
-      // A row that isn't a whole number 1–100 is reported, not imported.
-      const instanceCount = instanceCountRaw ? parseWhole(instanceCountRaw, "Instance count", { min: 1, max: 100 }) : 1;
 
       const presentation = await prisma.presentation.create({
         data: {

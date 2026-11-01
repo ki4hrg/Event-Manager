@@ -94,7 +94,7 @@ function readShared(formData: FormData, timezone: string): BoothSharedArgs {
   };
   const bool = (k: string) => (formData.get(k) === "true" ? true : formData.get(k) === "false" ? false : null);
   // Blank is not stated; anything else must be a ProvidedBy value.
-  const provided = (k: string) => (formNote(formData, k) ? formEnum(formData, k, ProvidedBy, ProvidedBy.NOT_REQUIRED) : null);
+  const provided = (k: string) => (formData.get(k) ? formEnum(formData, k, ProvidedBy, ProvidedBy.NOT_REQUIRED) : null);
   return {
     functionId: formId(formData, "functionId"),
     location: str("location"),
@@ -132,7 +132,7 @@ function readBooth(formData: FormData, timezone: string): BoothWriteArgs {
     groupId: formId(formData, "groupId"),
     boothNumber: str("boothNumber"),
     companyName: str("companyName"),
-    contactId: str("contactId"),
+    contactId: formId(formData, "contactId"),
   };
 }
 
@@ -192,7 +192,7 @@ export async function deleteExhibitBooth(id: string, eventId: string) {
 function readEquipment(formData: FormData): BoothEquipmentItemWriteArgs {
   return {
     equipmentId: formId(formData, "equipmentId"),
-    item: (formValue(formData, "item")) || "",
+    item: formValue(formData, "item"),
     quantity: formInt(formData, "quantity"),
     providerVendorId: formId(formData, "providerVendorId"),
     providerContactId: formId(formData, "providerContactId"),

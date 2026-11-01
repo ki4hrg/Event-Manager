@@ -1,7 +1,10 @@
 // Pure cores for presentation + track + speaker mutations. NOT a "use server"
 // file — see src/app/contacts/core.ts for the security rationale.
 
-import type { EntityStatus } from "@prisma/client";
+import { z } from "zod";
+import { idSchema } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
+import { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
@@ -98,7 +101,7 @@ export async function createPresentationCore(
       schedulingNotes: args.schedulingNotes,
       internalNotes: args.internalNotes,
       breakoutGroupId: args.breakoutGroupId,
-      instanceCount: args.instanceCount,
+      instanceCount: checkInstanceCount(args.instanceCount),
       eventId,
       status: defaults.status,
       substatus: defaults.substatus,
@@ -133,7 +136,7 @@ export async function updatePresentationInstanceCountCore(
   await requirePermissionForUser(userId, "PRESENTATIONS", "WRITE", eventId);
   return prisma.presentation.update({
     where: { id, eventId },
-    data: { instanceCount: count, updatedById: userId },
+    data: { instanceCount: checkInstanceCount(count), updatedById: userId },
   });
 }
 
@@ -171,7 +174,7 @@ export async function updatePresentationCore(
       schedulingNotes: args.schedulingNotes,
       internalNotes: args.internalNotes,
       ...(args.breakoutGroupId !== undefined ? { breakoutGroupId: args.breakoutGroupId } : {}),
-      ...(args.instanceCount !== undefined ? { instanceCount: args.instanceCount } : {}),
+      ...(args.instanceCount !== undefined ? { instanceCount: checkInstanceCount(args.instanceCount) } : {}),
       ...(args.advancerVendorId !== undefined ? { advancerVendorId: args.advancerVendorId } : {}),
       ...(args.advancerContactId !== undefined ? { advancerContactId: args.advancerContactId } : {}),
       updatedById: userId,
@@ -190,12 +193,21 @@ export async function deletePresentationsCore(ids: string[], eventId: string, us
   return { count: r.count };
 }
 
-export type BulkPresentationUpdates = {
-  status?: EntityStatus;
-  substatus?: string | null;
-  trackId?: string | null;
-  type?: string;
-};
+// Exactly the fields a bulk update may change; any other key is refused.
+export const BulkPresentationUpdatesSchema = z.strictObject({
+  status: z.enum(EntityStatus).optional(),
+  substatus: z.string().max(1_000).nullable().optional(),
+  trackId: idSchema.nullable().optional(),
+  type: z.string().max(1_000).optional(),
+});
+export type BulkPresentationUpdates = z.infer<typeof BulkPresentationUpdatesSchema>;
+
+// Instances of a presentation in the breakout grid: at least one, and few
+// enough that the grid can render the unplaced ones.
+function checkInstanceCount(n: number): number {
+  if (!Number.isInteger(n) || n < 1 || n > 10_000) throw new UserFacingError("Instance count must be a whole number from 1 to 10000");
+  return n;
+}
 
 export async function bulkUpdatePresentationsCore(
   ids: string[],
@@ -204,6 +216,9 @@ export async function bulkUpdatePresentationsCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRESENTATIONS", "WRITE", eventId);
+  const parsed = BulkPresentationUpdatesSchema.safeParse(updates);
+  if (!parsed.success) throw new UserFacingError("Bulk updates can change only status, substatus, track and type");
+  updates = parsed.data;
   await assertEventRefs(eventId, { trackIds: [updates.trackId] });
   const { status, substatus, trackId, type } = updates;
   const r = await prisma.presentation.updateMany({

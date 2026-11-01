@@ -29,10 +29,11 @@ describe("presentations: client arguments are checked", () => {
     expect((await prisma.presentation.findUniqueOrThrow({ where: { id: p.id } })).eventId).toBe(eventId);
   });
 
-  it("refuses an instance count that isn't a whole number from 1 to 100", async () => {
+  it("refuses an instance count that isn't a whole number from 1 to 10000", async () => {
     const { eventId } = await event();
     const p = await prisma.presentation.create({ data: { eventId, title: "Keynote" } });
     await expect(updatePresentationInstanceCount(p.id, eventId, 0)).rejects.toBeInstanceOf(UserFacingError);
+    await expect(updatePresentationInstanceCount(p.id, eventId, 10_001)).rejects.toBeInstanceOf(UserFacingError);
     await expect(updatePresentationInstanceCount(p.id, eventId, 2.5)).rejects.toBeInstanceOf(UserFacingError);
   });
 
@@ -43,10 +44,12 @@ describe("presentations: client arguments are checked", () => {
     ).rejects.toBeInstanceOf(UserFacingError);
     const result = await importPresentationsFromCSV(
       eventId,
-      [{ Title: "A", Count: "lots" }, { Title: "B", Count: "2" }],
-      { Title: "presentation.title", Count: "presentation.instanceCount" },
+      [{ Title: "A", Count: "lots", Name: "Jane Orphan" }, { Title: "B", Count: "2", __parsed_extra: [""] } as never],
+      { Title: "presentation.title", Count: "presentation.instanceCount", Name: "contact.fullName" },
     );
     expect(result.created).toBe(1);
+    // The refused row created nothing, not even its contact; the ragged row imported.
+    expect(await prisma.contact.count({ where: { firstName: "Jane", lastName: "Orphan" } })).toBe(0);
     expect(result.errors).toEqual([{ row: 1, message: expect.stringContaining("Instance count") }]);
   });
 });
