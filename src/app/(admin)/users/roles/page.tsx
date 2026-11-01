@@ -85,7 +85,7 @@ export default async function SettingsRolesPage() {
                       <DuplicateRoleButton
                         duplicate={async () => {
                           "use server";
-                          await duplicateRole(role.id);
+                          return duplicateRole(role.id);
                         }}
                       />
                     )}

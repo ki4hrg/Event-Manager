@@ -124,6 +124,9 @@ export async function addMembership(tenantId: string, userId: string, roleId: st
     if (!userId) throw new UserFacingError("User is required");
     if (!roleId) throw new UserFacingError("Role is required");
     assertIds(tenantId, userId, roleId);
+    if (!(await prisma.role.findUnique({ where: { id: roleId }, select: { id: true } }))) {
+      throw new UserFacingError("Selected role no longer exists");
+    }
     await prisma.tenantMembership.upsert({
       where: { tenantId_userId: { tenantId, userId } },
       update: { roleId },
@@ -138,6 +141,9 @@ export async function setMembershipRole(tenantId: string, userId: string, roleId
   return withUserErrors(async () => {
     if (!roleId) throw new UserFacingError("Role is required");
     assertIds(tenantId, userId, roleId);
+    if (!(await prisma.role.findUnique({ where: { id: roleId }, select: { id: true } }))) {
+      throw new UserFacingError("Selected role no longer exists");
+    }
     await prisma.tenantMembership.update({
       where: { tenantId_userId: { tenantId, userId } },
       data: { roleId },

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import type { PermissionResource } from "@prisma/client";
 import { useCanDo } from "@/components/PermissionsProvider";
 import { btnDanger, btnDangerSm } from "@/lib/buttonStyles";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 
 type DeleteButtonProps = {
   // A refusal returned as { error } (withUserErrors) is shown beside the button.
@@ -28,6 +28,8 @@ export function DeleteButton({
 }: DeleteButtonProps) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Pending until the action settles, so a second click can't run it twice.
+  const [pending, startTransition] = useTransition();
   const allowed = useCanDo(resource, requiredLevel);
 
   if (!allowed) return null;
@@ -38,10 +40,16 @@ export function DeleteButton({
         <span className="text-sm text-gray-600 dark:text-gray-400">Are you sure?</span>
         <button
           type="button"
-          onClick={async () => {
+          onClick={() => {
             setConfirming(false);
-            const result = await action();
-            setError(isUserError(result) ? result.error : null);
+            startTransition(async () => {
+              try {
+                const result = await action();
+                setError(isUserError(result) ? result.error : null);
+              } catch (e) {
+                setError(actionErrorMessage(e, "Couldn't delete that. Reload the page and try again."));
+              }
+            });
           }}
           className={btnDangerSm}
         >
@@ -63,7 +71,8 @@ export function DeleteButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className={btnDanger}
+        disabled={pending}
+        className={`${btnDanger} disabled:opacity-50`}
       >
         {label}
       </button>

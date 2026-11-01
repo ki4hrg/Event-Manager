@@ -192,7 +192,7 @@ export async function updateUser(id: string, formData: FormData) {
         _count: { select: { memberships: true } },
       },
     });
-    if (!current) throw new Error("User not found");
+    if (!current) throw new UserFacingError("That user no longer exists");
     // Editing someone else (their email above all: a reset link follows it) is
     // within the role ceiling too (#284).
     if (session.user.id !== id && current.memberships[0]) {
@@ -265,7 +265,7 @@ export async function resendPasswordResetEmail(userId: string) {
       where: superAdmin ? { id: userId } : { id: userId, memberships: { some: { tenantId } } },
       select: { id: true, email: true, name: true, memberships: { where: { tenantId }, select: { roleId: true } } },
     });
-    if (!user) throw new Error("User not found");
+    if (!user) throw new UserFacingError("That user no longer exists");
     // A reset link takes over the account: only for someone within the caller's ceiling.
     if (session.user.id !== user.id && user.memberships[0]) {
       await assertRoleWithinCeiling(session.user.id, tenantId, user.memberships[0].roleId);
@@ -306,14 +306,16 @@ export async function removeUserFromTenant(id: string) {
 // ends at their own tenant's membership list.
 export async function deleteUser(id: string) {
   const ctx = await requireSuperAdmin();
-  assertIds(id);
+  return withUserErrors(async () => {
+    assertIds(id);
 
-  if (ctx.userId === id) {
-    throw new UserFacingError("You cannot delete your own account");
-  }
+    if (ctx.userId === id) {
+      throw new UserFacingError("You cannot delete your own account");
+    }
 
-  await prisma.user.delete({ where: { id } });
+    await prisma.user.delete({ where: { id } });
 
-  revalidatePath("/users");
-  redirect("/users");
+    revalidatePath("/users");
+    redirect("/users");
+  });
 }

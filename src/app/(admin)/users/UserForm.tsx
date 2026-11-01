@@ -37,7 +37,7 @@ interface UserFormProps {
   };
   roles: RoleOption[];
   saveAction: (formData: FormData) => Promise<void | UserError>;
-  deleteAction?: () => Promise<void>;
+  deleteAction?: () => Promise<void | UserError>;
   // Removes the membership in the active tenant without deleting the account.
   removeAction?: () => Promise<void | UserError>;
   currentUserId?: string;

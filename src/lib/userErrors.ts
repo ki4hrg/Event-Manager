@@ -38,7 +38,7 @@ export function isUserError(result: unknown): result is UserError {
 // Network failures read differently per browser: Chrome "Failed to fetch",
 // Safari "Load failed", Firefox "NetworkError when attempting to fetch resource".
 const FRAMEWORK =
-  /Minified React error|Server Components render|Failed to fetch|Load failed|NetworkError when attempting|Server Action .* was not found|unexpected response was received|^NEXT_/;
+  /Minified React error|Server Components render|^Failed to fetch$|^Load failed$|^NetworkError when attempting to fetch resource\.?$|Server Action .* was not found|unexpected response was received|^NEXT_/;
 
 export function actionErrorMessage(e: unknown, fallback: string): string {
   if (!(e instanceof Error) || !e.message || "digest" in e || FRAMEWORK.test(e.message)) {

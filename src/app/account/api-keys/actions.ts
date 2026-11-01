@@ -28,20 +28,20 @@ export async function mintApiKey(formData: FormData): Promise<{
 } | UserError> {
   const session = await requireAuth();
   return withUserErrors(async () => {
-  const raw = formData.get("name");
-  const name = (typeof raw === "string" ? raw : "").trim();
-  if (!name) throw new UserFacingError("Name is required");
-  if (name.length > 100) throw new UserFacingError("Name must be at most 100 characters");
+    const raw = formData.get("name");
+    const name = (typeof raw === "string" ? raw : "").trim();
+    if (!name) throw new UserFacingError("Name is required");
+    if (name.length > 100) throw new UserFacingError("Name must be at most 100 characters");
 
-  const { fullKey, keyPrefix, hashedKey } = generateApiKey();
+    const { fullKey, keyPrefix, hashedKey } = generateApiKey();
 
-  const created = await prisma.apiKey.create({
-    data: { userId: session.user.id, name, keyPrefix, hashedKey },
-    select: { id: true, name: true, keyPrefix: true, createdAt: true },
-  });
+    const created = await prisma.apiKey.create({
+      data: { userId: session.user.id, name, keyPrefix, hashedKey },
+      select: { id: true, name: true, keyPrefix: true, createdAt: true },
+    });
 
-  revalidatePath("/account/api-keys");
-  return { ...created, fullKey };
+    revalidatePath("/account/api-keys");
+    return { ...created, fullKey };
   });
 }
 

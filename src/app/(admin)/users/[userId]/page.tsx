@@ -72,7 +72,7 @@ export default async function UserDetailPage({
 
   const deleteAction = async () => {
     "use server";
-    await deleteUser(userId);
+    return deleteUser(userId);
   };
 
   const removeAction = async () => {

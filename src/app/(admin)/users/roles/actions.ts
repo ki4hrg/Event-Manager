@@ -128,7 +128,7 @@ export async function updateRole(id: string, formData: FormData) {
       where: { id },
       select: { isSystem: true, name: true },
     });
-    if (!role) throw new Error("Role not found");
+    if (!role) throw new UserFacingError("That role no longer exists");
     if (role.isSystem) throw new UserFacingError("System roles cannot be modified");
 
     const { name, description } = readRoleFields(formData);
@@ -161,7 +161,7 @@ export async function deleteRole(id: string) {
       where: { id },
       select: { isSystem: true, _count: { select: { memberships: true } } },
     });
-    if (!role) throw new Error("Role not found");
+    if (!role) throw new UserFacingError("That role no longer exists");
     if (role.isSystem) throw new UserFacingError("System roles cannot be deleted");
     if (role._count.memberships > 0) {
       throw new UserFacingError(
@@ -186,44 +186,46 @@ export async function deleteRole(id: string) {
  */
 export async function duplicateRole(id: string) {
   const session = await requireSuperAdmin();
-  assertIds(id);
+  return withUserErrors(async () => {
+    assertIds(id);
 
-  const source = await prisma.role.findUnique({
-    where: { id },
-    include: { permissions: true },
-  });
-  if (!source) throw new Error("Role not found");
+    const source = await prisma.role.findUnique({
+      where: { id },
+      include: { permissions: true },
+    });
+    if (!source) throw new UserFacingError("That role no longer exists");
 
-  // Names are unique, so a second copy of the same role needs its own suffix.
-  const base = `${source.name} (Copy)`;
-  const taken = new Set(
-    (
-      await prisma.role.findMany({
-        where: { name: { startsWith: base } },
-        select: { name: true },
-      })
-    ).map((r) => r.name),
-  );
-  let name = base;
-  for (let n = 2; taken.has(name); n++) name = `${base} ${n}`;
+    // Names are unique, so a second copy of the same role needs its own suffix.
+    const base = `${source.name} (Copy)`;
+    const taken = new Set(
+      (
+        await prisma.role.findMany({
+          where: { name: { startsWith: base } },
+          select: { name: true },
+        })
+      ).map((r) => r.name),
+    );
+    let name = base;
+    for (let n = 2; taken.has(name); n++) name = `${base} ${n}`;
 
-  const created = await prisma.role.create({
-    data: {
-      name,
-      description: source.description,
-      isSystem: false,
-      updatedById: session.userId,
-      permissions: {
-        create: source.permissions.map((p) => ({
-          resource: p.resource,
-          scope: p.scope,
-          level: p.level,
-        })),
+    const created = await prisma.role.create({
+      data: {
+        name,
+        description: source.description,
+        isSystem: false,
+        updatedById: session.userId,
+        permissions: {
+          create: source.permissions.map((p) => ({
+            resource: p.resource,
+            scope: p.scope,
+            level: p.level,
+          })),
+        },
       },
-    },
-    select: { id: true },
-  });
+      select: { id: true },
+    });
 
-  revalidatePath("/users/roles");
-  redirect(`/users/roles/${created.id}?success=Role duplicated`);
+    revalidatePath("/users/roles");
+    redirect(`/users/roles/${created.id}?success=Role duplicated`);
+  });
 }
