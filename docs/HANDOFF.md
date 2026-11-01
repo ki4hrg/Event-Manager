@@ -33,16 +33,16 @@ before the variable was set and skipped it; the next `main` deploy is the first 
 Open decisions for John: none. The PGDATA mount exception is accepted and recorded in CLAUDE.md;
 phase 2 also records it in docs/DECISIONS.md.
 
-Follow-ups: #250 (type-ahead searches), #252 (error #441: every staff form done, ready to close), #271 (hash password reset
-tokens). Dependabot ignores runtime
+Follow-ups: #250 (type-ahead searches), #271 (hash password reset
+tokens), #309–#318 (phase 3 leftovers). Dependabot ignores runtime
 majors (#264); Dependabot PRs are merged by hand once CI is green.
 
 Resume at: phase 5 (design/copy) when John schedules it; phase 6 is out of scope. Phase 3 is done:
 #252 is complete for every staff form (#294, #297–#308). Public flows were checked and need no
 change (login handles its own errors; forgot-password always redirects alike; public forms report
-through `?error=`; OAuth consent only throws on a tampered request). Small leftovers, all optional:
-`createEquipmentInline` throws its refusal unwrapped (its caller shows the fallback); after a refused
-workflow step status the select keeps the new value until reload; the option lists hand-roll their
-refusal handling. A new form uses `ActionForm` + `<ActionFormError />`
+through `?error=`; OAuth consent only throws on a tampered request). Leftovers from the sweep are filed as
+#309–#318 (MCP error text, inbox apply schemas, role/tenant duplicate race, form leftovers, action
+argument reads, option-label checks, role-ceiling queries, contact lists, datetime readers, a speaker
+guard). A new form uses `ActionForm` + `<ActionFormError />`
 (`src/components/FormError.tsx`) and its action returns through `withUserErrors`, with its core's
 user-input refusals as `UserFacingError`.
