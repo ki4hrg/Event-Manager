@@ -7,6 +7,7 @@ import type { PackingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { optionsWhereForEvent } from "@/lib/options";
 import { PACKING_STATUS_LABEL } from "@/lib/statusConstants";
+import { UserFacingError } from "@/lib/userErrors";
 
 // A named sub-state must be on the event's tenant's list under `status`.
 export async function assertPackingSubstatus(eventId: string, status: PackingStatus | null, substatus: string | null | undefined) {
@@ -17,7 +18,7 @@ export async function assertPackingSubstatus(eventId: string, status: PackingSta
       where: { ...optionsWhereForEvent(eventId, "packing_substatus"), label: substatus, group: status },
       select: { id: true },
     }));
-  if (!found) throw new Error(`"${substatus}" isn't a ${status ? PACKING_STATUS_LABEL[status] : "packing"} sub-state`);
+  if (!found) throw new UserFacingError(`"${substatus}" isn't a ${status ? PACKING_STATUS_LABEL[status] : "packing"} sub-state`);
 }
 
 type Stored = { packingStatus: PackingStatus | null; packingSubstatus: string | null } | null;

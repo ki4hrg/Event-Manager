@@ -70,13 +70,13 @@ const ActionFormErrorContext = createContext<string | null>(null);
 // closes on success and stays open, with what was typed, on a refusal. The
 // error lives in this form: a form that closes takes its error with it.
 // Put <ActionFormError /> where the message belongs (above the buttons).
-// `keepValues`: "always" (default) for a form that closes or navigates on
-// success; "onRefusal" for one that stays on screen, so a save shows what the
-// server stored.
+// `keepValues`: "onRefusal" (default) keeps what was typed only after a
+// refusal, so a form that stays on screen shows what the server stored after
+// a save; "always" for a form that resets itself otherwise (React 18 behaviour).
 export function ActionForm({
   action,
   onDone,
-  keepValues = "always",
+  keepValues = "onRefusal",
   fallback,
   onSubmit,
   className,

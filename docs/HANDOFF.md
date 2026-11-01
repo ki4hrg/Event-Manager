@@ -42,5 +42,4 @@ and the shared `EquipmentTable` (#299; `actionErrorMessage` rethrows Next's redi
 navigates isn't shown as a failure), order sub-panels (this PR, on the new `ActionForm`). Next: move
 the #298/#299 forms onto `ActionForm` (a refactor), catering contacts, booths (their core still throws
 plain `Error` refusals), hotels, functions, then the rest. A new form uses `ActionForm` +
-`<ActionFormError />` (`src/components/FormError.tsx`) and its action returns through `withUserErrors`. A form wraps its actions in `withUserErrors` and shows the result
-with `useActionError` / `FormError` (`src/components/FormError.tsx`) plus `onReset={keepFormValues}`.
+`<ActionFormError />` (`src/components/FormError.tsx`) and its action returns through `withUserErrors`.

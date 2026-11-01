@@ -287,13 +287,13 @@ export default async function AVOrderPage({
   // Audio section actions
   const updateAudioSectionAction = async (formData: FormData) => {
     "use server";
-    if (!avOrder.audioSection) return;
+    if (!avOrder.audioSection) return { error: "This order has no audio section. Reload the page." };
     return updateAudioSection(avOrder.audioSection.id, avOrderId, eventId, formData);
   };
 
   const createInputGroupAction = async (formData: FormData) => {
     "use server";
-    if (!avOrder.audioSection) return;
+    if (!avOrder.audioSection) return { error: "This order has no audio section. Reload the page." };
     return createInputGroup(avOrder.audioSection.id, avOrderId, eventId, formData);
   };
 
@@ -324,7 +324,7 @@ export default async function AVOrderPage({
 
   const createMonitorMixAction = async (formData: FormData) => {
     "use server";
-    if (!avOrder.audioSection) return;
+    if (!avOrder.audioSection) return { error: "This order has no audio section. Reload the page." };
     return createMonitorMix(avOrder.audioSection.id, avOrderId, eventId, formData);
   };
 
@@ -356,13 +356,13 @@ export default async function AVOrderPage({
   // Video section actions
   const updateVideoSectionAction = async (formData: FormData) => {
     "use server";
-    if (!avOrder.videoSection) return;
+    if (!avOrder.videoSection) return { error: "This order has no video section. Reload the page." };
     return updateVideoSection(avOrder.videoSection.id, avOrderId, eventId, formData);
   };
 
   const createVideoItemAction = async (formData: FormData) => {
     "use server";
-    if (!avOrder.videoSection) return;
+    if (!avOrder.videoSection) return { error: "This order has no video section. Reload the page." };
     return createVideoEquipmentItem(avOrder.videoSection.id, avOrderId, eventId, formData);
   };
 

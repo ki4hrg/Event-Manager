@@ -619,7 +619,6 @@ export function SupplyOrderItemPanel({
     packingSubstatusOptions,
   };
 
-
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
