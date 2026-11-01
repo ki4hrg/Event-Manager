@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
 import { PermissionError } from "@/lib/permissions";
-import { assertIds, dateKeySchema, formDateKey, formEnum, formId, formIds, formInt, formNumber, formValue, looseCount, looseNumber, looseText, parseArgs, readJsonList } from "./validation";
+import { assertIds, dateKeySchema, formDateKey, formDateTimeKey, formEnum, formId, formIds, formInt, formNumber, formValue, looseCount, looseNumber, looseText, parseArgs, readJsonList } from "./validation";
 
 const Row = z.object({ name: z.string(), n: z.number().nullable() });
 
@@ -121,5 +121,23 @@ describe("number text", () => {
     expect(() => formNumber(f, "exp")).toThrow(UserFacingError);
     expect(formInt(f, "ok")).toBe(-12);
     expect(formNumber(f, "dec")).toBe(4.5);
+  });
+});
+
+describe("formDateTimeKey", () => {
+  const fd = (v: string) => {
+    const f = new FormData();
+    f.set("startAt", v);
+    return f;
+  };
+  it("returns a real datetime-local value as typed, and blank as null", () => {
+    expect(formDateTimeKey(fd("2026-11-01T09:30"), "startAt")).toBe("2026-11-01T09:30");
+    expect(formDateTimeKey(fd("2026-11-01T09:30:15"), "startAt")).toBe("2026-11-01T09:30:15");
+    expect(formDateTimeKey(fd(""), "startAt")).toBeNull();
+  });
+  it("refuses a shape it isn't, an impossible day, or an impossible time, by the field's label", () => {
+    for (const bad of ["soon", "2026-11-01", "2026-02-30T10:00", "2026-11-01T24:00", "2026-11-01T10:60"]) {
+      expect(() => formDateTimeKey(fd(bad), "startAt", "Start")).toThrow(new UserFacingError("Start must be a date and time"));
+    }
   });
 });

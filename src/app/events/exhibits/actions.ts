@@ -1,6 +1,6 @@
 "use server";
 
-import { UserFacingError, withUserErrors } from "@/lib/userErrors";
+import { withUserErrors } from "@/lib/userErrors";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ProvidedBy } from "@prisma/client";
@@ -22,7 +22,7 @@ import {
   type BoothSharedArgs,
   type BoothWriteArgs,
 } from "./core";
-import { formEnum, formId, formInt, formName, formNote, formValue } from "@/lib/validation";
+import { formDateTimeKey, formEnum, formId, formInt, formName, formNote, formValue } from "@/lib/validation";
 
 const equipmentItemsInclude = {
   include: { providerVendor: true, providerContact: true, operatorVendor: true, operatorContact: true, equipment: true },
@@ -89,12 +89,10 @@ async function eventTimezone(eventId: string) {
 
 function readShared(formData: FormData, timezone: string): BoothSharedArgs {
   const str = (k: string) => formNote(formData, k);
-  // Event-local YYYY-MM-DDTHH:MM; anything else would throw deep in the timezone conversion.
+  const DATETIME_LABELS: Record<string, string> = { startAt: "Start", endAt: "End", setupBy: "Set up by", teardownBy: "Tear down by" };
   const dt = (k: string) => {
-    const v = formNote(formData, k, 40);
-    if (!v) return null;
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(v)) throw new UserFacingError(`${k === "startAt" ? "Start" : "End"} must be a date and time`);
-    return parseDateTimeInTimezone(v, timezone);
+    const v = formDateTimeKey(formData, k, DATETIME_LABELS[k]);
+    return v ? parseDateTimeInTimezone(v, timezone) : null;
   };
   const bool = (k: string) => (formData.get(k) === "true" ? true : formData.get(k) === "false" ? false : null);
   // Blank is not stated; anything else must be a ProvidedBy value.

@@ -8,7 +8,7 @@ import { createSetupEquipmentItem, createSetupTable } from "./setup-orders/actio
 import { createAVEquipmentItem, createAVOrder, createInputItem } from "./av-orders/actions";
 import { createSupplyOrderItem } from "./supply-orders/actions";
 import { createPrintItem } from "./print-orders/actions";
-import { createBoothGroup, createExhibitBooth } from "./exhibits/actions";
+import { createBoothGroup, createExhibitBooth, updateBoothGroup } from "./exhibits/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -156,8 +156,23 @@ describe("order forms: numbers, ids and enums are checked, not parsed into NaN",
       error: "Booth end can't be before its start",
     });
     await expect(createExhibitBooth(eventId, form({ name: "A1", startAt: "soon" }))).resolves.toEqual({ error: "Start must be a date and time" });
+    await expect(createExhibitBooth(eventId, form({ name: "A1", startAt: "2026-02-30T10:00" }))).resolves.toEqual({
+      error: "Start must be a date and time",
+    });
+    await expect(createExhibitBooth(eventId, form({ name: "A1", setupBy: "2026-11-01T25:00" }))).resolves.toEqual({
+      error: "Set up by must be a date and time",
+    });
     expect(await prisma.exhibitBooth.count({ where: { eventId } })).toBe(0);
     expect(await prisma.exhibitBoothGroup.count({ where: { eventId } })).toBe(0);
+
+    // The update path: reversing a group's times is a refusal too, and leaves them as stored.
+    const group = await prisma.exhibitBoothGroup.create({
+      data: { eventId, name: "Hall A", startAt: new Date("2026-11-01T14:00Z"), endAt: new Date("2026-11-01T22:00Z") } as never,
+    });
+    await expect(
+      updateBoothGroup(group.id, eventId, form({ name: "Hall A", startAt: "2026-11-01T10:00", endAt: "2026-11-01T09:00" })),
+    ).resolves.toEqual({ error: "Group end can't be before its start" });
+    expect((await prisma.exhibitBoothGroup.findUniqueOrThrow({ where: { id: group.id } })).endAt).toEqual(new Date("2026-11-01T22:00Z"));
   });
 
   it("refuses a setup table with no quantity instead of storing NaN", async () => {
