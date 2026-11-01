@@ -8,7 +8,7 @@ import { redirect, notFound } from "next/navigation";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { defaultScheduleType } from "@/lib/scheduleTypes";
 import { assertEventRefs } from "@/lib/eventRefs";
-import { assertIds } from "@/lib/validation";
+import { assertIds, formInt, formValue } from "@/lib/validation";
 
 async function assertBreakoutGroupInEvent(groupId: string, eventId: string) {
   assertIds(groupId);
@@ -124,7 +124,7 @@ export async function getUngroupedBlocks(eventId: string) {
 
 export async function createBreakoutGroup(eventId: string, formData: FormData) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const name = formData.get("name") as string;
+  const name = formValue(formData, "name");
 
   const maxOrder = await prisma.breakoutGroup.findFirst({
     where: { eventId },
@@ -149,7 +149,7 @@ export async function updateBreakoutGroup(
   formData: FormData
 ) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const name = formData.get("name") as string;
+  const name = formValue(formData, "name");
 
   await prisma.breakoutGroup.update({
     where: { id: groupId, eventId },
@@ -258,9 +258,9 @@ export async function createSessionInGroup(
 ) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertBreakoutGroupInEvent(groupId, eventId);
-  const name = formData.get("name") as string;
-  const startTime = formData.get("startTime") as string;
-  const endTime = formData.get("endTime") as string;
+  const name = formValue(formData, "name");
+  const startTime = formValue(formData, "startTime");
+  const endTime = formValue(formData, "endTime");
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -480,9 +480,8 @@ export async function createGroupPresentation(
 ) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertBreakoutGroupInEvent(groupId, eventId);
-  const title = formData.get("title") as string;
-  const instanceCountRaw = formData.get("instanceCount") as string;
-  const instanceCount = instanceCountRaw ? parseInt(instanceCountRaw) : 1;
+  const title = formValue(formData, "title");
+  const instanceCount = formInt(formData, "instanceCount", { min: 1, max: 100 }) ?? 1;
 
   await prisma.presentation.create({
     data: {
