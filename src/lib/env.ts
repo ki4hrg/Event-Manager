@@ -54,6 +54,20 @@ function crossFieldProblems(e: Record<string, string | undefined>): string[] {
   return problems;
 }
 
+// Variables the app reads straight from process.env (lib/auth, lib/prisma,
+// lib/uploads), not through this module: a value this check would clean up
+// (quotes, padding) is used as written there and breaks, so refuse it here
+// rather than pass a value the app then reads differently (#275).
+const READ_RAW = ["NEXTAUTH_URL", "DATABASE_URL", "UPLOAD_DIR"] as const;
+
+export function rawReadProblems(source: Record<string, string | undefined>): string[] {
+  return READ_RAW.flatMap((key) => {
+    const value = source[key];
+    if (value === undefined || value === "") return [];
+    return normalize(value) === value ? [] : [`${key}: remove the surrounding quotes or spaces (the app reads it as written)`];
+  });
+}
+
 // The same clean-up lib/email's readEnv applies: trim, and drop one pair of
 // surrounding quotes (an env file or panel that keeps them). Blank is absent.
 function normalize(raw: string): string | undefined {
@@ -80,6 +94,7 @@ export function env(): Env {
   const problems = [
     ...(result.success ? [] : [z.prettifyError(result.error)]),
     ...crossFieldProblems(raw).map((p) => `✖ ${p}`),
+    ...rawReadProblems(process.env).map((p) => `✖ ${p}`),
   ];
   if (problems.length > 0 || !result.success) {
     throw new Error(`Invalid environment:\n${problems.join("\n")}`);

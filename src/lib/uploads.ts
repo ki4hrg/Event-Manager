@@ -2,7 +2,8 @@ import path from "path";
 import type { FileUpload } from "@prisma/client";
 import { prisma } from "./prisma";
 
-export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/data/uploads";
+// Blank is unset, as in docker-entrypoint.sh's ${UPLOAD_DIR:-/data/uploads} (#275).
+export const UPLOAD_DIR = process.env.UPLOAD_DIR || "/data/uploads";
 
 const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const parsedMax = process.env.MAX_UPLOAD_BYTES ? parseInt(process.env.MAX_UPLOAD_BYTES, 10) : NaN;
