@@ -7,6 +7,7 @@ import { deleteFile } from "@/app/files/actions";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { formatFileSize, type EntityType } from "@/lib/uploads";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 type FileUploadPanelProps = {
   entityType: EntityType;
@@ -61,7 +62,7 @@ export function FileUploadPanel({
       setSelectedFileType("");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(actionErrorMessage(err, "Upload failed"));
     } finally {
       setUploading(false);
     }

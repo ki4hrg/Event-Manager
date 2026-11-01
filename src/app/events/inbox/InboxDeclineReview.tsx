@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary } from "@/lib/buttonStyles";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 import type { getDeclineReview } from "./actions";
 
 type Review = NonNullable<Awaited<ReturnType<typeof getDeclineReview>>>;
@@ -50,7 +50,7 @@ export function InboxDeclineReview({
         router.push(`${itemHref}?success=${encodeURIComponent("Marked declined")}`);
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't mark it declined");
+        setError(actionErrorMessage(e, "Couldn't mark it declined"));
       }
     });
 

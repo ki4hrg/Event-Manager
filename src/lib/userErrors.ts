@@ -25,3 +25,16 @@ export async function withUserErrors<T>(fn: () => Promise<T>): Promise<T | UserE
 export function isUserError(result: unknown): result is UserError {
   return typeof result === "object" && result !== null && "error" in result && typeof result.error === "string";
 }
+
+// What a client shows for an error a Server Action threw (#252). In production
+// React replaces a thrown action's message ("Minified React error #441", "An
+// error occurred in the Server Components render"), which tells the person
+// nothing; those read as the caller's own `fallback` sentence. Any other
+// message (an error thrown in the browser, or any message in development)
+// is shown as is. Refusals meant for the person still come back as { error }.
+const REDACTED = /Minified React error|An error occurred in the Server Components render|react\.dev\/errors\/441/;
+
+export function actionErrorMessage(e: unknown, fallback: string): string {
+  if (!(e instanceof Error) || !e.message || REDACTED.test(e.message)) return fallback;
+  return e.message;
+}

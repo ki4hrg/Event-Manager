@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 type Props = {
   action: () => Promise<void>;
@@ -24,7 +25,7 @@ export function ResendInviteButton({ action }: Props) {
         setTimeout(() => setConfirmation(null), 3000);
       } catch (e) {
         setConfirmation("error");
-        setErrorMessage(e instanceof Error ? e.message : "Failed to send email");
+        setErrorMessage(actionErrorMessage(e, "Failed to send email"));
       }
     });
   }

@@ -13,6 +13,7 @@ import {
   unsetResources,
 } from "./resources";
 import { keepFormValues } from "@/lib/keepFormValues";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 function buildPermissionMap(perms: RolePermission[] | undefined): Map<string, PermissionLevel> {
   const map = new Map<string, PermissionLevel>();
@@ -60,7 +61,7 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
     try {
       await saveAction(formData);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "An error occurred");
+      setError(actionErrorMessage(e, "An error occurred"));
     }
   }
 

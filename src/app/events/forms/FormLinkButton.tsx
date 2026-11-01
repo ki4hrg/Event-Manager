@@ -9,7 +9,7 @@ import type { FormType } from "@prisma/client";
 import { formatFunctionLabel, matchesFunctionQuery } from "@/lib/functionNumbers";
 import { CopyFormLink, DeleteFormLink, RevokeFormLink } from "./FormLinkActions";
 import { syncRangeEnd } from "@/lib/dateRange";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 import { keepFormValues } from "@/lib/keepFormValues";
 
 const inputCls =
@@ -212,7 +212,7 @@ export function FormLinkButton({
                         setCreated(result);
                         router.refresh();
                       } catch (e) {
-                        setError(e instanceof Error ? e.message : "Couldn't create the link");
+                        setError(actionErrorMessage(e, "Couldn't create the link"));
                       }
                     })
                   }

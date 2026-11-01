@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import type { HotelPickupMethod } from "@prisma/client";
 import { btnDanger, btnPrimary, btnSecondary } from "@/lib/buttonStyles";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 import { formatNight, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import {
   DATE_ORDERS,
@@ -130,7 +130,7 @@ export function GuestImport({
           done(`Loaded ${stays} stay${stays === 1 ? "" : "s"}`);
         } else done(`Imported ${usable.length} guest${usable.length === 1 ? "" : "s"}`);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Import failed");
+        setError(actionErrorMessage(e, "Import failed"));
       }
     });
 
@@ -318,7 +318,7 @@ export function CountEntry({
         }
         done("Counts saved");
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Save failed");
+        setError(actionErrorMessage(e, "Save failed"));
       }
     });
 

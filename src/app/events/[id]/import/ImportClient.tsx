@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 type Item = {
   id: string;
@@ -321,7 +322,7 @@ export function ImportClient({
                     setPresSel(new Set());
                     router.refresh();
                   } catch (err) {
-                    setError(err instanceof Error ? err.message : "Import failed");
+                    setError(actionErrorMessage(err, "Import failed"));
                   }
                 });
               }}

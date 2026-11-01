@@ -11,6 +11,7 @@ import { dateFromKey } from "@/lib/hotels";
 import { RECIPIENT_STATE_COLORS, recipientState } from "@/lib/rfp/recipients";
 import { QUOTE_STATUS_LABELS } from "@/lib/rfp/quotes";
 import type { RfpRecipientArgs } from "./core";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 export type VendorRecipientRow = {
   id: string;
@@ -67,7 +68,7 @@ export function VendorRfpRecipients({
         await fn();
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Something went wrong");
+        setError(actionErrorMessage(e, "Something went wrong"));
       }
     });
   const patch = (r: VendorRecipientRow, changes: Partial<RfpRecipientArgs>) =>

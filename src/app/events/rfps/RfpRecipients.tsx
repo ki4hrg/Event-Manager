@@ -14,6 +14,7 @@ import type { OfferHotel } from "@/lib/inboundParse";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { NEW_HOTEL, NEW_HOTEL_FIELDS, readNewHotel } from "@/app/events/hotels/proposalArgs";
 import { keepFormValues } from "@/lib/keepFormValues";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 export type RecipientRow = {
   id: string;
@@ -94,7 +95,7 @@ export function RfpRecipients({
         await fn();
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Something went wrong");
+        setError(actionErrorMessage(e, "Something went wrong"));
       }
     });
   const patch = (r: RecipientRow, changes: Partial<RfpRecipientArgs>) =>
