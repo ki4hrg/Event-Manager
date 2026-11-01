@@ -32,6 +32,9 @@ import {
   removeVendorFromPrintOrderCore,
   type ModelType,
 } from "./core";
+import { formName, formNote, formRequiredId, formValue } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
+import { MODEL_TYPES, VENDOR_ROLES } from "./model-types";
 
 // Re-exported so existing importers (`from "@/app/vendors/actions"`) keep working.
 // New callers should import from "@/app/vendors/core" directly.
@@ -117,13 +120,21 @@ export async function searchVendors(query: string) {
   });
 }
 
+// The order types and roles a vendor covers, from the checkboxes.
+function vendorModels(formData: FormData): string[] {
+  const known = new Set<string>([...MODEL_TYPES.map((t) => t.value), ...VENDOR_ROLES.map((r) => r.value)]);
+  const values = formData.getAll("models");
+  if (!values.every((v): v is string => typeof v === "string" && known.has(v))) throw new UserFacingError("Pick order types from the list");
+  return Array.from(new Set(values));
+}
+
 export async function createVendor(formData: FormData) {
   const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
   const vendor = await createVendorCore(
     {
-      name: (formData.get("name") as string).trim(),
-      models: formData.getAll("models") as string[],
-      notes: (formData.get("notes") as string) || null,
+      name: formName(formData, "name"),
+      models: vendorModels(formData),
+      notes: formNote(formData, "notes"),
     },
     session.user.id,
     session.tenantId,
@@ -137,9 +148,9 @@ export async function updateVendor(id: string, formData: FormData) {
   await updateVendorCore(
     id,
     {
-      name: (formData.get("name") as string).trim(),
-      models: formData.getAll("models") as string[],
-      notes: (formData.get("notes") as string) || null,
+      name: formName(formData, "name"),
+      models: vendorModels(formData),
+      notes: formNote(formData, "notes"),
     },
     session.user.id,
     session.tenantId,
@@ -179,11 +190,11 @@ export async function createAndAddVendorContact(vendorId: string, formData: Form
   await createAndAddVendorContactCore(
     {
       vendorId,
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      email: (formData.get("email") as string) || null,
-      organization: (formData.get("organization") as string) || null,
-      contactType: (formData.get("contactType") as string) || null,
+      firstName: formValue(formData, "firstName"),
+      lastName: formValue(formData, "lastName"),
+      email: formNote(formData, "email"),
+      organization: formNote(formData, "organization"),
+      contactType: formNote(formData, "contactType"),
       isPrimary: formData.get("isPrimary") === "true",
     },
     session.user.id,
@@ -197,8 +208,8 @@ export async function addVendorContact(vendorId: string, formData: FormData) {
   await addVendorContactCore(
     {
       vendorId,
-      contactId: formData.get("contactId") as string,
-      contactType: (formData.get("contactType") as string) || null,
+      contactId: formRequiredId(formData, "contactId", "contact"),
+      contactType: formNote(formData, "contactType"),
       isPrimary: formData.get("isPrimary") === "true",
     },
     session.user.id,
@@ -213,7 +224,7 @@ export async function updateVendorContact(contactId: string, vendorId: string, f
     {
       vendorContactId: contactId,
       vendorId,
-      contactType: (formData.get("contactType") as string) || null,
+      contactType: formNote(formData, "contactType"),
       isPrimary: formData.get("isPrimary") === "true",
     },
     session.user.id,

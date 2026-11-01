@@ -11,6 +11,7 @@ import {
   deleteContactCore,
   type ContactWriteArgs,
 } from "./core";
+import { formNote, formTexts, formValue } from "@/lib/validation";
 
 export async function getContacts() {
   const session = await requirePermission(PermissionResource.CONTACTS, "VIEW");
@@ -30,13 +31,13 @@ export async function getContact(id: string) {
 
 function readContactArgs(formData: FormData): ContactWriteArgs {
   return {
-    firstName: formData.get("firstName") as string,
-    lastName: formData.get("lastName") as string,
-    email: (formData.get("email") as string) || null,
-    phone: (formData.get("phone") as string) || null,
-    organization: (formData.get("organization") as string) || null,
-    notes: (formData.get("notes") as string) || null,
-    roles: formData.getAll("roles") as string[],
+    firstName: formValue(formData, "firstName"),
+    lastName: formValue(formData, "lastName"),
+    email: formNote(formData, "email"),
+    phone: formNote(formData, "phone"),
+    organization: formNote(formData, "organization"),
+    notes: formNote(formData, "notes"),
+    roles: formTexts(formData, "roles"),
   };
 }
 
