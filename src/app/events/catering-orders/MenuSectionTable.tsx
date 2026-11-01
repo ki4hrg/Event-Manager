@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { FormError, useActionError } from "@/components/FormError";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import type { UserError } from "@/lib/userErrors";
 import type { CateringOrderMenuSection, Vendor } from "@prisma/client";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -51,27 +50,13 @@ export function MenuSectionTable({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [menuError, setMenuError] = useState(false);
 
-  const createError = useActionError();
-  const updateError = useActionError();
-
-  const handleCreate = async (formData: FormData) => {
-    if (!(await createError.run(() => createSection(formData)))) return;
-    setShowAddForm(false);
-    setMenuError(false);
-  };
-
-  const handleUpdate = async (id: string, formData: FormData) => {
-    if (!(await updateError.run(() => updateSection(id, formData)))) return;
-    setEditingId(null);
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Menu</h2>
         {canWrite && (
           <button
-            onClick={() => { createError.setError(null); setShowAddForm(true); }}
+            onClick={() => setShowAddForm(true)}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
           >
             Add Section
@@ -80,9 +65,9 @@ export function MenuSectionTable({
       </div>
 
       {showAddForm && (
-        <form
-          action={handleCreate}
-          onReset={keepFormValues}
+        <ActionForm
+          action={createSection}
+          onDone={() => setShowAddForm(false)}
           onSubmit={(e) => {
             if (isRichTextEmpty(e.currentTarget, "menuContent")) {
               e.preventDefault();
@@ -110,18 +95,18 @@ export function MenuSectionTable({
               className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             />
           </div>
-          <FormError error={createError.error} />
+          <ActionFormError />
           <div className="flex gap-2">
             <SubmitButton label="Add" />
             <button
               type="button"
-              onClick={() => { createError.setError(null); setShowAddForm(false); }}
+              onClick={() => setShowAddForm(false)}
               className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
             >
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       {sections.length === 0 ? (
@@ -131,9 +116,9 @@ export function MenuSectionTable({
           {sections.map((section) => (
             <div key={section.id} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === section.id ? (
-                <form
-                  action={(fd) => handleUpdate(section.id, fd)}
-                  onReset={keepFormValues}
+                <ActionForm
+                  action={(fd) => updateSection(section.id, fd)}
+                  onDone={() => setEditingId(null)}
                   onSubmit={(e) => {
                     if (isRichTextEmpty(e.currentTarget, "menuContent")) {
                       e.preventDefault();
@@ -162,18 +147,18 @@ export function MenuSectionTable({
                       className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                     />
                   </div>
-                  <FormError error={updateError.error} />
+                  <ActionFormError />
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
                     <button
                       type="button"
-                      onClick={() => { updateError.setError(null); setEditingId(null); }}
+                      onClick={() => setEditingId(null)}
                       className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
                     >
                       Cancel
                     </button>
                   </div>
-                </form>
+                </ActionForm>
               ) : (
                 <div>
                   <div className="flex items-start justify-between mb-2">
@@ -182,7 +167,7 @@ export function MenuSectionTable({
                     </span>
                     <div className="flex gap-2 ml-2 shrink-0">
                       {canWrite && (
-                        <button onClick={() => { updateError.setError(null); setEditingId(section.id); }} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
+                        <button onClick={() => setEditingId(section.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                       )}
                       {canDelete && (
                         <InlineConfirmButton

@@ -5,8 +5,7 @@ import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
-import { FormError, useActionError } from "@/components/FormError";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import type { UserError } from "@/lib/userErrors";
 
 type GuestCountsCardProps = {
@@ -40,7 +39,6 @@ export function GuestCountsCard({
 }: GuestCountsCardProps) {
   const canWrite = useCanWrite("CATERING_ORDERS");
   const [editing, setEditing] = useState(false);
-  const { error, setError, run } = useActionError();
 
   const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6";
 
@@ -51,7 +49,7 @@ export function GuestCountsCard({
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Guest Counts</h2>
           {canWrite && (
             <button
-              onClick={() => { setError(null); setEditing(true); }}
+              onClick={() => setEditing(true)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               Edit
@@ -71,11 +69,9 @@ export function GuestCountsCard({
   return (
     <div className={cardClass}>
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Guest Counts</h2>
-      <form
-        action={async (formData) => {
-          if (await run(() => action(formData))) setEditing(false);
-        }}
-        onReset={keepFormValues}
+      <ActionForm
+        action={action}
+        onDone={() => setEditing(false)}
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div>
@@ -135,18 +131,18 @@ export function GuestCountsCard({
             />
           </div>
         </div>
-        <FormError error={error} className="mb-4" />
+        <ActionFormError className="mb-4" />
         <div className="flex gap-3">
           <SaveButton />
           <button
             type="button"
-            onClick={() => { setError(null); setEditing(false); }}
+            onClick={() => setEditing(false)}
             className={`${btnSecondary} text-sm`}
           >
             Cancel
           </button>
         </div>
-      </form>
+      </ActionForm>
     </div>
   );
 }
