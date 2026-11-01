@@ -7,6 +7,7 @@ import { requireSuperAdmin, slugifyTenantName } from "@/lib/tenant";
 import { orgProfileFromForm, orgProfileSelect } from "@/lib/orgProfile";
 import { createTenantCore } from "./core";
 import { assertIds } from "@/lib/validation";
+import { UserFacingError, withUserErrors } from "@/lib/userErrors";
 
 // Everything here is super-admin only: tenants and cross-tenant membership are
 // platform administration, above any single tenant's roles.
@@ -61,44 +62,50 @@ export async function getUserOptions() {
 
 export async function createTenant(formData: FormData) {
   await requireSuperAdmin();
-  const tenant = await createTenantCore(
-    (formData.get("name") as string) || "",
-    (formData.get("slug") as string) || null,
-    orgProfileFromForm(formData),
-  );
-  revalidatePath("/tenants");
-  redirect(`/tenants/${tenant.id}?success=Tenant+created`);
+  return withUserErrors(async () => {
+    const tenant = await createTenantCore(
+      (formData.get("name") as string) || "",
+      (formData.get("slug") as string) || null,
+      orgProfileFromForm(formData),
+    );
+    revalidatePath("/tenants");
+    redirect(`/tenants/${tenant.id}?success=Tenant+created`);
+  });
 }
 
 export async function updateTenant(id: string, formData: FormData) {
   await requireSuperAdmin();
-  assertIds(id);
-  const name = ((formData.get("name") as string) || "").trim();
-  const slug = slugifyTenantName((formData.get("slug") as string) || name);
-  if (!name) throw new Error("Name is required");
-  if (name.length > 200) throw new Error("Name must be at most 200 characters");
-  if (!slug) throw new Error("Slug must contain at least one letter or number");
+  return withUserErrors(async () => {
+    assertIds(id);
+    const name = ((formData.get("name") as string) || "").trim();
+    const slug = slugifyTenantName((formData.get("slug") as string) || name);
+    if (!name) throw new UserFacingError("Name is required");
+    if (name.length > 200) throw new UserFacingError("Name must be at most 200 characters");
+    if (!slug) throw new UserFacingError("Slug must contain at least one letter or number");
 
-  const clash = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-  if (clash && clash.id !== id) throw new Error("A tenant with this slug already exists");
+    const clash = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
+    if (clash && clash.id !== id) throw new UserFacingError("A tenant with this slug already exists");
 
-  await prisma.tenant.update({ where: { id }, data: { name, slug, ...orgProfileFromForm(formData) } });
-  revalidatePath("/tenants");
-  revalidatePath(`/tenants/${id}`);
-  redirect(`/tenants/${id}?success=Tenant+updated`);
+    await prisma.tenant.update({ where: { id }, data: { name, slug, ...orgProfileFromForm(formData) } });
+    revalidatePath("/tenants");
+    revalidatePath(`/tenants/${id}`);
+    redirect(`/tenants/${id}?success=Tenant+updated`);
+  });
 }
 
 // Cascades through every event, venue, contact, vendor, and catalog row the
 // tenant owns. The confirm step on the button is the only guard.
 export async function deleteTenant(id: string) {
   await requireSuperAdmin();
-  assertIds(id);
-  const count = await prisma.tenant.count();
-  if (count <= 1) throw new Error("The last tenant cannot be deleted");
-  await prisma.tenant.delete({ where: { id } });
-  revalidatePath("/tenants");
-  revalidatePath("/", "layout");
-  redirect("/tenants?success=Tenant+deleted");
+  return withUserErrors(async () => {
+    assertIds(id);
+    const count = await prisma.tenant.count();
+    if (count <= 1) throw new UserFacingError("The last tenant cannot be deleted");
+    await prisma.tenant.delete({ where: { id } });
+    revalidatePath("/tenants");
+    revalidatePath("/", "layout");
+    redirect("/tenants?success=Tenant+deleted");
+  });
 }
 
 // --- Memberships (user <-> tenant with a role) ---
@@ -113,26 +120,36 @@ function revalidateMembership(tenantId: string, userId: string) {
 
 export async function addMembership(tenantId: string, userId: string, roleId: string) {
   await requireSuperAdmin();
-  if (!userId) throw new Error("User is required");
-  if (!roleId) throw new Error("Role is required");
-  assertIds(tenantId, userId, roleId);
-  await prisma.tenantMembership.upsert({
-    where: { tenantId_userId: { tenantId, userId } },
-    update: { roleId },
-    create: { tenantId, userId, roleId },
+  return withUserErrors(async () => {
+    if (!userId) throw new UserFacingError("User is required");
+    if (!roleId) throw new UserFacingError("Role is required");
+    assertIds(tenantId, userId, roleId);
+    if (!(await prisma.role.findUnique({ where: { id: roleId }, select: { id: true } }))) {
+      throw new UserFacingError("Selected role no longer exists");
+    }
+    await prisma.tenantMembership.upsert({
+      where: { tenantId_userId: { tenantId, userId } },
+      update: { roleId },
+      create: { tenantId, userId, roleId },
+    });
+    revalidateMembership(tenantId, userId);
   });
-  revalidateMembership(tenantId, userId);
 }
 
 export async function setMembershipRole(tenantId: string, userId: string, roleId: string) {
   await requireSuperAdmin();
-  if (!roleId) throw new Error("Role is required");
-  assertIds(tenantId, userId, roleId);
-  await prisma.tenantMembership.update({
-    where: { tenantId_userId: { tenantId, userId } },
-    data: { roleId },
+  return withUserErrors(async () => {
+    if (!roleId) throw new UserFacingError("Role is required");
+    assertIds(tenantId, userId, roleId);
+    if (!(await prisma.role.findUnique({ where: { id: roleId }, select: { id: true } }))) {
+      throw new UserFacingError("Selected role no longer exists");
+    }
+    await prisma.tenantMembership.update({
+      where: { tenantId_userId: { tenantId, userId } },
+      data: { roleId },
+    });
+    revalidateMembership(tenantId, userId);
   });
-  revalidateMembership(tenantId, userId);
 }
 
 export async function removeMembership(tenantId: string, userId: string) {

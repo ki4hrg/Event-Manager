@@ -16,6 +16,8 @@ vi.mock("@/lib/email", () => ({ sendInviteEmail: vi.fn(), sendPasswordResetEmail
 const { USERS, EVENTS } = PermissionResource;
 const { VIEW, WRITE, DELETE } = PermissionLevel;
 const REDIRECTED = { digest: expect.stringContaining("NEXT_REDIRECT") };
+// Refusals come back as { error } (withUserErrors), so the person reads them (#252).
+const REFUSED = { error: expect.stringContaining("access") };
 
 // A user manager: USERS WRITE/DELETE and EVENTS VIEW, nothing else.
 async function userManager() {
@@ -39,7 +41,7 @@ describe("role ceiling (#284): USERS WRITE can't hand out more than the caller h
   it("refuses inviting someone with a role above the caller's own access", async () => {
     const { tenantId, admin } = await userManager();
     const email = `new-${admin.id}@example.test`;
-    await expect(createUser(form({ email, roleId: admin.id }))).rejects.toBeInstanceOf(UserFacingError);
+    await expect(createUser(form({ email, roleId: admin.id }))).resolves.toEqual(REFUSED);
     expect(await prisma.user.count({ where: { email } })).toBe(0);
     expect(await prisma.tenantMembership.count({ where: { tenantId, roleId: admin.id } })).toBe(0);
   });
@@ -54,7 +56,7 @@ describe("role ceiling (#284): USERS WRITE can't hand out more than the caller h
     const { tenantId, admin } = await userManager();
     const target = await prisma.user.create({ data: { email: `adm-${admin.id}@example.test` } });
     await prisma.tenantMembership.create({ data: { tenantId, userId: target.id, roleId: admin.id } });
-    await expect(removeUserFromTenant(target.id)).rejects.toBeInstanceOf(UserFacingError);
+    await expect(removeUserFromTenant(target.id)).resolves.toEqual(REFUSED);
     expect(await prisma.tenantMembership.count({ where: { tenantId, userId: target.id } })).toBe(1);
   });
 
@@ -69,8 +71,8 @@ describe("role ceiling (#284): USERS WRITE can't hand out more than the caller h
     const { tenantId, admin } = await userManager();
     const target = await prisma.user.create({ data: { email: `boss-${admin.id}@example.test` } });
     await prisma.tenantMembership.create({ data: { tenantId, userId: target.id, roleId: admin.id } });
-    await expect(updateUser(target.id, form({ email: "attacker@example.test", roleId: admin.id }))).rejects.toBeInstanceOf(UserFacingError);
-    await expect(resendPasswordResetEmail(target.id)).rejects.toBeInstanceOf(UserFacingError);
+    await expect(updateUser(target.id, form({ email: "attacker@example.test", roleId: admin.id }))).resolves.toEqual(REFUSED);
+    await expect(resendPasswordResetEmail(target.id)).resolves.toEqual(REFUSED);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: target.id } })).email).toBe(`boss-${admin.id}@example.test`);
   });
 
@@ -78,7 +80,7 @@ describe("role ceiling (#284): USERS WRITE can't hand out more than the caller h
     const { tenantId, admin, viewer } = await userManager();
     const target = await prisma.user.create({ data: { email: `v-${viewer.id}@example.test` } });
     await prisma.tenantMembership.create({ data: { tenantId, userId: target.id, roleId: viewer.id } });
-    await expect(updateUser(target.id, form({ email: target.email!, roleId: admin.id }))).rejects.toBeInstanceOf(UserFacingError);
+    await expect(updateUser(target.id, form({ email: target.email!, roleId: admin.id }))).resolves.toEqual(REFUSED);
     expect((await prisma.tenantMembership.findFirstOrThrow({ where: { tenantId, userId: target.id } })).roleId).toBe(viewer.id);
   });
 });

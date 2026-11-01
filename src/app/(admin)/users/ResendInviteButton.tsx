@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { type UserError, actionErrorMessage, isUserError } from "@/lib/userErrors";
 
 type Props = {
-  action: () => Promise<void>;
+  action: () => Promise<void | UserError>;
 };
 
 export function ResendInviteButton({ action }: Props) {
@@ -19,7 +19,12 @@ export function ResendInviteButton({ action }: Props) {
     setErrorMessage(null);
     startTransition(async () => {
       try {
-        await action();
+        const result = await action();
+        if (isUserError(result)) {
+          setConfirmation("error");
+          setErrorMessage(result.error);
+          return;
+        }
         setConfirmation("sent");
         router.refresh();
         setTimeout(() => setConfirmation(null), 3000);

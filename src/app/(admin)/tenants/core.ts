@@ -7,16 +7,17 @@ import { prisma } from "@/lib/prisma";
 import { slugifyTenantName } from "@/lib/tenant";
 import type { OrgProfile } from "@/lib/orgProfile";
 import { seedTenantDefaults } from "../../../../prisma/tenantDefaults.mjs";
+import { UserFacingError } from "@/lib/userErrors";
 
 export async function createTenantCore(name: string, slugInput: string | null, profile?: OrgProfile) {
   const trimmed = name.trim();
-  if (!trimmed) throw new Error("Name is required");
-  if (trimmed.length > 200 || (slugInput?.length ?? 0) > 200) throw new Error("Name and slug must be at most 200 characters");
+  if (!trimmed) throw new UserFacingError("Name is required");
+  if (trimmed.length > 200 || (slugInput?.length ?? 0) > 200) throw new UserFacingError("Name and slug must be at most 200 characters");
   const slug = slugifyTenantName(slugInput?.trim() || trimmed);
-  if (!slug) throw new Error("Slug must contain at least one letter or number");
+  if (!slug) throw new UserFacingError("Slug must contain at least one letter or number");
 
   const clash = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-  if (clash) throw new Error("A tenant with this slug already exists");
+  if (clash) throw new UserFacingError("A tenant with this slug already exists");
 
   // Defaults land in the same transaction as the row, so a half-seeded tenant
   // can't exist: every tenant has its dropdown options, equipment catalog, and

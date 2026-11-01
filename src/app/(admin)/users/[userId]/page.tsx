@@ -67,26 +67,26 @@ export default async function UserDetailPage({
 
   const updateAction = async (formData: FormData) => {
     "use server";
-    await updateUser(userId, formData);
+    return updateUser(userId, formData);
   };
 
   const deleteAction = async () => {
     "use server";
-    await deleteUser(userId);
+    return deleteUser(userId);
   };
 
   const removeAction = async () => {
     "use server";
-    await removeUserFromTenant(userId);
+    return removeUserFromTenant(userId);
   };
 
   const addMembershipAction = async (tenantId: string, roleId: string) => {
     "use server";
-    await addMembership(tenantId, userId, roleId);
+    return addMembership(tenantId, userId, roleId);
   };
   const setMembershipRoleAction = async (tenantId: string, roleId: string) => {
     "use server";
-    await setMembershipRole(tenantId, userId, roleId);
+    return setMembershipRole(tenantId, userId, roleId);
   };
   const removeMembershipAction = async (tenantId: string) => {
     "use server";
@@ -95,7 +95,7 @@ export default async function UserDetailPage({
 
   const resendAction = async () => {
     "use server";
-    await resendPasswordResetEmail(userId);
+    return resendPasswordResetEmail(userId);
   };
 
   const grantEventAction = async (eventId: string, accessLevel: string) => {

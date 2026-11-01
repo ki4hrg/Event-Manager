@@ -80,7 +80,8 @@ checklists: `docs/checklists/` · sweep status: `docs/HANDOFF.md`.
   React error #441" (#252). Cores throw `UserFacingError`; an action called from `useTransition`
   wraps its own body (after the permission check) in `withUserErrors`, which returns `{ error }`,
   and the client shows `isUserError(result)` (`src/lib/userErrors.ts`). Wrapping on the client
-  catches nothing: by then the message is gone.
+  catches nothing: by then the message is gone. A caught error is shown with
+  `actionErrorMessage(e, fallback)`, never `e.message`.
 - **Never call a function exported from a `"use client"` module on the server**: it's a proxy there
   and throws at render. Shared pure helpers go in `src/lib/`.
 - **Reports** render a mobile card layout and a desktop/print table, print from their own `/print`

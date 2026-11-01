@@ -13,7 +13,7 @@ import {
   unsetResources,
 } from "./resources";
 import { keepFormValues } from "@/lib/keepFormValues";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { type UserError, actionErrorMessage, isUserError } from "@/lib/userErrors";
 
 function buildPermissionMap(perms: RolePermission[] | undefined): Map<string, PermissionLevel> {
   const map = new Map<string, PermissionLevel>();
@@ -41,8 +41,8 @@ type RoleFormProps = {
     isSystem: boolean;
     permissions: RolePermission[];
   };
-  saveAction: (formData: FormData) => Promise<void>;
-  deleteAction?: () => Promise<void>;
+  saveAction: (formData: FormData) => Promise<void | UserError>;
+  deleteAction?: () => Promise<void | UserError>;
   // Role definitions are shared by every organization, so only super admins
   // edit them; everyone else gets the matrix read-only.
   canEdit?: boolean;
@@ -59,7 +59,8 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
   async function handleSubmit(formData: FormData) {
     setError(null);
     try {
-      await saveAction(formData);
+      const result = await saveAction(formData);
+      if (isUserError(result)) setError(result.error);
     } catch (e) {
       setError(actionErrorMessage(e, "An error occurred"));
     }
@@ -132,7 +133,7 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
   );
 }
 
-function DeleteRoleControls({ deleteAction }: { deleteAction?: () => Promise<void> }) {
+function DeleteRoleControls({ deleteAction }: { deleteAction?: () => Promise<void | UserError> }) {
   if (!deleteAction) return null;
   return <DeleteButton resource="ROLES" action={deleteAction} label="Delete Role" />;
 }
