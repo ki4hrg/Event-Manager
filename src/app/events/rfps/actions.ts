@@ -1,12 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { readJsonList } from "@/lib/validation";
+import { idList, idSchema, looseNumber, looseText, parseArgs, readJsonList } from "@/lib/validation";
 import { UserFacingError } from "@/lib/userErrors";
 
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
-import type { RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
+import { RfpSpaceKind, type RfpKind, type RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
@@ -18,6 +18,7 @@ import { cateringSpaceRows, functionSpaceRows, sortSpaceRows } from "@/lib/rfp/s
 import { getPickupPattern } from "@/app/hotels/actions";
 import { eventScopeWhere } from "../core";
 import type { OfferHotel } from "@/lib/inboundParse";
+import { NEW_HOTEL_KEYS } from "@/app/events/hotels/proposalArgs";
 import {
   addNewRfpRecipientCore,
   addRfpRecipientsCore,
@@ -46,6 +47,81 @@ import {
   type RfpSpaceArgs,
   type RfpWriteArgs,
 } from "./core";
+
+// The structured arguments the RFP page's editors pass to these actions,
+// checked before the cores see them (React's encoding keeps NaN and
+// undefined; see looseNumber). Each is held to the core's arg type.
+const idOrNull = idSchema.nullish().transform((v) => v ?? null);
+const short = looseText(10_000);
+
+const LineItemSchema = z.object({
+  id: idSchema.nullish(),
+  group: short,
+  description: z.string().max(20_000),
+  quantity: looseNumber,
+  unit: short,
+  day: looseText(10),
+  endDay: looseText(10),
+  startTime: looseText(8),
+  endTime: looseText(8),
+  notes: looseText(),
+  avOrderId: idOrNull,
+  cateringOrderId: idOrNull,
+  printOrderId: idOrNull,
+  equipmentItemId: idOrNull,
+  printItemId: idOrNull,
+  cateringLineItemId: idOrNull,
+}) satisfies z.ZodType<RfpLineItemArgs>;
+
+const ConcessionSchema = z.object({
+  id: idSchema.nullish(),
+  label: z.string().max(500),
+  value: looseText(20_000),
+  required: z.boolean(),
+}) satisfies z.ZodType<RfpConcessionArgs>;
+
+const SpaceSchema = z.object({
+  id: idSchema.nullish(),
+  kind: z.enum(RfpSpaceKind),
+  functionId: idSchema.nullish(),
+  cateringOrderId: idSchema.nullish(),
+  day: looseText(10),
+  endDay: looseText(10),
+  startTime: looseText(8),
+  endTime: looseText(8),
+  functionType: short,
+  name: z.string().max(500),
+  attendance: looseNumber,
+  setup: short,
+  areaSqFt: looseNumber,
+  av: looseText(20_000),
+  hold24: z.boolean(),
+  room: short,
+}) satisfies z.ZodType<RfpSpaceArgs>;
+
+const RecipientSchema = z.object({
+  sentOn: looseText(10),
+  declinedToBid: z.boolean(),
+  notes: looseText(),
+}) satisfies z.ZodType<RfpRecipientArgs>;
+
+// The new-hotel fields readNewHotel posts, one per NEW_HOTEL_KEYS entry.
+const NewHotelSchema = z.object(
+  Object.fromEntries(NEW_HOTEL_KEYS.map((k) => [k, looseText(1_000)])) as Record<(typeof NEW_HOTEL_KEYS)[number], ReturnType<typeof looseText>>,
+) satisfies z.ZodType<OfferHotel>;
+
+const FillSchema = z.object({
+  seriesId: idOrNull,
+  contractType: short,
+  guestType: short,
+  basis: z.enum(["average", "highest", "latest"]),
+  adjust: z.number(),
+  city: z.string().max(1_000).optional(),
+  from: z.string().max(40).optional(),
+  to: z.string().max(40).optional(),
+}) satisfies z.ZodType<RfpFillArgs & { city?: string; from?: string; to?: string }>;
+
+const PartySchema = z.union([z.strictObject({ vendorId: idSchema }), z.strictObject({ venueId: idSchema })]);
 
 // Every RFP lists on the event's RFPs page; Hotels shows a summary of the
 // hotel ones.
@@ -119,7 +195,12 @@ export async function getRfp(id: string, eventId: string) {
 // The RFPs a vendor or hotel was sent and what it answered with (quotes,
 // proposals), on the events the user can see and the kinds they may view —
 // for the vendor and venue pages. Newest events first.
-export async function getRfpHistory(party: { vendorId: string } | { venueId: string }) {
+export async function getRfpHistory(input: { vendorId: string } | { venueId: string }) {
+  // Spread into a Prisma where below: exactly one id, never a filter object.
+  // The id comes from a vendor or venue route, so a malformed one is not found.
+  const checked = PartySchema.safeParse(input);
+  if (!checked.success) notFound();
+  const party = checked.data;
   const session = await requirePermission("vendorId" in party ? "VENDORS" : "VENUES", "VIEW");
   const [allowed, event] = await Promise.all([
     Promise.all(RFP_KINDS.map(async (k) => ((await hasPermission(resourceForKind(k), "VIEW")) ? k : null))),
@@ -324,16 +405,19 @@ export async function getRfpComparison(id: string, eventId: string, combine: str
   const rfp = await prisma.rfp.findFirst({ where: { id, eventId }, select: { kind: true } });
   if (!rfp) return null;
   const session = await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
-  return getRfpComparisonCore(id, eventId, session.user.id, combine);
+  // From the URL's ?combine=: entries that can't be ids are ignored.
+  const ids = Array.isArray(combine) ? combine.filter((c) => idSchema.safeParse(c).success).slice(0, 200) : [];
+  return getRfpComparisonCore(id, eventId, session.user.id, ids);
 }
 
 // A requested block filled from past pickup (src/lib/hotelPattern.ts), dated
 // to this event. Read-only; the editor applies it to its grid.
 export async function getRfpPatternFill(
   eventId: string,
-  args: RfpFillArgs & { city?: string; from?: string; to?: string },
+  input: RfpFillArgs & { city?: string; from?: string; to?: string },
 ) {
   await requirePermission("HOTELS", "VIEW", eventId);
+  const args = parseArgs(FillSchema, input);
   if (!(await hasPermission("HOTELS", "VIEW"))) return { events: 0, nights: [] };
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { startDate: true, endDate: true } });
   const { events } = await getPickupPattern({
@@ -436,7 +520,7 @@ export async function saveRfpBlocks(id: string, eventId: string, blocks: RfpBloc
 export async function saveRfpLineItems(id: string, eventId: string, rows: RfpLineItemArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const ids = await saveRfpLineItemsCore(id, eventId, rows, session.user.id);
+  const ids = await saveRfpLineItemsCore(id, eventId, parseArgs(z.array(LineItemSchema).max(2_000), rows), session.user.id);
   revalidatePath(rfpPath(eventId, kind, id));
   return ids;
 }
@@ -444,7 +528,7 @@ export async function saveRfpLineItems(id: string, eventId: string, rows: RfpLin
 export async function saveRfpConcessions(id: string, eventId: string, concessions: RfpConcessionArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const ids = await saveRfpConcessionsCore(id, eventId, concessions, session.user.id);
+  const ids = await saveRfpConcessionsCore(id, eventId, parseArgs(z.array(ConcessionSchema).max(500), concessions), session.user.id);
   revalidatePath(rfpPath(eventId, kind, id));
   return ids;
 }
@@ -452,7 +536,7 @@ export async function saveRfpConcessions(id: string, eventId: string, concession
 export async function saveRfpSpace(id: string, eventId: string, spaceKind: RfpSpaceKind, rows: RfpSpaceArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const ids = await saveRfpSpaceCore(id, eventId, rows, session.user.id, spaceKind === "FB" ? "FB" : "MEETING");
+  const ids = await saveRfpSpaceCore(id, eventId, parseArgs(z.array(SpaceSchema).max(2_000), rows), session.user.id, spaceKind === "FB" ? "FB" : "MEETING");
   revalidatePath(rfpPath(eventId, kind, id));
   return ids;
 }
@@ -473,14 +557,14 @@ export async function issueRfp(id: string, eventId: string) {
 export async function addRfpRecipients(id: string, eventId: string, venueIds: string[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await addRfpRecipientsCore(id, eventId, venueIds, session.user.id);
+  await addRfpRecipientsCore(id, eventId, parseArgs(idList(), venueIds), session.user.id);
   revalidateLists(eventId, kind);
 }
 
 export async function addNewRfpRecipient(id: string, eventId: string, hotel: OfferHotel) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await addNewRfpRecipientCore(id, eventId, hotel, session.user.id);
+  await addNewRfpRecipientCore(id, eventId, parseArgs(NewHotelSchema, hotel), session.user.id);
   revalidateLists(eventId, kind);
   revalidatePath("/venues");
 }
@@ -488,7 +572,7 @@ export async function addNewRfpRecipient(id: string, eventId: string, hotel: Off
 export async function addRfpVendorRecipients(id: string, eventId: string, vendorIds: string[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await addRfpVendorRecipientsCore(id, eventId, vendorIds, session.user.id);
+  await addRfpVendorRecipientsCore(id, eventId, parseArgs(idList(), vendorIds), session.user.id);
   revalidateLists(eventId, kind);
   revalidatePath(rfpPath(eventId, kind, id));
 }
@@ -496,7 +580,7 @@ export async function addRfpVendorRecipients(id: string, eventId: string, vendor
 export async function updateRfpRecipient(recipientId: string, id: string, eventId: string, args: RfpRecipientArgs) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await updateRfpRecipientCore(recipientId, id, eventId, args, session.user.id);
+  await updateRfpRecipientCore(parseArgs(idSchema, recipientId), id, eventId, parseArgs(RecipientSchema, args), session.user.id);
   revalidateLists(eventId, kind);
 }
 

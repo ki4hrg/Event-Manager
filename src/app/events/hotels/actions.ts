@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ConcessionMet, HotelAttritionBasis, HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
+import { ConcessionMet, type HotelAttritionBasis, type HotelChargeScope, type HotelPickupMethod, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
 import { withUserErrors } from "@/lib/userErrors";
@@ -22,7 +22,8 @@ import {
 } from "./core";
 import { readNewHotel } from "./proposalArgs";
 import { readProposal } from "./readProposal";
-import { readJsonList } from "@/lib/validation";
+import { idSchema, parseArgs, readJsonList } from "@/lib/validation";
+import { z } from "zod";
 import {
   clearFinalGuestListCore,
   clearPickupCore,
@@ -37,10 +38,25 @@ import {
   updateHotelBlockCore,
   updatePickupGuestCore,
   BlockNightSchema,
+  FinalGuestListSchema,
+  ImportFileNameSchema,
+  PickupCountListSchema,
+  PickupGuestListSchema,
+  PickupMethodSchema,
   type FinalGuestArgs,
   type PickupCountArgs,
   type PickupGuestArgs,
 } from "./blockCore";
+
+// Structured arguments the hotel pages pass; checked before use. The answers
+// are a proposal's stored concession rows (or an offer read from email), so
+// text isn't bounded here: a page must render whatever was saved.
+const AnsweredSchema = z.object({
+  rfpId: idSchema.nullish(),
+  blockId: idSchema.nullish(),
+  answers: z.array(z.object({ concessionId: idSchema.nullable(), offered: z.string().nullable(), met: z.enum(ConcessionMet).nullable() })).max(1_000),
+});
+const WorkflowTargetSchema = z.union([z.strictObject({ proposalId: idSchema }), z.strictObject({ blockId: idSchema })]);
 
 const listInclude = {
   venue: { select: { id: true, name: true, city: true, state: true, brand: true } },
@@ -96,6 +112,7 @@ export async function getProposalRfpChoices(
   answered?: { rfpId?: string | null; blockId?: string | null; answers: { concessionId: string | null; offered: string | null; met: ConcessionMet | null }[] },
 ): Promise<RfpChoice[]> {
   await requirePermission("HOTELS", "VIEW", eventId);
+  answered = parseArgs(AnsweredSchema.optional(), answered);
   const rfps = await prisma.rfp.findMany({
     where: { eventId, kind: "HOTEL" },
     orderBy: { createdAt: "asc" },
@@ -259,6 +276,10 @@ export async function getHotelBlocks(eventId: string) {
 // (src/lib/hotelWorkflow.ts). Null when the proposal or block isn't the event's.
 export async function getHotelWorkflow(eventId: string, target: { proposalId: string } | { blockId: string }) {
   const session = await requirePermission("HOTELS", "VIEW", eventId);
+  // An id from the route: one that can't be an id reads as not found.
+  const checked = WorkflowTargetSchema.safeParse(target);
+  if (!checked.success) return null;
+  target = checked.data;
   const blockSelect = {
     id: true,
     contractedOn: true,
@@ -421,7 +442,12 @@ export async function importPickupGuests(
 ) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   return withUserErrors(async () => {
-    await importPickupGuestsCore(blockId, eventId, { method, fileName, guests }, session.user.id);
+    const args = {
+      method: parseArgs(PickupMethodSchema, method),
+      fileName: parseArgs(ImportFileNameSchema, fileName),
+      guests: parseArgs(PickupGuestListSchema, guests),
+    };
+    await importPickupGuestsCore(blockId, eventId, args, session.user.id);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
   });
 }
@@ -478,7 +504,7 @@ export async function setPickupGuestCancelled(guestId: string, blockId: string, 
 export async function savePickupCounts(blockId: string, eventId: string, counts: PickupCountArgs[]) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   return withUserErrors(async () => {
-    await savePickupCountsCore(blockId, eventId, counts, session.user.id);
+    await savePickupCountsCore(blockId, eventId, parseArgs(PickupCountListSchema, counts), session.user.id);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
   });
 }
@@ -497,7 +523,8 @@ export async function getBlockReview(blockId: string, eventId: string) {
 export async function importFinalGuestList(blockId: string, eventId: string, fileName: string | null, guests: FinalGuestArgs[]) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   return withUserErrors(async () => {
-    await importFinalGuestListCore(blockId, eventId, { fileName, guests }, session.user.id);
+    const args = { fileName: parseArgs(ImportFileNameSchema, fileName), guests: parseArgs(FinalGuestListSchema, guests) };
+    await importFinalGuestListCore(blockId, eventId, args, session.user.id);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}/review`);
   });
 }
