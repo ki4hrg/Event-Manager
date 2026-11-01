@@ -70,8 +70,8 @@ them, not ahead of time.
 8. Order types (catering, AV, setup, print, supply, media deliverables). Done in one PR, #286: the forms share `formInt`/`formNumber`/`formId`/`formEnum`/`formNote` (`src/lib/validation.ts`),
    and their MCP tools are covered by #279.
 9. Event core: events, functions, breakout schedule, schedule items, specifications, staff.
-   Done: this PR (bulk function updates: #287).
-10. Presentations, speakers, exhibits.
+   Done: #288 (bulk function updates: #287).
+10. Presentations, speakers, exhibits. Done: this PR.
 11. Hotels (most casts).
 12. Directory: vendors, venues, contacts, equipment, storage locations, files.
 13. Inbound mail model output: a zod schema for each proposal kind.

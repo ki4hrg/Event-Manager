@@ -6,6 +6,7 @@ import { requireEventTenantId, requirePermission } from "@/lib/permissions";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { blockTypeLabel } from "@/lib/hotels";
 import { setContactHeadshotCore, updateContactSpeakerFieldsCore, upsertSpeakerProfileCore } from "./core";
+import { formId, formNote, formTexts } from "@/lib/validation";
 
 // Speaker profiles for the given contacts at this event, keyed by contact.
 export async function getSpeakerProfiles(eventId: string, contactIds: string[]) {
@@ -28,7 +29,7 @@ export async function getSpeakerHotelBlocks(eventId: string) {
   }));
 }
 
-const text = (formData: FormData, key: string) => ((formData.get(key) as string) || "").trim() || null;
+const text = (formData: FormData, key: string) => formNote(formData, key);
 
 export async function updateSpeakerContactFields(eventId: string, presentationId: string, contactId: string, formData: FormData) {
   const session = await requirePermission("PRESENTATIONS", "VIEW", eventId);
@@ -69,10 +70,10 @@ export async function updateSpeakerProfile(eventId: string, presentationId: stri
       arrivalAt: when("arrivalAt"),
       departureAt: when("departureAt"),
       travelNotes: text(formData, "travelNotes"),
-      hotelBlockId: text(formData, "hotelBlockId"),
+      hotelBlockId: formId(formData, "hotelBlockId"),
       hotel: text(formData, "hotel"),
       dietary: text(formData, "dietary"),
-      dietaryNeeds: formData.getAll("dietaryNeeds") as string[],
+      dietaryNeeds: formTexts(formData, "dietaryNeeds"),
       avNeeds: text(formData, "avNeeds"),
       shirtSize: text(formData, "shirtSize"),
       notes: text(formData, "notes"),

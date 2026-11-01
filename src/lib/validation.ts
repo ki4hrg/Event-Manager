@@ -197,3 +197,13 @@ export function formDate(formData: FormData, key: string): Date {
   if (!date || Number.isNaN(date.getTime())) throw new UserFacingError(`${fieldLabel(key)} must be a date`);
   return date;
 }
+
+/** Several text values a form posts under one key (checkbox labels, repeated inputs), each bounded. */
+export function formTexts(formData: FormData, key: string, opts: { max?: number; maxItems?: number } = {}): string[] {
+  const { max = 1_000, maxItems = 1_000 } = opts;
+  const values = formData.getAll(key);
+  if (values.length > maxItems || !values.every((v): v is string => typeof v === "string" && v.length <= max)) {
+    throw new UserFacingError(`${fieldLabel(key)} must be a list of short text`);
+  }
+  return values;
+}
