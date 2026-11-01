@@ -10,8 +10,10 @@ import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { rangeTouched } from "@/lib/dateRange";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
+import { assertIds } from "@/lib/validation";
 
 async function assertCateringOrderInEvent(cateringOrderId: string, eventId: string) {
+  assertIds(cateringOrderId);
   const found = await prisma.cateringOrder.findUnique({
     where: { id: cateringOrderId, eventId },
     select: { id: true },

@@ -9,10 +9,12 @@ import { prisma } from "@/lib/prisma";
 import { refreshWorkflowStatus } from "@/app/events/workflows/core";
 import { requirePermissionForUser, requireEventTenantId, PermissionError } from "@/lib/permissions";
 import { assertEventRefs } from "@/lib/eventRefs";
+import { assertIds } from "@/lib/validation";
 
 // Vendor-scoped cores assert the vendor is the tenant's own before touching its
 // contacts; a foreign id reads as not-found.
 async function assertVendorInTenant(vendorId: string, tenantId: string) {
+  assertIds(vendorId);
   const vendor = await prisma.vendor.findFirst({ where: { id: vendorId, tenantId }, select: { id: true } });
   if (!vendor) throw new PermissionError("NOT_FOUND");
 }

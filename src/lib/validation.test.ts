@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
-import { looseCount, looseNumber, looseText, parseArgs, readJsonList } from "./validation";
+import { PermissionError } from "@/lib/permissions";
+import { assertIds, looseCount, looseNumber, looseText, parseArgs, readJsonList } from "./validation";
 
 const Row = z.object({ name: z.string(), n: z.number().nullable() });
 
@@ -50,5 +51,14 @@ describe("parseArgs and the loose readers for action arguments", () => {
   it("returns the parsed value, or refuses with a readable error", () => {
     expect(parseArgs(Row, { name: "a", n: null, extra: 1 })).toEqual({ name: "a", n: null });
     expect(() => parseArgs(Row, { name: { not: "" }, n: null })).toThrow(UserFacingError);
+  });
+});
+
+describe("assertIds", () => {
+  it("passes ids and refuses filter objects, arrays and blanks as not found", () => {
+    expect(() => assertIds("a1", "b2")).not.toThrow();
+    for (const bad of [{ not: "" }, { in: ["a"] }, ["a"], "", null, undefined, 7]) {
+      expect(() => assertIds("a1", bad)).toThrow(PermissionError);
+    }
   });
 });

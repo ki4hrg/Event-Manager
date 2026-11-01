@@ -7,8 +7,10 @@ import { requirePermissionForUser, PermissionError, requireEventTenantId } from 
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
+import { assertIds } from "@/lib/validation";
 
 async function assertPresentationInEvent(presentationId: string, eventId: string) {
+  assertIds(presentationId);
   const found = await prisma.presentation.findUnique({
     where: { id: presentationId, eventId },
     select: { id: true },

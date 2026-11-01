@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
+import { PermissionError } from "@/lib/permissions";
 
 // Shared building blocks for parsing what a client sends. Area-specific
 // schemas live beside the core that uses them (see QuoteLineSchema in
@@ -70,3 +71,13 @@ export const looseText = (max = 100_000) =>
     .max(max)
     .nullish()
     .transform((s) => s ?? null);
+
+/**
+ * Ids a caller passed, each a real id string. A Server Action's arguments come
+ * from the client unchecked, and an object there is a Prisma filter: as the id
+ * in `deleteMany({ where: { id } })`, `{ not: "" }` matches every row. Anything
+ * that isn't an id reads as not found.
+ */
+export function assertIds(...values: unknown[]): void {
+  if (!values.every((v) => idSchema.safeParse(v).success)) throw new PermissionError("NOT_FOUND");
+}

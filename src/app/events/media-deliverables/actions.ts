@@ -11,8 +11,10 @@ import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { getResponsibleParties, type ResponsiblePartyPool } from "@/lib/responsibleParties";
 import { createMediaDeliverableCore } from "./core";
 import { assertEventRefs } from "@/lib/eventRefs";
+import { assertIds } from "@/lib/validation";
 
 async function assertMediaDeliverableInEvent(mediaDeliverableId: string, eventId: string) {
+  assertIds(mediaDeliverableId);
   const found = await prisma.mediaDeliverable.findUnique({
     where: { id: mediaDeliverableId, eventId },
     select: { id: true },
@@ -169,6 +171,7 @@ export async function linkMediaDeliverableToFunction(mediaDeliverableId: string,
 
 export async function unlinkMediaDeliverableFromFunction(mediaDeliverableId: string, functionId: string, eventId: string) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
+  assertIds(mediaDeliverableId, functionId);
   await prisma.mediaDeliverableFunction.deleteMany({
     where: { mediaDeliverableId, functionId, mediaDeliverable: { eventId } },
   });
@@ -201,6 +204,7 @@ export async function unlinkMediaDeliverableFromPresentation(
   eventId: string
 ) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
+  assertIds(mediaDeliverableId, presentationId);
   await prisma.mediaDeliverablePresentation.deleteMany({
     where: { mediaDeliverableId, presentationId, mediaDeliverable: { eventId } },
   });

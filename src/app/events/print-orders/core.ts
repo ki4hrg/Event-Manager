@@ -8,8 +8,10 @@ import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
 import { assertPackingSubstatus, packingItemsWrite, packingSubstatusFor } from "@/lib/packingSubstatus";
 import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
+import { assertIds } from "@/lib/validation";
 
 async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
+  assertIds(printOrderId);
   const found = await prisma.printOrder.findUnique({
     where: { id: printOrderId, eventId },
     select: { id: true },

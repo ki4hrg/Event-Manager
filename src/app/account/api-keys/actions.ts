@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { generateApiKey } from "@/lib/mcpAuth";
+import { assertIds } from "@/lib/validation";
 
 export async function getApiKeys() {
   const session = await requireAuth();
@@ -42,6 +43,7 @@ export async function mintApiKey(formData: FormData): Promise<{
 
 export async function revokeApiKey(id: string): Promise<void> {
   const session = await requireAuth();
+  assertIds(id);
   // Scope the update by userId so a user can only revoke their own keys, even
   // if they guess another key's id. updateMany returns count 0 on no match —
   // we don't surface a 404 because that would leak existence.

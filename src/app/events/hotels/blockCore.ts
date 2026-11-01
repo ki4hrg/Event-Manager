@@ -8,7 +8,7 @@
 
 import { HotelPickupMethod, type HotelAttritionBasis, type HotelChargeScope, type Prisma } from "@prisma/client";
 import { z } from "zod";
-import { dateKeySchema, idSchema, looseCount, looseText, nullableNumber, text } from "@/lib/validation";
+import { dateKeySchema, idSchema, looseCount, looseText, nullableNumber, text, assertIds } from "@/lib/validation";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { MAX_STAY_NIGHTS, addDays, dateFromKey, dateKey, isAttritionBasis, labelKey, nightKeys } from "@/lib/hotels";
@@ -21,6 +21,7 @@ import { reconcileGuests } from "@/lib/hotelReconcile";
 const inEvent = (eventId: string) => ({ proposal: { eventId } });
 
 async function assertBlockInEvent(blockId: string, eventId: string) {
+  assertIds(blockId);
   const b = await prisma.hotelBlock.findFirst({ where: { id: blockId, ...inEvent(eventId) }, select: { id: true } });
   if (!b) throw new PermissionError("NOT_FOUND");
 }

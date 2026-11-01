@@ -10,6 +10,7 @@ import { PermissionResource } from "@prisma/client";
 import type { EntityStatus, WorkflowCompletionMode } from "@prisma/client";
 import { isWorkflowCheckKey } from "@/lib/workflowChecks";
 import { applyStatusMoves, stepChangeImpact } from "@/app/events/workflows/core";
+import { assertIds } from "@/lib/validation";
 
 const COMPLETION_MODES: readonly WorkflowCompletionMode[] = ["MANUAL", "AUTO", "PROMPT"];
 
@@ -81,6 +82,7 @@ async function bumpWorkflowTemplate(templateId: string, userId: string) {
 // Steps and checklist items are reached by template id; the template must be
 // the tenant's own before any child row is written under it.
 async function assertTemplateInTenant(templateId: string, tenantId: string) {
+  assertIds(templateId);
   const template = await prisma.workflowTemplate.findFirst({
     where: { id: templateId, tenantId },
     select: { id: true },

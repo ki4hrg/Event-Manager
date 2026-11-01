@@ -22,12 +22,14 @@ import {
   syncFunctionNumbers,
   validateFunctionNumberOverride,
 } from "@/lib/functionNumbering";
+import { assertIds } from "@/lib/validation";
 
 // Atomically confirms the function belongs to the claimed event. Throws
 // PermissionError("NOT_FOUND") on miss; the MCP route maps this to a protocol
 // error and the UI surfaces it as a notFound() / 500 (rare in practice — the
 // UI never sends mismatched ids).
 async function assertFunctionInEvent(functionId: string, eventId: string) {
+  assertIds(functionId);
   const found = await prisma.function.findUnique({
     where: { id: functionId, eventId },
     select: { id: true },

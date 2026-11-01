@@ -9,8 +9,10 @@ import { catalogIdForName, resolveEquipmentName } from "@/lib/equipment-utils";
 import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
+import { assertIds } from "@/lib/validation";
 
 async function assertSetupOrderInEvent(setupOrderId: string, eventId: string) {
+  assertIds(setupOrderId);
   const found = await prisma.setupOrder.findUnique({
     where: { id: setupOrderId, eventId },
     select: { id: true },
