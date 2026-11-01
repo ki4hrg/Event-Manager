@@ -22,7 +22,7 @@ import {
 } from "./core";
 import { readNewHotel } from "./proposalArgs";
 import { readProposal } from "./readProposal";
-import { idSchema, parseArgs, readJsonList } from "@/lib/validation";
+import { formInt, formNote, formNumber, idSchema, parseArgs, readJsonList } from "@/lib/validation";
 import { z } from "zod";
 import {
   clearFinalGuestListCore,
@@ -377,7 +377,7 @@ export async function getBlockFormChoices(eventId: string) {
 // Another block from the accepted proposal, for the guest type picked.
 export async function createHotelBlock(proposalId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const block = await createHotelBlockCore(proposalId, eventId, session.user.id, { guestType: (formData.get("guestType") as string) || null });
+  const block = await createHotelBlockCore(proposalId, eventId, session.user.id, { guestType: formNote(formData, "guestType") });
   revalidatePath(`/events/${eventId}/hotels`);
   revalidatePath(`/events/${eventId}/hotels/proposals/${proposalId}`);
   redirect(`/events/${eventId}/hotels/blocks/${block.id}?success=Block created`);
@@ -386,9 +386,9 @@ export async function createHotelBlock(proposalId: string, eventId: string, form
 // The block card autosaves through this: no redirect.
 export async function updateHotelBlock(blockId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const str = (k: string) => (formData.get(k) as string) || null;
-  const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
-  const int = (k: string) => (formData.get(k) ? parseInt(formData.get(k) as string) : null);
+  const str = (k: string) => formNote(formData, k);
+  const num = (k: string) => formNumber(formData, k);
+  const int = (k: string) => formInt(formData, k, { min: 0 });
   await updateHotelBlockCore(
     blockId,
     eventId,
@@ -454,7 +454,7 @@ export async function importPickupGuests(
 
 // One guest's fields as the pickup page's guest form posts them.
 function readPickupGuest(formData: FormData): PickupGuestArgs {
-  const str = (k: string) => ((formData.get(k) as string) || "").trim() || null;
+  const str = (k: string) => formNote(formData, k, 1_000);
   const cancelled = formData.get("cancelled") === "true";
   return {
     guestName: str("guestName"),
@@ -541,7 +541,7 @@ export async function saveBlockReview(blockId: string, eventId: string, formData
   await saveBlockReviewCore(
     blockId,
     eventId,
-    { reviewedOn: reopen ? null : (formData.get("reviewedOn") as string) || null, reviewNotes: (formData.get("reviewNotes") as string) || null },
+    { reviewedOn: reopen ? null : formNote(formData, "reviewedOn", 10), reviewNotes: formNote(formData, "reviewNotes") },
     session.user.id,
   );
   revalidatePath(`/events/${eventId}/hotels`);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UserFacingError } from "@/lib/userErrors";
+import { PermissionError } from "@/lib/permissionError";
 import { readProposal } from "./readProposal";
 
 function form(fields: Record<string, string>) {
@@ -37,7 +38,13 @@ describe("readProposal: the lists a proposal form posts", () => {
     ["a meal price that isn't a number", { meals: JSON.stringify([{ mealType: "Lunch", price: "42" }]) }],
     ["malformed spaces JSON", { spaces: "[{" }],
     ["an unknown F&B minimum scope", { fbMinimumScope: "WHENEVER" }],
+    ["a revision that isn't a whole number", { revision: "two" }],
+    ["an attrition that isn't a number", { allowedAttrition: "ten percent" }],
   ])("refuses %s", (_label, fields) => {
     expect(() => readProposal(form(fields))).toThrow(UserFacingError);
+  });
+
+  it("reads a lead source that isn't an id as not found", () => {
+    expect(() => readProposal(form({ leadSource: "x".repeat(101) }))).toThrow(PermissionError);
   });
 });

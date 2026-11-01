@@ -5,7 +5,7 @@
 import { HotelChargeScope } from "@prisma/client";
 import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
-import { readJsonList } from "@/lib/validation";
+import { formId, formInt, formNote, formNumber, formRequiredId, formValue, readJsonList } from "@/lib/validation";
 import {
   ProposalAmenitySchema,
   ProposalChargeSchema,
@@ -29,17 +29,18 @@ function scopeOrNull(v: FormDataEntryValue | null): HotelChargeScope | null {
 }
 
 export function readProposal(formData: FormData): ProposalWriteArgs {
-  const str = (k: string) => (formData.get(k) as string) || null;
-  const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
+  const str = (k: string) => formNote(formData, k);
+  const num = (k: string) => formNumber(formData, k);
   // Fields the form may leave out: absent leaves what the proposal has.
   const optional = <T>(k: string, read: (k: string) => T) => (formData.has(k) ? read(k) : undefined);
   return {
-    venueId: formData.get("venueId") as string,
-    status: formData.get("status") as string,
+    // A venue id, or NEW_HOTEL for one created on save.
+    venueId: formRequiredId(formData, "venueId", "hotel"),
+    status: formValue(formData, "status", 1_000),
     // "" not set, LEAD_SOURCE_DIRECT, or a lead-source vendor's id.
     leadSourceDirect: formData.get("leadSource") === LEAD_SOURCE_DIRECT,
-    leadSourceVendorId: formData.get("leadSource") === LEAD_SOURCE_DIRECT ? null : str("leadSource"),
-    leadSourceContactId: str("leadSourceContactId"),
+    leadSourceVendorId: formData.get("leadSource") === LEAD_SOURCE_DIRECT ? null : formId(formData, "leadSource"),
+    leadSourceContactId: formId(formData, "leadSourceContactId"),
     contractType: str("contractType"),
     guestType: str("guestType"),
     submittedOn: str("submittedOn"),
@@ -47,7 +48,7 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     checkOut: str("checkOut"),
     declinedReason: str("declinedReason"),
     notes: str("notes"),
-    revision: formData.get("revision") ? parseInt(formData.get("revision") as string) : 1,
+    revision: formInt(formData, "revision", { min: 1 }) ?? 1,
     revisionSummary: str("revisionSummary"),
     allowedAttrition: num("allowedAttrition"),
     guaranteedRevenue: num("guaranteedRevenue"),
@@ -68,7 +69,7 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     // The form also posts the link it shows as saved: an untouched picker
     // leaves the link alone, so a form loaded before a link made elsewhere
     // can't undo it.
-    rfpBlockId: formData.has("rfpBlockId") && formData.get("rfpBlockId") !== formData.get("rfpBlockWas") ? str("rfpBlockId") : undefined,
+    rfpBlockId: formData.has("rfpBlockId") && formData.get("rfpBlockId") !== formData.get("rfpBlockWas") ? formId(formData, "rfpBlockId") : undefined,
     concessions: formData.has("concessions") ? readJsonList(formData, "concessions", ProposalConcessionSchema) : undefined,
     offeredConcessions: formData.has("offeredConcessions") ? readJsonList(formData, "offeredConcessions", ProposalOfferedConcessionSchema) : undefined,
   };

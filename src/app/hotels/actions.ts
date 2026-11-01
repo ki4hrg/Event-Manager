@@ -7,6 +7,7 @@ import { blockPickup, daysOutPickup, pickupTotals } from "@/lib/hotelPickup";
 import { getOptionsForTenant } from "@/lib/options";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { blockPickupSelect, hotelEventWhere, pickupPatternCore, type BlockForTotals, type PatternFilters } from "./core";
+import { assertIds, dateKeySchema, idSchema } from "@/lib/validation";
 
 // Events whose hotels this user may see across the tenant (hotelEventWhere).
 async function hotelSession() {
@@ -16,8 +17,16 @@ async function hotelSession() {
 
 // The active tenant's lodging venues with their proposal history; with
 // amenities, only hotels that have every one.
-export async function getHotels(amenities: string[] = []) {
+// These readers take filters from the URL. A value that isn't the right shape
+// means no filter (an object would be a Prisma filter), never an error.
+const isText = (v: unknown): v is string => typeof v === "string" && v.length <= 1_000;
+const texts = (v: unknown) => (Array.isArray(v) ? v.filter(isText).slice(0, 200) : []);
+const seriesFilter = (v: unknown) => (v === "__blank__" || idSchema.safeParse(v).success ? (v as string) : undefined);
+const dateFilter = (v: unknown) => (dateKeySchema.safeParse(v).success ? (v as string) : undefined);
+
+export async function getHotels(input: string[] = []) {
   const { tenantId, eventWhere } = await hotelSession();
+  const amenities = texts(input);
   return prisma.venue.findMany({
     where: { tenantId, isLodging: true, ...(amenities.length ? { amenities: { hasEvery: amenities } } : {}) },
     select: {
@@ -41,6 +50,7 @@ export async function getHotels(amenities: string[] = []) {
 // One venue's proposals across events, newest event first.
 export async function getVenueHotelHistory(venueId: string) {
   const { tenantId, eventWhere } = await hotelSession();
+  assertIds(venueId);
   return prisma.hotelProposal.findMany({
     where: { venueId, venue: { tenantId }, event: eventWhere },
     select: {
@@ -85,8 +95,9 @@ function blockRow(b: BlockForTotals, contractTypes: ContractTypeOption[]) {
 export type HotelHistoryFilters = { seriesId?: string; from?: string; to?: string };
 
 // Pickup per event (and per hotel) across the tenant, newest first.
-export async function getHotelPickupHistory(filters: HotelHistoryFilters) {
+export async function getHotelPickupHistory(input: HotelHistoryFilters) {
   const { tenantId, eventWhere } = await hotelSession();
+  const filters: HotelHistoryFilters = { seriesId: seriesFilter(input?.seriesId), from: dateFilter(input?.from), to: dateFilter(input?.to) };
   const contractTypes = await contractTypeOptions(tenantId);
   const events = await prisma.event.findMany({
     where: {
@@ -168,7 +179,15 @@ export async function getBlockMonitoring() {
 // Rooms picked up and blocked per night across ended events (pickupPatternCore).
 export async function getPickupPattern(filters: PatternFilters) {
   const session = await requirePermission("HOTELS", "VIEW");
-  return pickupPatternCore(filters, session.user.id, session.tenantId);
+  const clean: PatternFilters = {
+    seriesId: seriesFilter(filters?.seriesId),
+    city: typeof filters?.city === "string" ? filters.city.slice(0, 200) : undefined,
+    contractTypes: texts(filters?.contractTypes),
+    guestTypes: texts(filters?.guestTypes),
+    from: dateFilter(filters?.from),
+    to: dateFilter(filters?.to),
+  };
+  return pickupPatternCore(clean, session.user.id, session.tenantId);
 }
 
 // The tenant's contract types, for the pattern filter.
