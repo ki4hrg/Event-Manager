@@ -8,6 +8,7 @@ import { createSetupEquipmentItem, createSetupTable } from "./setup-orders/actio
 import { createAVEquipmentItem, createAVOrder, createInputItem } from "./av-orders/actions";
 import { createSupplyOrderItem } from "./supply-orders/actions";
 import { createPrintItem } from "./print-orders/actions";
+import { createBoothGroup, createExhibitBooth } from "./exhibits/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -146,6 +147,17 @@ describe("order forms: numbers, ids and enums are checked, not parsed into NaN",
     const contactsBefore = await prisma.contact.count();
     await expect(createAndAddCateringOrderContact(order.id, eventId, form({ firstName: "  ", lastName: "L" }))).resolves.toHaveProperty("error");
     expect(await prisma.contact.count()).toBe(contactsBefore);
+  });
+
+  it("returns booth refusals as { error }, writing nothing", async () => {
+    const { eventId } = await event({ [PermissionResource.FUNCTIONS]: PermissionLevel.WRITE });
+    await expect(createBoothGroup(eventId, form({ name: " " }))).resolves.toHaveProperty("error");
+    await expect(createExhibitBooth(eventId, form({ name: "A1", startAt: "2026-11-01T10:00", endAt: "2026-11-01T09:00" }))).resolves.toEqual({
+      error: "Booth end can't be before its start",
+    });
+    await expect(createExhibitBooth(eventId, form({ name: "A1", startAt: "soon" }))).resolves.toEqual({ error: "Start must be a date and time" });
+    expect(await prisma.exhibitBooth.count({ where: { eventId } })).toBe(0);
+    expect(await prisma.exhibitBoothGroup.count({ where: { eventId } })).toBe(0);
   });
 
   it("refuses a setup table with no quantity instead of storing NaN", async () => {

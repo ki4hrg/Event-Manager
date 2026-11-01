@@ -5,6 +5,7 @@
 
 import type { Prisma, ProvidedBy } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { UserFacingError } from "@/lib/userErrors";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { BOOTH_SHARED_KEYS } from "@/lib/boothGroups";
@@ -93,7 +94,7 @@ const mergedTimes = (args: Partial<BoothTimes>, stored: BoothTimes | null): Boot
 function assertTimes(next: BoothTimes, before: BoothTimes | null, label: string) {
   if (!next.startAt || !next.endAt || next.endAt >= next.startAt) return;
   if (!rangeTouched(before && { start: before.startAt, end: before.endAt }, next.startAt, next.endAt)) return;
-  throw new Error(`${label} end can't be before its start`);
+  throw new UserFacingError(`${label} end can't be before its start`);
 }
 
 const touchesTimes = (args: Partial<BoothWriteArgs>) => args.startAt !== undefined || args.endAt !== undefined || args.groupId !== undefined;
@@ -154,7 +155,7 @@ async function assertGroupInEvent(groupId: string, eventId: string) {
 
 export async function createExhibitBoothCore(eventId: string, args: BoothWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
-  if (!args.name?.trim()) throw new Error("Booth name is required");
+  if (!args.name?.trim()) throw new UserFacingError("Booth name is required");
   await assertBoothRefs(eventId, args);
   await assertBoothTimes(eventId, args, null);
   const max = await prisma.exhibitBooth.aggregate({ where: { eventId }, _max: { sortOrder: true } });
@@ -166,7 +167,7 @@ export async function createExhibitBoothCore(eventId: string, args: BoothWriteAr
 // Partial update: omitted keys are unchanged.
 export async function updateExhibitBoothCore(id: string, eventId: string, args: Partial<BoothWriteArgs>, userId: string) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
-  if (args.name !== undefined && !args.name.trim()) throw new Error("Booth name is required");
+  if (args.name !== undefined && !args.name.trim()) throw new UserFacingError("Booth name is required");
   await assertBoothRefs(eventId, args);
   await assertBoothTimes(eventId, args, id);
   return prisma.exhibitBooth.update({ where: { id, eventId }, data: { ...boothData(args), updatedById: userId } });
@@ -182,7 +183,7 @@ export async function deleteExhibitBoothCore(id: string, eventId: string, userId
 
 export async function createBoothGroupCore(eventId: string, args: BoothGroupWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
-  if (!args.name?.trim()) throw new Error("Group name is required");
+  if (!args.name?.trim()) throw new UserFacingError("Group name is required");
   await assertBoothRefs(eventId, args);
   await assertGroupTimes(eventId, args, null);
   const max = await prisma.exhibitBoothGroup.aggregate({ where: { eventId }, _max: { sortOrder: true } });
@@ -194,7 +195,7 @@ export async function createBoothGroupCore(eventId: string, args: BoothGroupWrit
 // Partial update: omitted keys are unchanged.
 export async function updateBoothGroupCore(id: string, eventId: string, args: Partial<BoothGroupWriteArgs>, userId: string) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
-  if (args.name !== undefined && !args.name.trim()) throw new Error("Group name is required");
+  if (args.name !== undefined && !args.name.trim()) throw new UserFacingError("Group name is required");
   await assertBoothRefs(eventId, args);
   await assertGroupTimes(eventId, args, id);
   return prisma.exhibitBoothGroup.update({ where: { id, eventId }, data: { ...pick(args, GROUP_KEYS), updatedById: userId } });

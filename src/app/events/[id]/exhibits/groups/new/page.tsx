@@ -25,7 +25,7 @@ export default async function NewBoothGroupPage({
 
   const createAction = async (formData: FormData) => {
     "use server";
-    await createBoothGroup(eventId, formData);
+    return createBoothGroup(eventId, formData);
   };
 
   return (

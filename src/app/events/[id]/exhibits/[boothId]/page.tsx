@@ -42,7 +42,7 @@ export default async function BoothPage({ params }: { params: Promise<{ id: stri
 
   const updateAction = async (formData: FormData) => {
     "use server";
-    await updateExhibitBooth(boothId, eventId, formData);
+    return updateExhibitBooth(boothId, eventId, formData);
   };
   const deleteAction = async () => {
     "use server";
