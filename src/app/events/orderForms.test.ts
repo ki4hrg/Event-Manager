@@ -84,6 +84,9 @@ describe("order forms: numbers, ids and enums are checked, not parsed into NaN",
 
     const setup = await prisma.setupOrder.create({ data: { eventId, name: "Ballroom" } as never });
     await expect(createSetupEquipmentItem(setup.id, eventId, form({ item: "Riser", quantity: "lots" }))).resolves.toHaveProperty("error");
+    await expect(createSetupEquipmentItem(setup.id, eventId, form({ item: "   ", quantity: "2" }))).resolves.toEqual({
+      error: "Name the item or pick equipment",
+    });
     expect(await prisma.equipmentItem.count({ where: { setupOrderId: setup.id } })).toBe(0);
   });
 

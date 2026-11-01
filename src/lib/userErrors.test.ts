@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { notFound, redirect } from "next/navigation";
 import { actionErrorMessage, UserFacingError, withUserErrors } from "./userErrors";
 
 describe("actionErrorMessage (#252)", () => {
@@ -20,6 +21,18 @@ describe("actionErrorMessage (#252)", () => {
     expect(actionErrorMessage(new TypeError("Load failed"), "Couldn't save")).toBe("Couldn't save");
     expect(actionErrorMessage(new TypeError("NetworkError when attempting to fetch resource."), "Couldn't save")).toBe("Couldn't save");
     expect(actionErrorMessage(new Error('Server Action "abc" was not found on the server.'), "Couldn't save")).toBe("Couldn't save");
+  });
+
+  it("rethrows a redirect or notFound instead of calling a save that navigated a failure", () => {
+    for (const nav of [() => redirect("/events/e1?success=Saved"), () => notFound()]) {
+      let thrown: unknown;
+      try {
+        nav();
+      } catch (e) {
+        thrown = e;
+      }
+      expect(() => actionErrorMessage(thrown, "Couldn't save")).toThrow(thrown as Error);
+    }
   });
 
   it("shows a message thrown in the browser as is", () => {

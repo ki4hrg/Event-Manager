@@ -103,7 +103,7 @@ export async function createSupplyOrder(eventId: string, formData: FormData) {
     const supplyOrder = await createSupplyOrderCore(
       eventId,
       {
-        name: formName(formData, "name")?.trim(),
+        name: formName(formData, "name"),
         roomId: formId(formData, "roomId"),
         specificLocation: formNote(formData, "specificLocation"),
         notes: formNote(formData, "notes"),
@@ -129,7 +129,7 @@ export async function updateSupplyOrder(id: string, eventId: string, formData: F
       id,
       eventId,
       {
-        name: formName(formData, "name")?.trim(),
+        name: formName(formData, "name"),
         roomId: formId(formData, "roomId"),
         specificLocation: formNote(formData, "specificLocation"),
         notes: formNote(formData, "notes"),

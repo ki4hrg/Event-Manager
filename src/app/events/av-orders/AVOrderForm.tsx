@@ -96,7 +96,7 @@ export function AVOrderForm({
   // Read-only users get the detail view with no way back into edit mode.
   const canWrite = useCanWrite("AV_ORDERS");
   const [editing, setEditing] = useState(false);
-  const { error, run } = useActionError();
+  const { error, setError, run } = useActionError();
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
@@ -107,7 +107,7 @@ export function AVOrderForm({
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">AV Order Details</h2>
           {canWrite && (
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => { setError(null); setEditing(true); }}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               Edit
@@ -215,7 +215,7 @@ export function AVOrderForm({
         {isEdit ? (
           <button
             type="button"
-            onClick={() => setEditing(false)}
+            onClick={() => { setError(null); setEditing(false); }}
             className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel

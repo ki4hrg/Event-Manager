@@ -194,7 +194,7 @@ function readEquipment(formData: FormData): BoothEquipmentItemWriteArgs {
   return {
     equipmentId: formId(formData, "equipmentId"),
     item: formValue(formData, "item"),
-    quantity: formInt(formData, "quantity"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
     providerVendorId: formId(formData, "providerVendorId"),
     providerContactId: formId(formData, "providerContactId"),
     operatorVendorId: formId(formData, "operatorVendorId"),

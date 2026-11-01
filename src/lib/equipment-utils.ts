@@ -1,15 +1,20 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError } from "@/lib/permissions";
+import { UserFacingError } from "@/lib/userErrors";
 
 // The catalog name for an equipment row on one of the event's orders. The
-// catalog is per tenant: another tenant's id is a not-found.
+// catalog is per tenant: another tenant's id is a not-found. With no catalog
+// pick the typed name is the row's name, so it can't be blank.
 export async function resolveEquipmentName(
   equipmentId: string | null,
   fallback: string,
   eventId: string,
 ): Promise<string> {
-  if (!equipmentId) return fallback;
+  if (!equipmentId) {
+    if (!fallback.trim()) throw new UserFacingError("Name the item or pick equipment");
+    return fallback.trim();
+  }
   const eq = await prisma.equipment.findFirst({
     where: { id: equipmentId, tenant: { events: { some: { id: eventId } } } },
     select: { name: true },

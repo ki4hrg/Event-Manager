@@ -88,7 +88,7 @@ export async function createPrintOrder(eventId: string, formData: FormData) {
     const printOrder = await createPrintOrderCore(
       eventId,
       {
-        name: formName(formData, "name")?.trim(),
+        name: formName(formData, "name"),
         notes: formNote(formData, "notes"),
         roomId: formId(formData, "roomId"),
         specificLocation: formNote(formData, "specificLocation"),
@@ -110,7 +110,7 @@ export async function updatePrintOrder(id: string, eventId: string, formData: Fo
       id,
       eventId,
       {
-        name: formName(formData, "name")?.trim(),
+        name: formName(formData, "name"),
         notes: formNote(formData, "notes"),
         roomId: formId(formData, "roomId"),
         specificLocation: formNote(formData, "specificLocation"),

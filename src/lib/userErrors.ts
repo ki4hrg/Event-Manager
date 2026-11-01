@@ -1,3 +1,5 @@
+import { unstable_rethrow } from "next/navigation";
+
 // A refusal the user can act on ("Pick at least one section"). Next replaces a
 // thrown message with a generic one in production, so an action called from
 // useTransition wraps its body in withUserErrors and returns { error } for
@@ -35,12 +37,17 @@ export function isUserError(result: unknown): result is UserError {
 // after a deploy). An error thrown in the browser (a file that won't parse)
 // shows its message. Refusals meant for the person come back as { error }
 // through withUserErrors instead.
+// A redirect is not an error: an action that ends in redirect() rejects the
+// client's promise with Next's redirect error (the router has already started
+// navigating), which must reach Next's RedirectBoundary, so it is rethrown
+// rather than shown as a failure. Same for notFound().
 // Network failures read differently per browser: Chrome "Failed to fetch",
 // Safari "Load failed", Firefox "NetworkError when attempting to fetch resource".
 const FRAMEWORK =
   /Minified React error|Server Components render|^Failed to fetch$|^Load failed$|^NetworkError when attempting to fetch resource\.?$|Server Action .* was not found|unexpected response was received|^NEXT_/;
 
 export function actionErrorMessage(e: unknown, fallback: string): string {
+  unstable_rethrow(e);
   if (!(e instanceof Error) || !e.message || "digest" in e || FRAMEWORK.test(e.message)) {
     // The fallback replaces it on screen; keep the real error for whoever debugs.
     console.error(e);
