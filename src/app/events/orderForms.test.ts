@@ -4,7 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../../test/fixtures";
 import { createCateringOrder, createTimelineItem, updateCateringOrderContract, updateCateringOrderGuestCounts } from "./catering-orders/actions";
-import { createSetupTable } from "./setup-orders/actions";
+import { createSetupEquipmentItem, createSetupTable } from "./setup-orders/actions";
+import { createAVEquipmentItem, createAVOrder } from "./av-orders/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -71,6 +72,29 @@ describe("order forms: numbers, ids and enums are checked, not parsed into NaN",
     const order = await prisma.cateringOrder.create({ data: { eventId, name: "Lunch", depositDeadline: deadline } as never });
     await expect(updateCateringOrderContract(order.id, eventId, form({ depositDeadline: "2026-13-45" }))).resolves.toHaveProperty("error");
     expect((await prisma.cateringOrder.findUniqueOrThrow({ where: { id: order.id } })).depositDeadline).toEqual(deadline);
+  });
+
+  it("returns order and equipment refusals as { error }, writing nothing", async () => {
+    const { eventId } = await event({
+      [PermissionResource.AV_ORDERS]: PermissionLevel.WRITE,
+      [PermissionResource.SETUP_ORDERS]: PermissionLevel.WRITE,
+    });
+    await expect(createAVOrder(eventId, form({ name: "" }))).resolves.toHaveProperty("error");
+    expect(await prisma.aVOrder.count({ where: { eventId } })).toBe(0);
+
+    const setup = await prisma.setupOrder.create({ data: { eventId, name: "Ballroom" } as never });
+    await expect(createSetupEquipmentItem(setup.id, eventId, form({ item: "Riser", quantity: "lots" }))).resolves.toHaveProperty("error");
+    expect(await prisma.equipmentItem.count({ where: { setupOrderId: setup.id } })).toBe(0);
+  });
+
+  it("still throws for equipment on another event's order", async () => {
+    const { eventId } = await event({ [PermissionResource.AV_ORDERS]: PermissionLevel.WRITE });
+    const av = await prisma.aVOrder.create({ data: { eventId, name: "Keynote" } as never });
+    const other = await event({ [PermissionResource.AV_ORDERS]: PermissionLevel.WRITE });
+    await expect(createAVEquipmentItem(av.id, other.eventId, form({ item: "Mic", quantity: "2" }))).rejects.toMatchObject({
+      kind: "NOT_FOUND",
+    });
+    expect(await prisma.equipmentItem.count({ where: { avOrderId: av.id } })).toBe(0);
   });
 
   it("refuses a setup table with no quantity instead of storing NaN", async () => {

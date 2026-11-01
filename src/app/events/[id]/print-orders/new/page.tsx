@@ -50,7 +50,7 @@ export default async function NewPrintOrderPage({
     "use server";
     if (functionId) formData.set("functionId", functionId);
     if (presentationId) formData.set("presentationId", presentationId);
-    await createPrintOrder(eventId, formData);
+    return createPrintOrder(eventId, formData);
   };
 
   return (

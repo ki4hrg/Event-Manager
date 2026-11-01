@@ -52,11 +52,11 @@ export default async function BoothGroupPage({ params }: { params: Promise<{ id:
   };
   const createItem = async (formData: FormData) => {
     "use server";
-    await createBoothGroupEquipmentItem(groupId, eventId, formData);
+    return createBoothGroupEquipmentItem(groupId, eventId, formData);
   };
   const updateItem = async (id: string, formData: FormData) => {
     "use server";
-    await updateBoothGroupEquipmentItem(id, groupId, eventId, formData);
+    return updateBoothGroupEquipmentItem(id, groupId, eventId, formData);
   };
   const deleteItem = async (id: string) => {
     "use server";

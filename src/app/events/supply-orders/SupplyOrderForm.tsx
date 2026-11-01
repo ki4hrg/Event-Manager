@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { FormError, useActionError } from "@/components/FormError";
+import { keepFormValues } from "@/lib/keepFormValues";
+import type { UserError } from "@/lib/userErrors";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { PartyField } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
@@ -27,7 +30,7 @@ type SupplyOrderFormProps = {
   eventId: string;
   rooms: { id: string; name: string; group?: { id: string; name: string; sortOrder: number } | null }[];
   pool: ResponsiblePartyPool;
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   initialRoomId?: string;
   cancelPath?: string;
   defaultName?: string;
@@ -62,6 +65,7 @@ export function SupplyOrderForm({
   // Read-only users get the detail view with no way back into edit mode.
   const canWrite = useCanWrite("SUPPLY_ORDERS");
   const [editing, setEditing] = useState(false);
+  const { error, run } = useActionError();
 
   const roomBuckets = useMemo(() => groupRoomsByGroup(rooms), [rooms]);
   const hasRoomGroups = roomBuckets.some((b) => b.named);
@@ -99,9 +103,9 @@ export function SupplyOrderForm({
   return (
     <form
       action={async (formData) => {
-        await action(formData);
-        if (isEdit) setEditing(false);
+        if ((await run(() => action(formData))) && isEdit) setEditing(false);
       }}
+      onReset={keepFormValues}
     >
       <div className={cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Supply Order Details</h2>
@@ -199,6 +203,7 @@ export function SupplyOrderForm({
         </div>
       </div>
 
+      <FormError error={error} className="mt-6" />
       <div className="flex gap-4 mt-6">
         <SubmitButton isEdit={isEdit} />
         {isEdit ? (

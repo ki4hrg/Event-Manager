@@ -54,7 +54,7 @@ export default async function NewAVOrderPage({
 
   const createAVOrderAction = async (formData: FormData) => {
     "use server";
-    await createAVOrder(eventId, formData);
+    return createAVOrder(eventId, formData);
   };
 
   return (

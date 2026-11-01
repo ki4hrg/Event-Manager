@@ -50,11 +50,11 @@ export default async function BoothPage({ params }: { params: Promise<{ id: stri
   };
   const createItem = async (formData: FormData) => {
     "use server";
-    await createBoothEquipmentItem(boothId, eventId, formData);
+    return createBoothEquipmentItem(boothId, eventId, formData);
   };
   const updateItem = async (id: string, formData: FormData) => {
     "use server";
-    await updateBoothEquipmentItem(id, boothId, eventId, formData);
+    return updateBoothEquipmentItem(id, boothId, eventId, formData);
   };
   const deleteItem = async (id: string) => {
     "use server";

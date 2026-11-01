@@ -54,7 +54,7 @@ export default async function NewSupplyOrderPage({
     "use server";
     if (functionId) formData.set("functionId", functionId);
     if (presentationId) formData.set("presentationId", presentationId);
-    await createSupplyOrder(eventId, formData);
+    return createSupplyOrder(eventId, formData);
   };
 
   return (

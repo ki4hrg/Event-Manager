@@ -67,7 +67,7 @@ export default async function NewSetupOrderPage({
 
   const createSetupOrderAction = async (formData: FormData) => {
     "use server";
-    await createSetupOrder(eventId, formData);
+    return createSetupOrder(eventId, formData);
   };
 
   return (

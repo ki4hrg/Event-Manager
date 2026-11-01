@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -96,47 +97,51 @@ export async function getSupplyOrder(id: string) {
 
 export async function createSupplyOrder(eventId: string, formData: FormData) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  const functionId = formId(formData, "functionId");
-  const presentationId = formId(formData, "presentationId");
-  const supplyOrder = await createSupplyOrderCore(
-    eventId,
-    {
-      name: formName(formData, "name")?.trim(),
-      roomId: formId(formData, "roomId"),
-      specificLocation: formNote(formData, "specificLocation"),
-      notes: formNote(formData, "notes"),
-      providerVendorId: formId(formData, "providerVendorId"),
-      providerContactId: formId(formData, "providerContactId"),
-      functionId,
-      presentationId,
-    },
-    session.user.id,
-  );
+  return withUserErrors(async () => {
+    const functionId = formId(formData, "functionId");
+    const presentationId = formId(formData, "presentationId");
+    const supplyOrder = await createSupplyOrderCore(
+      eventId,
+      {
+        name: formName(formData, "name")?.trim(),
+        roomId: formId(formData, "roomId"),
+        specificLocation: formNote(formData, "specificLocation"),
+        notes: formNote(formData, "notes"),
+        providerVendorId: formId(formData, "providerVendorId"),
+        providerContactId: formId(formData, "providerContactId"),
+        functionId,
+        presentationId,
+      },
+      session.user.id,
+    );
 
-  if (functionId) revalidatePath(`/events/${eventId}/functions/${functionId}`);
-  if (presentationId) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
-  revalidatePath(`/events/${eventId}/supply-orders`);
-  redirect(`/events/${eventId}/supply-orders/${supplyOrder.id}?success=Supply Order created`);
+    if (functionId) revalidatePath(`/events/${eventId}/functions/${functionId}`);
+    if (presentationId) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+    revalidatePath(`/events/${eventId}/supply-orders`);
+    redirect(`/events/${eventId}/supply-orders/${supplyOrder.id}?success=Supply Order created`);
+  });
 }
 
 export async function updateSupplyOrder(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await updateSupplyOrderCore(
-    id,
-    eventId,
-    {
-      name: formName(formData, "name")?.trim(),
-      roomId: formId(formData, "roomId"),
-      specificLocation: formNote(formData, "specificLocation"),
-      notes: formNote(formData, "notes"),
-      providerVendorId: formId(formData, "providerVendorId"),
-      providerContactId: formId(formData, "providerContactId"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/supply-orders`);
-  revalidatePath(`/events/${eventId}/supply-orders/${id}`);
-  redirect(`/events/${eventId}/supply-orders/${id}?success=Supply Order updated`);
+  return withUserErrors(async () => {
+    await updateSupplyOrderCore(
+      id,
+      eventId,
+      {
+        name: formName(formData, "name")?.trim(),
+        roomId: formId(formData, "roomId"),
+        specificLocation: formNote(formData, "specificLocation"),
+        notes: formNote(formData, "notes"),
+        providerVendorId: formId(formData, "providerVendorId"),
+        providerContactId: formId(formData, "providerContactId"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/supply-orders`);
+    revalidatePath(`/events/${eventId}/supply-orders/${id}`);
+    redirect(`/events/${eventId}/supply-orders/${id}?success=Supply Order updated`);
+  });
 }
 
 export async function deleteSupplyOrder(id: string, eventId: string) {

@@ -323,14 +323,18 @@ function parseEquipmentItemData(formData: FormData): CateringEquipmentItemWriteA
 
 export async function createEquipmentItem(cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await createCateringEquipmentItemCore(cateringOrderId, eventId, parseEquipmentItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await createCateringEquipmentItemCore(cateringOrderId, eventId, parseEquipmentItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function updateEquipmentItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateCateringEquipmentItemCore(id, cateringOrderId, eventId, parseEquipmentItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await updateCateringEquipmentItemCore(id, cateringOrderId, eventId, parseEquipmentItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function deleteEquipmentItem(id: string, cateringOrderId: string, eventId: string) {

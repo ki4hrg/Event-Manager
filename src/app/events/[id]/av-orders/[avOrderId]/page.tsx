@@ -174,7 +174,7 @@ export default async function AVOrderPage({
 
   const updateAVOrderAction = async (formData: FormData) => {
     "use server";
-    await updateAVOrder(avOrderId, eventId, formData);
+    return updateAVOrder(avOrderId, eventId, formData);
   };
 
   const deleteAVOrderAction = async () => {
@@ -357,18 +357,18 @@ export default async function AVOrderPage({
   const updateVideoSectionAction = async (formData: FormData) => {
     "use server";
     if (!avOrder.videoSection) return;
-    await updateVideoSection(avOrder.videoSection.id, avOrderId, eventId, formData);
+    return updateVideoSection(avOrder.videoSection.id, avOrderId, eventId, formData);
   };
 
   const createVideoItemAction = async (formData: FormData) => {
     "use server";
     if (!avOrder.videoSection) return;
-    await createVideoEquipmentItem(avOrder.videoSection.id, avOrderId, eventId, formData);
+    return createVideoEquipmentItem(avOrder.videoSection.id, avOrderId, eventId, formData);
   };
 
   const updateVideoItemAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateVideoEquipmentItem(id, avOrderId, eventId, formData);
+    return updateVideoEquipmentItem(id, avOrderId, eventId, formData);
   };
 
   const deleteVideoItemAction = async (id: string) => {
@@ -378,12 +378,12 @@ export default async function AVOrderPage({
 
   const createAVEquipmentAction = async (formData: FormData) => {
     "use server";
-    await createAVEquipmentItem(avOrderId, eventId, formData);
+    return createAVEquipmentItem(avOrderId, eventId, formData);
   };
 
   const updateAVEquipmentAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateAVEquipmentItem(id, avOrderId, eventId, formData);
+    return updateAVEquipmentItem(id, avOrderId, eventId, formData);
   };
 
   const deleteAVEquipmentAction = async (id: string) => {
