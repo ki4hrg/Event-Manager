@@ -8,7 +8,7 @@
 
 import type { HotelAttritionBasis, HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
 import { z } from "zod";
-import { dateKeySchema, idSchema, nullableNumber, text } from "@/lib/validation";
+import { dateKeySchema, idSchema, looseCount, looseText, nullableNumber, text } from "@/lib/validation";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { MAX_STAY_NIGHTS, addDays, dateFromKey, dateKey, isAttritionBasis, labelKey, nightKeys } from "@/lib/hotels";
@@ -268,6 +268,22 @@ export type PickupGuestArgs = {
   cancelledOn?: string | null;
 };
 
+const guestFields = {
+  guestName: looseText(500),
+  confirmationNumber: looseText(200),
+  checkIn: looseText(10),
+  checkOut: looseText(10),
+  roomType: looseText(500),
+  cancelled: z.boolean(),
+};
+// A guest row from an imported report (pickup page or inbox).
+export const PickupGuestSchema = z.object({
+  ...guestFields,
+  rawStatus: looseText(500),
+  bookedOn: looseText(10),
+  cancelledOn: looseText(10),
+}) satisfies z.ZodType<PickupGuestArgs>;
+
 function checkGuestDates(g: Pick<PickupGuestArgs, "guestName" | "confirmationNumber" | "checkIn" | "checkOut" | "bookedOn" | "cancelledOn">) {
   const who = g.guestName ?? g.confirmationNumber ?? "A guest";
   if (g.checkIn && g.checkOut && g.checkOut <= g.checkIn) throw new UserFacingError(`${who}: check-out must be after check-in`);
@@ -460,6 +476,17 @@ export async function updatePickupGuestCore(
 
 export type PickupCountArgs = { night: string; roomType: string | null; rooms: number };
 
+// The pickup page and the inbox pass these lists as action arguments (React's
+// encoding, so NaN can arrive: a non-finite count reads as 0, which the core
+// drops as before).
+export const PickupCountSchema = z.object({
+  night: z.string().max(10),
+  roomType: looseText(500),
+  rooms: looseCount,
+}) satisfies z.ZodType<PickupCountArgs>;
+export const PickupMethodSchema = z.enum(["APPEND", "MERGE", "REPLACE"]);
+
+
 // Replaces the block's entered counts.
 export async function savePickupCountsCore(blockId: string, eventId: string, counts: PickupCountArgs[], userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
@@ -494,6 +521,7 @@ export async function clearPickupCore(blockId: string, eventId: string, userId: 
 // A stay on the hotel's final list. Cancelled rows (a status mapped as
 // cancelled) aren't stays and are dropped.
 export type FinalGuestArgs = Pick<PickupGuestArgs, "guestName" | "confirmationNumber" | "checkIn" | "checkOut" | "roomType" | "cancelled">;
+export const FinalGuestSchema = z.object(guestFields) satisfies z.ZodType<FinalGuestArgs>;
 
 // Loads the hotel's final (actualized) guest list, replacing any earlier one.
 export async function importFinalGuestListCore(blockId: string, eventId: string, args: { fileName: string | null; guests: FinalGuestArgs[] }, userId: string) {

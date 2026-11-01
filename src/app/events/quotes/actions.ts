@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { withUserErrors } from "@/lib/userErrors";
-import { readJsonList } from "@/lib/validation";
+import { idList, idSchema, parseArgs, readJsonList } from "@/lib/validation";
 import {
   awardVendorQuoteCore,
   clearRfpLineAwardsCore,
@@ -161,6 +161,8 @@ export async function setRfpLineAward(rfpId: string, eventId: string, lineItemId
   const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
   if (!rfp) notFound();
   const session = await requirePermission(resourceForKind(rfp.kind), "WRITE", eventId);
+  lineItemIds = parseArgs(idList(5_000), lineItemIds);
+  quoteId = parseArgs(idSchema.nullable(), quoteId);
   if (quoteId) {
     // The quote must answer this RFP; the core checks the lines are its RFP's.
     const quote = await prisma.vendorQuote.findFirst({ where: { id: quoteId, eventId, rfpId }, select: { id: true } });

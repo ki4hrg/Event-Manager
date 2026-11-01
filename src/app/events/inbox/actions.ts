@@ -24,10 +24,11 @@ import {
 } from "@/lib/inboundParse";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { eventScopeWhere } from "@/app/events/core";
-import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
+import { PickupCountSchema, PickupGuestSchema, PickupMethodSchema, type PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { readNewHotel } from "@/app/events/hotels/proposalArgs";
 import { readProposal } from "@/app/events/hotels/readProposal";
-import { readJsonList } from "@/lib/validation";
+import { parseArgs, readJsonList } from "@/lib/validation";
+import { z } from "zod";
 import { getProposalFormChoices, getProposalRfpChoices } from "@/app/events/hotels/actions";
 import type { ConcessionAnswer, OfferedConcession, ProposalValues } from "@/app/events/hotels/ProposalForm";
 import { toProposalValues } from "@/app/events/hotels/core";
@@ -174,7 +175,13 @@ export async function applyInboundGuests(
 ) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   return withUserErrors(async () => {
-    await applyInboundPickupCore(id, eventId, blockId, { type: "guests", method, fileName, guests }, session.user.id);
+    const args = {
+      type: "guests" as const,
+      method: parseArgs(PickupMethodSchema, method),
+      fileName: parseArgs(z.string().max(500).nullable(), fileName),
+      guests: parseArgs(z.array(PickupGuestSchema).max(20_000), guests),
+    };
+    await applyInboundPickupCore(id, eventId, blockId, args, session.user.id);
     revalidatePath(`/events/${eventId}/inbox`);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
   });
@@ -183,7 +190,7 @@ export async function applyInboundGuests(
 export async function applyInboundCounts(id: string, eventId: string, blockId: string, counts: PickupCountArgs[]) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   return withUserErrors(async () => {
-    await applyInboundPickupCore(id, eventId, blockId, { type: "counts", counts }, session.user.id);
+    await applyInboundPickupCore(id, eventId, blockId, { type: "counts", counts: parseArgs(z.array(PickupCountSchema).max(20_000), counts) }, session.user.id);
     revalidatePath(`/events/${eventId}/inbox`);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
   });
@@ -808,7 +815,7 @@ export async function applyInboundBeo(id: string, eventId: string, orderId: stri
   const read = await readOf(id, eventId, tenantId);
   if (read?.kind !== "BEO" || !read.beo) throw new Error("This message has no BEO");
   const all = beoArgsFromRead(read.beo);
-  const keep = new Set(keys);
+  const keep = new Set(parseArgs(z.array(z.string().max(100)).max(200), keys));
   const args = Object.fromEntries(Object.entries(all).filter(([k]) => keep.has(k)));
   return withUserErrors(async () => {
     await applyInboundBeoCore(id, eventId, orderId, args, session.user.id);

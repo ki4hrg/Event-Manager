@@ -39,3 +39,31 @@ export function readJsonList<T>(formData: FormData, key: string, item: z.ZodType
   if (!result.success) throw new UserFacingError(MALFORMED);
   return result.data;
 }
+
+/**
+ * A Server Action's structured argument (an object or list the page's script
+ * builds), checked against `schema`. A refusal is a UserFacingError.
+ */
+export function parseArgs<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (!result.success) throw new UserFacingError(MALFORMED);
+  return result.data;
+}
+
+/** A list of ids from the client. */
+export const idList = (max = 1_000) => z.array(idSchema).max(max);
+
+// Server Action arguments travel in React's own encoding, which (unlike JSON)
+// keeps NaN, Infinity and undefined. These read them the way the cores always
+// have: a non-finite number as none, a missing optional string as null.
+// (z.number() itself refuses NaN, so the type check is by hand.)
+const anyNumber = z.custom<number>((v) => typeof v === "number", "Expected a number");
+export const looseNumber = anyNumber.nullish().transform((n) => (n == null || !Number.isFinite(n) ? null : n));
+/** A number where none means 0 (a count): NaN and Infinity read as 0. */
+export const looseCount = anyNumber.transform((n) => (Number.isFinite(n) ? n : 0));
+export const looseText = (max = 10_000) =>
+  z
+    .string()
+    .max(max)
+    .nullish()
+    .transform((s) => s ?? null);

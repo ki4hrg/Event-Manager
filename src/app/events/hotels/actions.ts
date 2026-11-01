@@ -22,7 +22,8 @@ import {
 } from "./core";
 import { readNewHotel } from "./proposalArgs";
 import { readProposal } from "./readProposal";
-import { readJsonList } from "@/lib/validation";
+import { idSchema, parseArgs, readJsonList } from "@/lib/validation";
+import { z } from "zod";
 import {
   clearFinalGuestListCore,
   clearPickupCore,
@@ -37,10 +38,25 @@ import {
   updateHotelBlockCore,
   updatePickupGuestCore,
   BlockNightSchema,
+  FinalGuestSchema,
+  PickupCountSchema,
+  PickupGuestSchema,
+  PickupMethodSchema,
   type FinalGuestArgs,
   type PickupCountArgs,
   type PickupGuestArgs,
 } from "./blockCore";
+
+// Structured arguments the hotel pages pass; checked before use.
+const fileNameSchema = z.string().max(500).nullable();
+const AnsweredSchema = z.object({
+  rfpId: idSchema.nullish(),
+  blockId: idSchema.nullish(),
+  answers: z
+    .array(z.object({ concessionId: idSchema.nullable(), offered: z.string().max(20_000).nullable(), met: z.enum(["MET", "PARTIAL", "NOT_MET"]).nullable() }))
+    .max(500),
+});
+const WorkflowTargetSchema = z.union([z.strictObject({ proposalId: idSchema }), z.strictObject({ blockId: idSchema })]);
 
 const listInclude = {
   venue: { select: { id: true, name: true, city: true, state: true, brand: true } },
@@ -96,6 +112,7 @@ export async function getProposalRfpChoices(
   answered?: { rfpId?: string | null; blockId?: string | null; answers: { concessionId: string | null; offered: string | null; met: ConcessionMet | null }[] },
 ): Promise<RfpChoice[]> {
   await requirePermission("HOTELS", "VIEW", eventId);
+  answered = parseArgs(AnsweredSchema.optional(), answered);
   const rfps = await prisma.rfp.findMany({
     where: { eventId, kind: "HOTEL" },
     orderBy: { createdAt: "asc" },
@@ -259,6 +276,7 @@ export async function getHotelBlocks(eventId: string) {
 // (src/lib/hotelWorkflow.ts). Null when the proposal or block isn't the event's.
 export async function getHotelWorkflow(eventId: string, target: { proposalId: string } | { blockId: string }) {
   const session = await requirePermission("HOTELS", "VIEW", eventId);
+  target = parseArgs(WorkflowTargetSchema, target);
   const blockSelect = {
     id: true,
     contractedOn: true,
@@ -421,7 +439,12 @@ export async function importPickupGuests(
 ) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   return withUserErrors(async () => {
-    await importPickupGuestsCore(blockId, eventId, { method, fileName, guests }, session.user.id);
+    const args = {
+      method: parseArgs(PickupMethodSchema, method),
+      fileName: parseArgs(fileNameSchema, fileName),
+      guests: parseArgs(z.array(PickupGuestSchema).max(20_000), guests),
+    };
+    await importPickupGuestsCore(blockId, eventId, args, session.user.id);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
   });
 }
@@ -478,7 +501,7 @@ export async function setPickupGuestCancelled(guestId: string, blockId: string, 
 export async function savePickupCounts(blockId: string, eventId: string, counts: PickupCountArgs[]) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   return withUserErrors(async () => {
-    await savePickupCountsCore(blockId, eventId, counts, session.user.id);
+    await savePickupCountsCore(blockId, eventId, parseArgs(z.array(PickupCountSchema).max(20_000), counts), session.user.id);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
   });
 }
@@ -497,7 +520,8 @@ export async function getBlockReview(blockId: string, eventId: string) {
 export async function importFinalGuestList(blockId: string, eventId: string, fileName: string | null, guests: FinalGuestArgs[]) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   return withUserErrors(async () => {
-    await importFinalGuestListCore(blockId, eventId, { fileName, guests }, session.user.id);
+    const args = { fileName: parseArgs(fileNameSchema, fileName), guests: parseArgs(z.array(FinalGuestSchema).max(20_000), guests) };
+    await importFinalGuestListCore(blockId, eventId, args, session.user.id);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}/review`);
   });
 }
