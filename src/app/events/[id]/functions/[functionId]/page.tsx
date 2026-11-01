@@ -187,17 +187,17 @@ export default async function FunctionPage({
 
   const addContactAction = async (formData: FormData) => {
     "use server";
-    await addFunctionContact(functionId, eventId, formData);
+    return addFunctionContact(functionId, eventId, formData);
   };
 
   const updateContactAction = async (contactId: string, formData: FormData) => {
     "use server";
-    await updateFunctionContact(contactId, functionId, eventId, formData);
+    return updateFunctionContact(contactId, functionId, eventId, formData);
   };
 
   const createContactAction = async (formData: FormData) => {
     "use server";
-    await createAndAddFunctionContact(functionId, eventId, formData);
+    return createAndAddFunctionContact(functionId, eventId, formData);
   };
 
   const removeContactAction = async (contactId: string) => {

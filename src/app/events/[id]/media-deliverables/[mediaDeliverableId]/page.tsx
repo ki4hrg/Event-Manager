@@ -132,11 +132,11 @@ export default async function MediaDeliverablePage({
 
   const addContactAction = async (formData: FormData) => {
     "use server";
-    await addMediaDeliverableContact(mediaDeliverableId, eventId, formData);
+    return addMediaDeliverableContact(mediaDeliverableId, eventId, formData);
   };
   const updateContactAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateMediaDeliverableContact(id, mediaDeliverableId, eventId, formData);
+    return updateMediaDeliverableContact(id, mediaDeliverableId, eventId, formData);
   };
   const removeContactAction = async (id: string) => {
     "use server";
@@ -148,7 +148,7 @@ export default async function MediaDeliverablePage({
   };
   const createContactAction = async (formData: FormData) => {
     "use server";
-    await createAndAddMediaDeliverableContact(mediaDeliverableId, eventId, formData);
+    return createAndAddMediaDeliverableContact(mediaDeliverableId, eventId, formData);
   };
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));

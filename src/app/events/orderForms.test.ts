@@ -3,7 +3,7 @@ import { PermissionLevel, PermissionResource, PermissionScope } from "@prisma/cl
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../../test/fixtures";
-import { createCateringOrder, createTimelineItem, updateCateringOrderContract, updateCateringOrderGuestCounts } from "./catering-orders/actions";
+import { addCateringOrderContact, createCateringOrder, createTimelineItem, updateCateringOrderContract, updateCateringOrderGuestCounts } from "./catering-orders/actions";
 import { createSetupEquipmentItem, createSetupTable } from "./setup-orders/actions";
 import { createAVEquipmentItem, createAVOrder, createInputItem } from "./av-orders/actions";
 import { createSupplyOrderItem } from "./supply-orders/actions";
@@ -127,6 +127,17 @@ describe("order forms: numbers, ids and enums are checked, not parsed into NaN",
     });
     const groupId = (av as unknown as { audioSection: { inputGroups: { id: string }[] } }).audioSection.inputGroups[0].id;
     await expect(createInputItem(groupId, av.id, other.eventId, form({ name: "Lav 1" }))).rejects.toMatchObject({ kind: "NOT_FOUND" });
+  });
+
+  it("returns a contact refusal as { error } and still throws for another tenant's contact", async () => {
+    const { eventId } = await event({ [PermissionResource.CATERING_ORDERS]: PermissionLevel.WRITE });
+    const order = await prisma.cateringOrder.create({ data: { eventId, name: "Lunch" } as never });
+    await expect(addCateringOrderContact(order.id, eventId, form({ role: "Chef" }))).resolves.toHaveProperty("error");
+
+    const elsewhere = await makeTenant();
+    const foreign = await prisma.contact.create({ data: { tenantId: elsewhere.id, firstName: "Ada", lastName: "L" } });
+    await expect(addCateringOrderContact(order.id, eventId, form({ contactId: foreign.id }))).rejects.toMatchObject({ kind: "NOT_FOUND" });
+    expect(await prisma.cateringOrderContact.count({ where: { cateringOrderId: order.id } })).toBe(0);
   });
 
   it("refuses a setup table with no quantity instead of storing NaN", async () => {

@@ -26,7 +26,7 @@ import {
   addVenueAmenityCore,
 } from "./core";
 import { formId, formInt, formName, formNote, formRequiredId, formTexts, formValue, parseWhole } from "@/lib/validation";
-import { UserFacingError } from "@/lib/userErrors";
+import { UserFacingError, withUserErrors } from "@/lib/userErrors";
 
 export async function getVenues() {
   const session = await requirePermission(PermissionResource.VENUES, "VIEW");
@@ -182,26 +182,30 @@ export async function searchContacts(query: string) {
 
 export async function addVenueContact(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await addVenueContactCore(
-    venueId,
-    formRequiredId(formData, "contactId", "contact"),
-    formNote(formData, "role"),
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath(`/venues/${venueId}`);
+  return withUserErrors(async () => {
+    await addVenueContactCore(
+      venueId,
+      formRequiredId(formData, "contactId", "contact"),
+      formNote(formData, "role"),
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath(`/venues/${venueId}`);
+  });
 }
 
 export async function updateVenueContact(contactId: string, venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await updateVenueContactCore(
-    contactId,
-    venueId,
-    formNote(formData, "role"),
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath(`/venues/${venueId}`);
+  return withUserErrors(async () => {
+    await updateVenueContactCore(
+      contactId,
+      venueId,
+      formNote(formData, "role"),
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath(`/venues/${venueId}`);
+  });
 }
 
 export async function removeVenueContact(contactId: string, venueId: string) {
@@ -212,17 +216,19 @@ export async function removeVenueContact(contactId: string, venueId: string) {
 
 export async function createAndAddVenueContact(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await createAndAddVenueContactCore(
-    {
-      venueId,
-      firstName: formValue(formData, "firstName"),
-      lastName: formValue(formData, "lastName"),
-      email: formNote(formData, "email"),
-      organization: formNote(formData, "organization"),
-      role: formNote(formData, "role"),
-    },
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath(`/venues/${venueId}`);
+  return withUserErrors(async () => {
+    await createAndAddVenueContactCore(
+      {
+        venueId,
+        firstName: formValue(formData, "firstName"),
+        lastName: formValue(formData, "lastName"),
+        email: formNote(formData, "email"),
+        organization: formNote(formData, "organization"),
+        role: formNote(formData, "role"),
+      },
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath(`/venues/${venueId}`);
+  });
 }
