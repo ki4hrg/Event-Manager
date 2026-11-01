@@ -57,8 +57,10 @@ function parseLocationData(formData: FormData): StorageLocationWriteArgs {
 
 export async function createStorageLocation(formData: FormData) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await createStorageLocationCore(parseLocationData(formData), session.user.id, session.tenantId);
-  revalidatePath("/storage-locations");
+  return withUserErrors(async () => {
+    await createStorageLocationCore(parseLocationData(formData), session.user.id, session.tenantId);
+    revalidatePath("/storage-locations");
+  });
 }
 
 /**
@@ -91,8 +93,10 @@ export async function createContainerInline(
 
 export async function updateStorageLocation(id: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await updateStorageLocationCore(id, parseLocationData(formData), session.user.id, session.tenantId);
-  revalidatePath("/storage-locations");
+  return withUserErrors(async () => {
+    await updateStorageLocationCore(id, parseLocationData(formData), session.user.id, session.tenantId);
+    revalidatePath("/storage-locations");
+  });
 }
 
 export async function setStorageLocationArchived(id: string, archived: boolean) {

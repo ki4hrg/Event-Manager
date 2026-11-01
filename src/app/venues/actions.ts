@@ -69,24 +69,30 @@ function readVenueArgs(formData: FormData): VenueWriteArgs {
 
 export async function createVenue(formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await createVenueCore(readVenueArgs(formData), session.user.id, session.tenantId);
-  revalidatePath("/venues");
-  redirect("/venues");
+  return withUserErrors(async () => {
+    await createVenueCore(readVenueArgs(formData), session.user.id, session.tenantId);
+    revalidatePath("/venues");
+    redirect("/venues");
+  });
 }
 
 export async function updateVenue(id: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await updateVenueCore(id, readVenueArgs(formData), session.user.id, session.tenantId);
-  revalidatePath("/venues");
-  revalidatePath(`/venues/${id}`);
-  redirect(`/venues/${id}?success=Venue updated`);
+  return withUserErrors(async () => {
+    await updateVenueCore(id, readVenueArgs(formData), session.user.id, session.tenantId);
+    revalidatePath("/venues");
+    revalidatePath(`/venues/${id}`);
+    redirect(`/venues/${id}?success=Venue updated`);
+  });
 }
 
 export async function updateVenueVendorDetails(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  const notes = formNote(formData, "notes");
-  await updateVenueVendorDetailsCore(venueId, notes, session.user.id, session.tenantId);
-  revalidatePath(`/venues/${venueId}`);
+  return withUserErrors(async () => {
+    const notes = formNote(formData, "notes");
+    await updateVenueVendorDetailsCore(venueId, notes, session.user.id, session.tenantId);
+    revalidatePath(`/venues/${venueId}`);
+  });
 }
 
 export async function deleteVenue(id: string) {
@@ -115,14 +121,18 @@ function readRoomArgs(formData: FormData): RoomWriteArgs {
 
 export async function createRoom(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await createRoomCore(venueId, readRoomArgs(formData), session.user.id, session.tenantId);
-  revalidatePath(`/venues/${venueId}`);
+  return withUserErrors(async () => {
+    await createRoomCore(venueId, readRoomArgs(formData), session.user.id, session.tenantId);
+    revalidatePath(`/venues/${venueId}`);
+  });
 }
 
 export async function updateRoom(roomId: string, venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await updateRoomCore(roomId, venueId, readRoomArgs(formData), session.user.id, session.tenantId);
-  revalidatePath(`/venues/${venueId}`);
+  return withUserErrors(async () => {
+    await updateRoomCore(roomId, venueId, readRoomArgs(formData), session.user.id, session.tenantId);
+    revalidatePath(`/venues/${venueId}`);
+  });
 }
 
 export async function deleteRoom(roomId: string, venueId: string) {
@@ -139,14 +149,18 @@ export async function addVenueAmenity(venueId: string, label: string) {
 
 export async function createRoomGroup(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await createRoomGroupCore(venueId, formName(formData, "name"), session.user.id, session.tenantId);
-  revalidatePath(`/venues/${venueId}`);
+  return withUserErrors(async () => {
+    await createRoomGroupCore(venueId, formName(formData, "name"), session.user.id, session.tenantId);
+    revalidatePath(`/venues/${venueId}`);
+  });
 }
 
 export async function updateRoomGroup(groupId: string, venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await updateRoomGroupCore(groupId, venueId, formName(formData, "name"), session.user.id, session.tenantId);
-  revalidatePath(`/venues/${venueId}`);
+  return withUserErrors(async () => {
+    await updateRoomGroupCore(groupId, venueId, formName(formData, "name"), session.user.id, session.tenantId);
+    revalidatePath(`/venues/${venueId}`);
+  });
 }
 
 export async function deleteRoomGroup(groupId: string, venueId: string) {

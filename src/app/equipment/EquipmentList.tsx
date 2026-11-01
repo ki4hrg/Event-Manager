@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type { Equipment, CustomOption } from "@prisma/client";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type EquipmentListProps = {
   equipment: Equipment[];
   categories: CustomOption[];
-  createEquipment: (formData: FormData) => Promise<void>;
-  updateEquipment: (id: string, formData: FormData) => Promise<void>;
+  createEquipment: (formData: FormData) => Promise<void | UserError>;
+  updateEquipment: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteEquipment: (id: string) => Promise<void>;
 };
 
@@ -60,16 +62,6 @@ export function EquipmentList({
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleCreate = async (formData: FormData) => {
-    await createEquipment(formData);
-    setShowAddForm(false);
-  };
-
-  const handleUpdate = async (id: string, formData: FormData) => {
-    await updateEquipment(id, formData);
-    setEditingId(null);
-  };
-
   // Group equipment by category
   const grouped = categories.reduce<Record<string, Equipment[]>>((acc, cat) => {
     acc[cat.label] = equipment.filter((e) => e.category === cat.label);
@@ -98,7 +90,7 @@ export function EquipmentList({
       </div>
 
       {showAddForm && (
-        <form action={handleCreate} className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+        <ActionForm action={createEquipment} onDone={() => setShowAddForm(false)} className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
@@ -116,6 +108,7 @@ export function EquipmentList({
               <CategorySelect categories={categories} />
             </div>
           </div>
+          <ActionFormError />
           <div className="flex gap-2">
             <SubmitButton label="Add" />
             <button
@@ -126,7 +119,7 @@ export function EquipmentList({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       <div className="mt-4 space-y-4">
@@ -144,7 +137,7 @@ export function EquipmentList({
               {group.items.map((item) => (
                 <div key={item.id} className="p-2 bg-gray-50 dark:bg-gray-900 rounded">
                   {editingId === item.id ? (
-                    <form action={(fd) => handleUpdate(item.id, fd)} className="flex flex-wrap gap-2 items-end">
+                    <ActionForm action={(fd) => updateEquipment(item.id, fd)} onDone={() => setEditingId(null)} className="flex flex-wrap gap-2 items-end">
                       <div className="flex-1 min-w-[8rem]">
                         <input
                           type="text"
@@ -165,7 +158,8 @@ export function EquipmentList({
                       >
                         Cancel
                       </button>
-                    </form>
+                      <ActionFormError className="w-full" />
+                    </ActionForm>
                   ) : (
                     <div className="flex items-center justify-between gap-2">
                       <span className="min-w-0 break-words text-sm text-gray-900 dark:text-white">{item.name}</span>

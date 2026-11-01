@@ -9,17 +9,18 @@ import { formatPhone } from "@/lib/format-phone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { OptionSelect } from "@/components/ui/OptionSelect";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 
 type KeyStaffWithContact = EventKeyStaff & { contact: Contact };
 
 type KeyStaffListProps = {
   keyStaff: KeyStaffWithContact[];
-  addKeyStaff: (formData: FormData) => Promise<void>;
-  updateKeyStaff: (id: string, formData: FormData) => Promise<void>;
+  addKeyStaff: (formData: FormData) => Promise<void | UserError>;
+  updateKeyStaff: (id: string, formData: FormData) => Promise<void | UserError>;
   removeKeyStaff: (id: string) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
-  createContact?: (formData: FormData) => Promise<void>;
+  createContact?: (formData: FormData) => Promise<void | UserError>;
   // The staff_title list.
   titles: string[];
 };
@@ -170,21 +171,14 @@ export function KeyStaffList({
   };
 
   const handleAddFormSubmit = async (formData: FormData) => {
-    if (!selectedContact) return;
+    if (!selectedContact) return { error: "Pick a contact" };
     formData.set("contactId", selectedContact.id);
-    await addKeyStaff(formData);
-    closeAddForm();
+    return addKeyStaff(formData);
   };
 
   const handleCreateFormSubmit = async (formData: FormData) => {
-    if (!createContact) return;
-    await createContact(formData);
-    closeAddForm();
-  };
-
-  const handleUpdateSubmit = async (id: string, formData: FormData) => {
-    await updateKeyStaff(id, formData);
-    setEditingId(null);
+    if (!createContact) return { error: "Contacts can't be created here" };
+    return createContact(formData);
   };
 
   return (
@@ -208,7 +202,7 @@ export function KeyStaffList({
       </div>
 
       {formView === "search" && (
-        <form action={handleAddFormSubmit} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
+        <ActionForm action={handleAddFormSubmit} onDone={closeAddForm} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
           {!selectedContact ? (
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -302,6 +296,7 @@ export function KeyStaffList({
           <ModelCheckboxes />
           <KeyStaffEsgFields />
 
+          <ActionFormError />
           <div className="flex gap-2">
             <SubmitButton label="Add" />
             <button
@@ -312,11 +307,11 @@ export function KeyStaffList({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       {formView === "create" && (
-        <form action={handleCreateFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
+        <ActionForm action={handleCreateFormSubmit} onDone={closeAddForm} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
           <div className="space-y-3">
             <SectionLabel>New contact</SectionLabel>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -379,6 +374,7 @@ export function KeyStaffList({
             <ModelCheckboxes />
           </div>
           <KeyStaffEsgFields />
+          <ActionFormError />
           <div className="flex gap-2 pt-1">
             <SubmitButton label="Create & Add" />
             <button
@@ -396,7 +392,7 @@ export function KeyStaffList({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       {keyStaff.length === 0 ? (
@@ -406,8 +402,9 @@ export function KeyStaffList({
           {keyStaff.map((entry) => (
             <div key={entry.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === entry.id ? (
-                <form
-                  action={(formData) => handleUpdateSubmit(entry.id, formData)}
+                <ActionForm
+                  action={(formData) => updateKeyStaff(entry.id, formData)}
+                  onDone={() => setEditingId(null)}
                   className="space-y-3"
                 >
                   <div>
@@ -423,6 +420,7 @@ export function KeyStaffList({
                   </div>
                   <ModelCheckboxes defaultValues={entry.models} />
                   <KeyStaffEsgFields entry={entry} />
+                  <ActionFormError />
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
                     <button
@@ -433,7 +431,7 @@ export function KeyStaffList({
                       Cancel
                     </button>
                   </div>
-                </form>
+                </ActionForm>
               ) : (
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1 min-w-0 break-words">

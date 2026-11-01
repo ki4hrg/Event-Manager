@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type { Venue } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { useCanWrite } from "@/components/PermissionsProvider";
@@ -17,7 +19,7 @@ type VenueFormProps = {
   amenities: string[];
   // A new venue starts as lodging (from /hotels).
   defaultLodging?: boolean;
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
 };
 
 const fieldClass =
@@ -86,11 +88,9 @@ export function VenueForm({ venue, brands, areas, amenities, defaultLodging = fa
       {isEdit && (
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Venue Details</h2>
       )}
-      <form
-        action={async (formData) => {
-          await action(formData);
-          if (isEdit) setEditing(false);
-        }}
+      <ActionForm
+        action={action}
+        onDone={() => isEdit && setEditing(false)}
         className="space-y-4"
       >
         <div>
@@ -264,6 +264,7 @@ export function VenueForm({ venue, brands, areas, amenities, defaultLodging = fa
           />
         </div>
 
+        <ActionFormError />
         <div className="flex gap-4">
           <SaveButton isEdit={isEdit} />
           {isEdit ? (
@@ -283,7 +284,7 @@ export function VenueForm({ venue, brands, areas, amenities, defaultLodging = fa
             </Link>
           )}
         </div>
-      </form>
+      </ActionForm>
     </div>
   );
 }

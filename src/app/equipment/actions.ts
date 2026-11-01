@@ -2,12 +2,16 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { requirePermission } from "@/lib/permissions";
+import { PermissionError, requirePermission } from "@/lib/permissions";
 import { requireActiveTenantId } from "@/lib/tenant";
 import { carryEquipmentRename } from "@/lib/equipment-utils";
 import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
-import { formName } from "@/lib/validation";
+import { assertIds, formName } from "@/lib/validation";
+import { UserFacingError, withUserErrors } from "@/lib/userErrors";
+import { refuseDuplicate } from "@/lib/uniqueRefusal";
+
+const DUPLICATE_EQUIPMENT = "There's already equipment with that name in this category";
 
 // getEquipment is auth-only (not EQUIPMENT-gated) because order forms across the
 // app need to read the equipment list to render pickers — gating it on EQUIPMENT
@@ -23,24 +27,29 @@ export async function getEquipment() {
 
 export async function createEquipment(formData: FormData) {
   const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
-  const name = formName(formData, "name");
-  const category = formName(formData, "category");
+  return withUserErrors(async () => {
+    const name = formName(formData, "name");
+    const category = formName(formData, "category");
 
-  const { _max } = await prisma.equipment.aggregate({
-    where: { tenantId, category },
-    _max: { sortOrder: true },
+    const { _max } = await prisma.equipment.aggregate({
+      where: { tenantId, category },
+      _max: { sortOrder: true },
+    });
+
+    await refuseDuplicate(
+      prisma.equipment.create({
+        data: {
+          tenantId,
+          name,
+          category,
+          sortOrder: (_max.sortOrder ?? -1) + 1,
+        },
+      }),
+      DUPLICATE_EQUIPMENT,
+    );
+
+    revalidatePath("/equipment");
   });
-
-  await prisma.equipment.create({
-    data: {
-      tenantId,
-      name,
-      category,
-      sortOrder: (_max.sortOrder ?? -1) + 1,
-    },
-  });
-
-  revalidatePath("/equipment");
 }
 
 /**
@@ -57,8 +66,8 @@ export async function createEquipmentInline(
   const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
 
   const trimmed = name.trim();
-  if (!trimmed) throw new Error("Equipment needs a name.");
-  if (!category) throw new Error("Equipment needs a category.");
+  if (!trimmed) throw new UserFacingError("Equipment needs a name");
+  if (!category) throw new UserFacingError("Equipment needs a category");
 
   const existing = await prisma.equipment.findFirst({
     where: { tenantId, name: trimmed, category },
@@ -83,15 +92,19 @@ export async function createEquipmentInline(
 
 export async function updateEquipment(id: string, formData: FormData) {
   const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
-  const current = await prisma.equipment.findFirst({ where: { id, tenantId }, select: { name: true } });
-  if (!current) throw new Error("Equipment not found.");
-  const name = formName(formData, "name");
-  const category = formName(formData, "category");
-  await prisma.$transaction(async (tx) => {
-    await tx.equipment.update({ where: { id, tenantId }, data: { name, category } });
-    await carryEquipmentRename(tx, id, current.name, name);
+  assertIds(id);
+  return withUserErrors(async () => {
+    const current = await prisma.equipment.findFirst({ where: { id, tenantId }, select: { name: true } });
+    if (!current) throw new PermissionError("NOT_FOUND", "Equipment not found");
+    const name = formName(formData, "name");
+    const category = formName(formData, "category");
+    await prisma.$transaction(async (tx) => {
+      // Only the equipment row's own unique name is the person's to fix.
+      await refuseDuplicate(tx.equipment.update({ where: { id, tenantId }, data: { name, category } }), DUPLICATE_EQUIPMENT);
+      await carryEquipmentRename(tx, id, current.name, name);
+    });
+    revalidatePath("/equipment");
   });
-  revalidatePath("/equipment");
 }
 
 export async function deleteEquipment(id: string) {
@@ -109,7 +122,7 @@ export async function deleteEquipment(id: string) {
   if (!equipment) throw new Error("Equipment not found.");
   const inventoried = equipment._count.inventoryItems;
   if (inventoried > 0) {
-    throw new Error(
+    throw new UserFacingError(
       `"${equipment.name}" is stocked in ${inventoried} location${inventoried === 1 ? "" : "s"}. Remove those inventory items first.`,
     );
   }

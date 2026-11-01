@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type { Event, Venue } from "@prisma/client";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { syncRangeEnd } from "@/lib/dateRange";
@@ -12,7 +14,7 @@ type EventFormProps = {
   event?: Event & { venueIds: string[] };
   venues: Venue[];
   series: { id: string; name: string }[];
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   cancelHref?: string;
 };
 
@@ -203,7 +205,7 @@ export function EventForm({ event, venues, series, action, cancelHref }: EventFo
   };
 
   return (
-    <form action={action} className="space-y-6">
+    <ActionForm action={action} className="space-y-6">
       <div>
         <label
           htmlFor="name"
@@ -332,12 +334,13 @@ export function EventForm({ event, venues, series, action, cancelHref }: EventFo
         </select>
       </div>
 
+      <ActionFormError />
       <div className="flex gap-4">
         <SubmitButton isEdit={isEdit} />
         <Link href={cancelHref ?? "/events"} className={btnSecondary}>
           Cancel
         </Link>
       </div>
-    </form>
+    </ActionForm>
   );
 }

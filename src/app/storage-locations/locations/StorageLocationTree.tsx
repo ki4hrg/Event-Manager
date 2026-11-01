@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type { CustomOption, LocationKind } from "@prisma/client";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
@@ -30,8 +32,8 @@ type Props = {
   types: CustomOption[];
   canWrite: boolean;
   canDelete: boolean;
-  createLocation: (formData: FormData) => Promise<void>;
-  updateLocation: (id: string, formData: FormData) => Promise<void>;
+  createLocation: (formData: FormData) => Promise<void | UserError>;
+  updateLocation: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteLocation: (id: string) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
 };
@@ -105,18 +107,20 @@ function LocationForm({
   locations,
   types,
   onSubmit,
+  onDone,
   onCancel,
   submitLabel,
 }: {
   location?: LocationRow;
   locations: LocationRow[];
   types: CustomOption[];
-  onSubmit: (formData: FormData) => Promise<void>;
+  onSubmit: (formData: FormData) => Promise<void | UserError>;
+  onDone: () => void;
   onCancel: () => void;
   submitLabel: string;
 }) {
   return (
-    <form action={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <ActionForm action={onSubmit} onDone={onDone} className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div className="md:col-span-2">
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
           Name <span className="text-red-600 dark:text-red-400">*</span>
@@ -188,6 +192,7 @@ function LocationForm({
         <input name="notes" defaultValue={location?.notes ?? ""} className={inputClass} />
       </div>
 
+      <ActionFormError className="md:col-span-2" />
       <div className="md:col-span-2 flex gap-2">
         <SubmitButton label={submitLabel} />
         <button
@@ -198,7 +203,7 @@ function LocationForm({
           Cancel
         </button>
       </div>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -279,10 +284,8 @@ export function StorageLocationTree({
             types={types}
             submitLabel="Create"
             onCancel={() => setShowAddForm(false)}
-            onSubmit={async (formData) => {
-              await createLocation(formData);
-              setShowAddForm(false);
-            }}
+            onSubmit={createLocation}
+            onDone={() => setShowAddForm(false)}
           />
         </div>
       )}
@@ -307,10 +310,8 @@ export function StorageLocationTree({
                   types={types}
                   submitLabel="Save"
                   onCancel={() => setEditingId(null)}
-                  onSubmit={async (formData) => {
-                    await updateLocation(location.id, formData);
-                    setEditingId(null);
-                  }}
+                  onSubmit={(formData) => updateLocation(location.id, formData)}
+                  onDone={() => setEditingId(null)}
                 />
               ) : (
                 <div className="flex items-center justify-between gap-2">
