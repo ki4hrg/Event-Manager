@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ProvidedBy } from "@prisma/client";
+import { ProvidedBy } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
@@ -21,6 +21,7 @@ import {
   type BoothSharedArgs,
   type BoothWriteArgs,
 } from "./core";
+import { formEnum, formId, formInt, formName, formNote, formValue } from "@/lib/validation";
 
 const equipmentItemsInclude = {
   include: { providerVendor: true, providerContact: true, operatorVendor: true, operatorContact: true, equipment: true },
@@ -86,12 +87,16 @@ async function eventTimezone(eventId: string) {
 }
 
 function readShared(formData: FormData, timezone: string): BoothSharedArgs {
-  const str = (k: string) => (formData.get(k) as string) || null;
-  const dt = (k: string) => (formData.get(k) ? parseDateTimeInTimezone(formData.get(k) as string, timezone) : null);
+  const str = (k: string) => formNote(formData, k);
+  const dt = (k: string) => {
+    const v = formNote(formData, k, 40);
+    return v ? parseDateTimeInTimezone(v, timezone) : null;
+  };
   const bool = (k: string) => (formData.get(k) === "true" ? true : formData.get(k) === "false" ? false : null);
-  const provided = (k: string) => (str(k) as ProvidedBy | null);
+  // Blank is not stated; anything else must be a ProvidedBy value.
+  const provided = (k: string) => (formNote(formData, k) ? formEnum(formData, k, ProvidedBy, ProvidedBy.NOT_REQUIRED) : null);
   return {
-    functionId: str("functionId"),
+    functionId: formId(formData, "functionId"),
     location: str("location"),
     boothType: str("boothType"),
     startAt: dt("startAt"),
@@ -120,11 +125,11 @@ function readShared(formData: FormData, timezone: string): BoothSharedArgs {
 }
 
 function readBooth(formData: FormData, timezone: string): BoothWriteArgs {
-  const str = (k: string) => (formData.get(k) as string) || null;
+  const str = (k: string) => formNote(formData, k);
   return {
     ...readShared(formData, timezone),
-    name: formData.get("name") as string,
-    groupId: str("groupId"),
+    name: formName(formData, "name"),
+    groupId: formId(formData, "groupId"),
     boothNumber: str("boothNumber"),
     companyName: str("companyName"),
     contactId: str("contactId"),
@@ -135,7 +140,7 @@ export async function createBoothGroup(eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   const group = await createBoothGroupCore(
     eventId,
-    { ...readShared(formData, await eventTimezone(eventId)), name: formData.get("name") as string },
+    { ...readShared(formData, await eventTimezone(eventId)), name: formName(formData, "name") },
     session.user.id,
   );
   revalidatePath(`/events/${eventId}/exhibits`);
@@ -147,7 +152,7 @@ export async function updateBoothGroup(id: string, eventId: string, formData: Fo
   await updateBoothGroupCore(
     id,
     eventId,
-    { ...readShared(formData, await eventTimezone(eventId)), name: formData.get("name") as string },
+    { ...readShared(formData, await eventTimezone(eventId)), name: formName(formData, "name") },
     session.user.id,
   );
   revalidatePath(`/events/${eventId}/exhibits`);
@@ -186,14 +191,14 @@ export async function deleteExhibitBooth(id: string, eventId: string) {
 
 function readEquipment(formData: FormData): BoothEquipmentItemWriteArgs {
   return {
-    equipmentId: (formData.get("equipmentId") as string) || null,
-    item: (formData.get("item") as string) || "",
-    quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
-    providerContactId: (formData.get("providerContactId") as string) || null,
-    operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-    operatorContactId: (formData.get("operatorContactId") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    equipmentId: formId(formData, "equipmentId"),
+    item: (formValue(formData, "item")) || "",
+    quantity: formInt(formData, "quantity"),
+    providerVendorId: formId(formData, "providerVendorId"),
+    providerContactId: formId(formData, "providerContactId"),
+    operatorVendorId: formId(formData, "operatorVendorId"),
+    operatorContactId: formId(formData, "operatorContactId"),
+    notes: formNote(formData, "notes"),
   };
 }
 
