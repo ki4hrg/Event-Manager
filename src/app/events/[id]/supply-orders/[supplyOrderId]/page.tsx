@@ -186,7 +186,7 @@ export default async function SupplyOrderPage({
   // Server action closures
   const updateSupplyOrderAction = async (formData: FormData) => {
     "use server";
-    await updateSupplyOrder(supplyOrderId, eventId, formData);
+    return updateSupplyOrder(supplyOrderId, eventId, formData);
   };
 
   const deleteSupplyOrderAction = async () => {

@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -83,39 +84,43 @@ export async function getPrintOrder(id: string) {
 
 export async function createPrintOrder(eventId: string, formData: FormData) {
   const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  const printOrder = await createPrintOrderCore(
-    eventId,
-    {
-      name: formName(formData, "name")?.trim(),
-      notes: formNote(formData, "notes"),
-      roomId: formId(formData, "roomId"),
-      specificLocation: formNote(formData, "specificLocation"),
-      functionId: formId(formData, "functionId"),
-      presentationId: formId(formData, "presentationId"),
-      vendorId: formId(formData, "vendorId"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/print-orders`);
-  redirect(`/events/${eventId}/print-orders/${printOrder.id}`);
+  return withUserErrors(async () => {
+    const printOrder = await createPrintOrderCore(
+      eventId,
+      {
+        name: formName(formData, "name"),
+        notes: formNote(formData, "notes"),
+        roomId: formId(formData, "roomId"),
+        specificLocation: formNote(formData, "specificLocation"),
+        functionId: formId(formData, "functionId"),
+        presentationId: formId(formData, "presentationId"),
+        vendorId: formId(formData, "vendorId"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/print-orders`);
+    redirect(`/events/${eventId}/print-orders/${printOrder.id}`);
+  });
 }
 
 export async function updatePrintOrder(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  await updatePrintOrderCore(
-    id,
-    eventId,
-    {
-      name: formName(formData, "name")?.trim(),
-      notes: formNote(formData, "notes"),
-      roomId: formId(formData, "roomId"),
-      specificLocation: formNote(formData, "specificLocation"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/print-orders`);
-  revalidatePath(`/events/${eventId}/print-orders/${id}`);
-  redirect(`/events/${eventId}/print-orders/${id}?success=Print Order updated`);
+  return withUserErrors(async () => {
+    await updatePrintOrderCore(
+      id,
+      eventId,
+      {
+        name: formName(formData, "name"),
+        notes: formNote(formData, "notes"),
+        roomId: formId(formData, "roomId"),
+        specificLocation: formNote(formData, "specificLocation"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/print-orders`);
+    revalidatePath(`/events/${eventId}/print-orders/${id}`);
+    redirect(`/events/${eventId}/print-orders/${id}?success=Print Order updated`);
+  });
 }
 
 export async function updatePrintOrderPackingStatus(

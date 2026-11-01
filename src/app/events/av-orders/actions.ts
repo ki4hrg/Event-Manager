@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -143,35 +144,39 @@ export async function getAVOrder(id: string) {
 
 export async function createAVOrder(eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  const avOrder = await createAVOrderCore(
-    eventId,
-    {
-      name: formName(formData, "name"),
-      notes: formNote(formData, "notes"),
-      functionId: formId(formData, "functionId"),
-      presentationId: formId(formData, "presentationId"),
-      vendorId: formId(formData, "vendorId"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/av-orders`);
-  redirect(`/events/${eventId}/av-orders/${avOrder.id}`);
+  return withUserErrors(async () => {
+    const avOrder = await createAVOrderCore(
+      eventId,
+      {
+        name: formName(formData, "name"),
+        notes: formNote(formData, "notes"),
+        functionId: formId(formData, "functionId"),
+        presentationId: formId(formData, "presentationId"),
+        vendorId: formId(formData, "vendorId"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/av-orders`);
+    redirect(`/events/${eventId}/av-orders/${avOrder.id}`);
+  });
 }
 
 export async function updateAVOrder(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateAVOrderCore(
-    id,
-    eventId,
-    {
-      name: formName(formData, "name"),
-      notes: formNote(formData, "notes"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/av-orders`);
-  revalidatePath(`/events/${eventId}/av-orders/${id}`);
-  redirect(`/events/${eventId}/av-orders/${id}?success=AV Order updated`);
+  return withUserErrors(async () => {
+    await updateAVOrderCore(
+      id,
+      eventId,
+      {
+        name: formName(formData, "name"),
+        notes: formNote(formData, "notes"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/av-orders`);
+    revalidatePath(`/events/${eventId}/av-orders/${id}`);
+    redirect(`/events/${eventId}/av-orders/${id}?success=AV Order updated`);
+  });
 }
 
 export async function deleteAVOrder(id: string, eventId: string) {
@@ -429,8 +434,10 @@ export async function deleteMonitorOutput(id: string, avOrderId: string, eventId
 
 export async function updateVideoSection(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateVideoSectionCore(id, avOrderId, eventId, formNote(formData, "notes"), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await updateVideoSectionCore(id, avOrderId, eventId, formNote(formData, "notes"), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 function parseAVEquipmentItemData(formData: FormData): AVEquipmentItemWriteArgs {
@@ -448,14 +455,18 @@ function parseAVEquipmentItemData(formData: FormData): AVEquipmentItemWriteArgs 
 
 export async function createVideoEquipmentItem(videoSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await createVideoEquipmentItemCore(videoSectionId, avOrderId, eventId, parseAVEquipmentItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await createVideoEquipmentItemCore(videoSectionId, avOrderId, eventId, parseAVEquipmentItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function updateVideoEquipmentItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateVideoEquipmentItemCore(id, avOrderId, eventId, parseAVEquipmentItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await updateVideoEquipmentItemCore(id, avOrderId, eventId, parseAVEquipmentItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function deleteVideoEquipmentItem(id: string, avOrderId: string, eventId: string) {
@@ -470,14 +481,18 @@ export async function deleteVideoEquipmentItem(id: string, avOrderId: string, ev
 
 export async function createAVEquipmentItem(avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await createAVEquipmentItemCore(avOrderId, eventId, parseAVEquipmentItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await createAVEquipmentItemCore(avOrderId, eventId, parseAVEquipmentItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function updateAVEquipmentItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateAVEquipmentItemCore(id, avOrderId, eventId, parseAVEquipmentItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await updateAVEquipmentItemCore(id, avOrderId, eventId, parseAVEquipmentItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function deleteAVEquipmentItem(id: string, avOrderId: string, eventId: string) {

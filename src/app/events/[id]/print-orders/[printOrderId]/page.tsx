@@ -129,7 +129,7 @@ export default async function PrintOrderPage({
   // Server action closures
   const updatePrintOrderAction = async (formData: FormData) => {
     "use server";
-    await updatePrintOrder(printOrderId, eventId, formData);
+    return updatePrintOrder(printOrderId, eventId, formData);
   };
 
   const deletePrintOrderAction = async () => {

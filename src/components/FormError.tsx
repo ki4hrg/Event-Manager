@@ -26,8 +26,10 @@ export function useActionError(fallback = "Couldn't save. Try again.") {
         }
         return true;
       } catch (e) {
+        // Rethrows a redirect (a create or save that navigates): not a refusal.
+        const message = actionErrorMessage(e, fallback);
         refused.current = true;
-        setError(actionErrorMessage(e, fallback));
+        setError(message);
         return false;
       }
     },

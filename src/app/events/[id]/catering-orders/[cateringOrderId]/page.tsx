@@ -242,11 +242,11 @@ export default async function CateringOrderPage({
 
   const createEquipmentAction = async (formData: FormData) => {
     "use server";
-    await createEquipmentItem(cateringOrderId, eventId, formData);
+    return createEquipmentItem(cateringOrderId, eventId, formData);
   };
   const updateEquipmentAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateEquipmentItem(id, cateringOrderId, eventId, formData);
+    return updateEquipmentItem(id, cateringOrderId, eventId, formData);
   };
   const deleteEquipmentAction = async (id: string) => {
     "use server";

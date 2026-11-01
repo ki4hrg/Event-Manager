@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ProvidedBy } from "@prisma/client";
@@ -193,7 +194,7 @@ function readEquipment(formData: FormData): BoothEquipmentItemWriteArgs {
   return {
     equipmentId: formId(formData, "equipmentId"),
     item: formValue(formData, "item"),
-    quantity: formInt(formData, "quantity"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
     providerVendorId: formId(formData, "providerVendorId"),
     providerContactId: formId(formData, "providerContactId"),
     operatorVendorId: formId(formData, "operatorVendorId"),
@@ -204,14 +205,18 @@ function readEquipment(formData: FormData): BoothEquipmentItemWriteArgs {
 
 export async function createBoothEquipmentItem(boothId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await createBoothEquipmentItemCore({ boothId }, eventId, readEquipment(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/exhibits/${boothId}`);
+  return withUserErrors(async () => {
+    await createBoothEquipmentItemCore({ boothId }, eventId, readEquipment(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/exhibits/${boothId}`);
+  });
 }
 
 export async function updateBoothEquipmentItem(id: string, boothId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await updateBoothEquipmentItemCore(id, eventId, readEquipment(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/exhibits/${boothId}`);
+  return withUserErrors(async () => {
+    await updateBoothEquipmentItemCore(id, eventId, readEquipment(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/exhibits/${boothId}`);
+  });
 }
 
 export async function deleteBoothEquipmentItem(id: string, boothId: string, eventId: string) {
@@ -268,14 +273,18 @@ export async function getBoothFormChoices(eventId: string) {
 
 export async function createBoothGroupEquipmentItem(groupId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await createBoothEquipmentItemCore({ groupId }, eventId, readEquipment(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/exhibits/groups/${groupId}`);
+  return withUserErrors(async () => {
+    await createBoothEquipmentItemCore({ groupId }, eventId, readEquipment(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/exhibits/groups/${groupId}`);
+  });
 }
 
 export async function updateBoothGroupEquipmentItem(id: string, groupId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await updateBoothEquipmentItemCore(id, eventId, readEquipment(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/exhibits/groups/${groupId}`);
+  return withUserErrors(async () => {
+    await updateBoothEquipmentItemCore(id, eventId, readEquipment(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/exhibits/groups/${groupId}`);
+  });
 }
 
 export async function deleteBoothGroupEquipmentItem(id: string, groupId: string, eventId: string) {

@@ -30,7 +30,7 @@ import {
   type BulkSetupOrderUpdates,
 } from "./core";
 import { formId, formInt, formNote, formValue } from "@/lib/validation";
-import { UserFacingError } from "@/lib/userErrors";
+import { UserFacingError, withUserErrors } from "@/lib/userErrors";
 
 export async function getSetupOrders(eventId: string) {
   await requirePermission("SETUP_ORDERS", "VIEW", eventId);
@@ -80,44 +80,48 @@ export async function getSetupOrder(id: string) {
 
 export async function createSetupOrder(eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  const functionId = formId(formData, "functionId");
-  const presentationId = formId(formData, "presentationId");
-  const setupOrder = await createSetupOrderCore(
-    eventId,
-    {
-      name: formNote(formData, "name"),
-      setupType: formNote(formData, "setupType"),
-      notes: formNote(formData, "notes"),
-      roomId: formId(formData, "roomId"),
-      functionId,
-      presentationId,
-      vendorId: formId(formData, "vendorId"),
-    },
-    session.user.id,
-  );
+  return withUserErrors(async () => {
+    const functionId = formId(formData, "functionId");
+    const presentationId = formId(formData, "presentationId");
+    const setupOrder = await createSetupOrderCore(
+      eventId,
+      {
+        name: formNote(formData, "name"),
+        setupType: formNote(formData, "setupType"),
+        notes: formNote(formData, "notes"),
+        roomId: formId(formData, "roomId"),
+        functionId,
+        presentationId,
+        vendorId: formId(formData, "vendorId"),
+      },
+      session.user.id,
+    );
 
-  if (functionId) revalidatePath(`/events/${eventId}/functions/${functionId}`);
-  if (presentationId) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
-  revalidatePath(`/events/${eventId}/setup-orders`);
-  redirect(`/events/${eventId}/setup-orders/${setupOrder.id}`);
+    if (functionId) revalidatePath(`/events/${eventId}/functions/${functionId}`);
+    if (presentationId) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+    revalidatePath(`/events/${eventId}/setup-orders`);
+    redirect(`/events/${eventId}/setup-orders/${setupOrder.id}`);
+  });
 }
 
 export async function updateSetupOrder(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await updateSetupOrderCore(
-    id,
-    eventId,
-    {
-      name: formNote(formData, "name"),
-      setupType: formNote(formData, "setupType"),
-      notes: formNote(formData, "notes"),
-      roomId: formId(formData, "roomId"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/setup-orders`);
-  revalidatePath(`/events/${eventId}/setup-orders/${id}`);
-  redirect(`/events/${eventId}/setup-orders/${id}?success=Setup Order updated`);
+  return withUserErrors(async () => {
+    await updateSetupOrderCore(
+      id,
+      eventId,
+      {
+        name: formNote(formData, "name"),
+        setupType: formNote(formData, "setupType"),
+        notes: formNote(formData, "notes"),
+        roomId: formId(formData, "roomId"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/setup-orders`);
+    revalidatePath(`/events/${eventId}/setup-orders/${id}`);
+    redirect(`/events/${eventId}/setup-orders/${id}?success=Setup Order updated`);
+  });
 }
 
 export async function deleteSetupOrder(id: string, eventId: string) {
@@ -295,14 +299,18 @@ function parseSetupEquipmentItemData(formData: FormData): SetupEquipmentItemWrit
 
 export async function createSetupEquipmentItem(setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await createSetupEquipmentItemCore(setupOrderId, eventId, parseSetupEquipmentItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  return withUserErrors(async () => {
+    await createSetupEquipmentItemCore(setupOrderId, eventId, parseSetupEquipmentItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  });
 }
 
 export async function updateSetupEquipmentItem(id: string, setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await updateSetupEquipmentItemCore(id, setupOrderId, eventId, parseSetupEquipmentItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  return withUserErrors(async () => {
+    await updateSetupEquipmentItemCore(id, setupOrderId, eventId, parseSetupEquipmentItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  });
 }
 
 export async function deleteSetupEquipmentItem(id: string, setupOrderId: string, eventId: string) {

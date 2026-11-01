@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { FormError, useActionError } from "@/components/FormError";
+import { keepFormValues } from "@/lib/keepFormValues";
+import type { UserError } from "@/lib/userErrors";
 import type { EquipmentItem, VideoSection, Vendor, Contact, Equipment } from "@prisma/client";
 import {
   type ContactOptions,
@@ -31,9 +34,9 @@ type VideoSectionPanelProps = {
   equipmentOptions: Equipment[];
   vendorGroups: ResponsiblePartyOptions;
   contactOptions: ContactOptions;
-  updateSection: (formData: FormData) => Promise<void>;
-  createItem: (formData: FormData) => Promise<void>;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  updateSection: (formData: FormData) => Promise<void | UserError>;
+  createItem: (formData: FormData) => Promise<void | UserError>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteItem: (id: string) => Promise<void>;
 };
 
@@ -66,18 +69,22 @@ export function VideoSectionPanel({
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const notesError = useActionError();
+  const createError = useActionError();
+  const updateError = useActionError();
+
   const handleCreate = async (formData: FormData) => {
-    await createItem(formData);
+    if (!(await createError.run(() => createItem(formData)))) return;
     setShowAddForm(false);
   };
 
   const handleUpdate = async (id: string, formData: FormData) => {
-    await updateItem(id, formData);
+    if (!(await updateError.run(() => updateItem(id, formData)))) return;
     setEditingId(null);
   };
 
   const handleUpdateNotes = async (formData: FormData) => {
-    await updateSection(formData);
+    if (!(await notesError.run(() => updateSection(formData)))) return;
     setEditingNotes(false);
   };
 
@@ -89,7 +96,7 @@ export function VideoSectionPanel({
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Video Notes</h2>
           {!editingNotes && canWrite && (
             <button
-              onClick={() => setEditingNotes(true)}
+              onClick={() => { notesError.setError(null); setEditingNotes(true); }}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               Edit
@@ -97,7 +104,7 @@ export function VideoSectionPanel({
           )}
         </div>
         {editingNotes && canWrite ? (
-          <form action={handleUpdateNotes} className="space-y-3">
+          <form action={handleUpdateNotes} onReset={keepFormValues} className="space-y-3">
             <textarea
               name="notes"
               rows={4}
@@ -105,11 +112,12 @@ export function VideoSectionPanel({
               placeholder="Video section notes..."
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <FormError error={notesError.error} />
             <div className="flex gap-2">
               <SubmitButton label="Save" />
               <button
                 type="button"
-                onClick={() => setEditingNotes(false)}
+                onClick={() => { notesError.setError(null); setEditingNotes(false); }}
                 className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
               >
                 Cancel
@@ -129,7 +137,7 @@ export function VideoSectionPanel({
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Equipment</h2>
           {canWrite && (
             <button
-              onClick={() => setShowAddForm(true)}
+              onClick={() => { createError.setError(null); setShowAddForm(true); }}
               className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
             >
               Add Item
@@ -143,7 +151,8 @@ export function VideoSectionPanel({
             vendorGroups={vendorGroups}
             contactOptions={contactOptions}
             onSubmit={handleCreate}
-            onCancel={() => setShowAddForm(false)}
+            error={createError.error}
+            onCancel={() => { createError.setError(null); setShowAddForm(false); }}
           />
         )}
 
@@ -161,9 +170,10 @@ export function VideoSectionPanel({
                 vendorGroups={vendorGroups}
                 contactOptions={contactOptions}
                 editing={editingId === item.id}
-                onEdit={() => setEditingId(item.id)}
+                onEdit={() => { updateError.setError(null); setEditingId(item.id); }}
                 onUpdate={(fd) => handleUpdate(item.id, fd)}
-                onCancelEdit={() => setEditingId(null)}
+                error={updateError.error}
+                onCancelEdit={() => { updateError.setError(null); setEditingId(null); }}
                 onDelete={deleteItem}
               />
             ))}
@@ -179,16 +189,18 @@ function AddItemForm({
   vendorGroups,
   contactOptions,
   onSubmit,
+  error,
   onCancel,
 }: {
   equipmentOptions: Equipment[];
   vendorGroups: ResponsiblePartyOptions;
   contactOptions: ContactOptions;
   onSubmit: (formData: FormData) => Promise<void>;
+  error: string | null;
   onCancel: () => void;
 }) {
   return (
-    <form action={onSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+    <form action={onSubmit} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment Type</label>
@@ -228,6 +240,7 @@ function AddItemForm({
           />
         </div>
       </div>
+      <FormError error={error} />
       <div className="flex gap-2">
         <SubmitButton label="Add" />
         <button
@@ -250,6 +263,7 @@ function EquipmentItemRow({
   editing,
   onEdit,
   onUpdate,
+  error,
   onCancelEdit,
   onDelete,
 }: {
@@ -260,6 +274,7 @@ function EquipmentItemRow({
   editing: boolean;
   onEdit: () => void;
   onUpdate: (formData: FormData) => Promise<void>;
+  error: string | null;
   onCancelEdit: () => void;
   onDelete: (id: string) => Promise<void>;
 }) {
@@ -276,7 +291,7 @@ function EquipmentItemRow({
   return (
     <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
       {editing ? (
-        <form action={onUpdate} className="space-y-3">
+        <form action={onUpdate} onReset={keepFormValues} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment Type</label>
@@ -331,6 +346,7 @@ function EquipmentItemRow({
               />
             </div>
           </div>
+          <FormError error={error} />
           <div className="flex gap-2">
             <SubmitButton label="Save" />
             <button

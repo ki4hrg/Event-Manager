@@ -176,7 +176,7 @@ export default async function SetupOrderPage({
 
   const updateSetupOrderAction = async (formData: FormData) => {
     "use server";
-    await updateSetupOrder(setupOrderId, eventId, formData);
+    return updateSetupOrder(setupOrderId, eventId, formData);
   };
 
   const deleteSetupOrderAction = async () => {
@@ -226,12 +226,12 @@ export default async function SetupOrderPage({
 
   const createEquipmentAction = async (formData: FormData) => {
     "use server";
-    await createSetupEquipmentItem(setupOrderId, eventId, formData);
+    return createSetupEquipmentItem(setupOrderId, eventId, formData);
   };
 
   const updateEquipmentAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateSetupEquipmentItem(id, setupOrderId, eventId, formData);
+    return updateSetupEquipmentItem(id, setupOrderId, eventId, formData);
   };
 
   const deleteEquipmentAction = async (id: string) => {

@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { FormError, useActionError } from "@/components/FormError";
+import { keepFormValues } from "@/lib/keepFormValues";
+import type { UserError } from "@/lib/userErrors";
 import type { AVOrder } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
@@ -12,7 +15,7 @@ import { useCanWrite } from "@/components/PermissionsProvider";
 type AVOrderFormProps = {
   avOrder?: AVOrder | null;
   eventId: string;
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   availableFunctions?: { id: string; label: string }[];
   availablePresentations?: { id: string; label: string }[];
   defaultFunctionId?: string;
@@ -93,6 +96,7 @@ export function AVOrderForm({
   // Read-only users get the detail view with no way back into edit mode.
   const canWrite = useCanWrite("AV_ORDERS");
   const [editing, setEditing] = useState(false);
+  const { error, setError, run } = useActionError();
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
@@ -103,7 +107,7 @@ export function AVOrderForm({
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">AV Order Details</h2>
           {canWrite && (
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => { setError(null); setEditing(true); }}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               Edit
@@ -124,9 +128,9 @@ export function AVOrderForm({
   return (
     <form
       action={async (formData) => {
-        await action(formData);
-        if (isEdit) setEditing(false);
+        if ((await run(() => action(formData))) && isEdit) setEditing(false);
       }}
+      onReset={keepFormValues}
       className={noCard ? "space-y-6" : "space-y-6 max-w-2xl"}
     >
       <div className={cardClass}>
@@ -205,12 +209,13 @@ export function AVOrderForm({
         </div>
       </div>
 
+      <FormError error={error} className="" />
       <div className="flex gap-4">
         <SubmitButton isEdit={isEdit} />
         {isEdit ? (
           <button
             type="button"
-            onClick={() => setEditing(false)}
+            onClick={() => { setError(null); setEditing(false); }}
             className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel

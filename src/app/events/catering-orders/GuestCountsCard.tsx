@@ -40,7 +40,7 @@ export function GuestCountsCard({
 }: GuestCountsCardProps) {
   const canWrite = useCanWrite("CATERING_ORDERS");
   const [editing, setEditing] = useState(false);
-  const { error, run } = useActionError();
+  const { error, setError, run } = useActionError();
 
   const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6";
 
@@ -51,7 +51,7 @@ export function GuestCountsCard({
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Guest Counts</h2>
           {canWrite && (
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => { setError(null); setEditing(true); }}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               Edit
@@ -140,7 +140,7 @@ export function GuestCountsCard({
           <SaveButton />
           <button
             type="button"
-            onClick={() => setEditing(false)}
+            onClick={() => { setError(null); setEditing(false); }}
             className={`${btnSecondary} text-sm`}
           >
             Cancel
