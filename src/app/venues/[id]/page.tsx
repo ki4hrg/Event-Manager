@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -73,7 +74,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
 
   const updateVenueWithId = async (formData: FormData) => {
     "use server";
-    await updateVenue(id, formData);
+    return updateVenue(id, formData);
   };
 
   const deleteVenueAction = async () => {
@@ -83,12 +84,12 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
 
   const createRoomAction = async (formData: FormData) => {
     "use server";
-    await createRoom(id, formData);
+    return createRoom(id, formData);
   };
 
   const updateRoomAction = async (roomId: string, formData: FormData) => {
     "use server";
-    await updateRoom(roomId, id, formData);
+    return updateRoom(roomId, id, formData);
   };
 
   const deleteRoomAction = async (roomId: string) => {
@@ -98,12 +99,12 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
 
   const createRoomGroupAction = async (formData: FormData) => {
     "use server";
-    await createRoomGroup(id, formData);
+    return createRoomGroup(id, formData);
   };
 
   const updateRoomGroupAction = async (groupId: string, formData: FormData) => {
     "use server";
-    await updateRoomGroup(groupId, id, formData);
+    return updateRoomGroup(groupId, id, formData);
   };
 
   const deleteRoomGroupAction = async (groupId: string) => {
@@ -138,7 +139,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
 
   const updateVendorDetailsAction = async (formData: FormData) => {
     "use server";
-    await updateVenueVendorDetails(id, formData);
+    return updateVenueVendorDetails(id, formData);
   };
 
   return (
@@ -160,7 +161,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
           {hotelHistory.length > 0 && <HotelHistory proposals={hotelHistory} />}
           <RfpHistoryPanel history={rfpHistory} />
           {venue.vendor && (
-            <form action={updateVendorDetailsAction} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
+            <ActionForm action={updateVendorDetailsAction} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendor Details</h2>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
@@ -171,13 +172,14 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 />
               </div>
+              <ActionFormError />
               <button
                 type="submit"
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Save Vendor Details
               </button>
-            </form>
+            </ActionForm>
           )}
         </div>
 

@@ -4,7 +4,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../test/fixtures";
 import { addVendorContact, createVendor } from "./vendors/actions";
-import { addVenueContact, createAndAddVenueContact, createRoom } from "./venues/actions";
+import { addVenueContact, createAndAddVenueContact, createRoom, createVenue } from "./venues/actions";
+import { createEquipment, updateEquipment } from "./equipment/actions";
+import { createContact } from "./contacts/actions";
 import { createContactCore } from "./contacts/core";
 import { createVendorCore } from "./vendors/core";
 
@@ -27,6 +29,25 @@ function form(fields: Record<string, string | string[]>) {
 beforeEach(() => vi.mocked(auth).mockReset());
 
 describe("directory forms: checked, not cast", () => {
+  it("returns directory refusals as { error }: no name, a duplicate, and still not-found for another tenant", async () => {
+    const { tenantId } = await member({
+      [PermissionResource.VENUES]: PermissionLevel.WRITE,
+      [PermissionResource.EQUIPMENT]: PermissionLevel.WRITE,
+      [PermissionResource.CONTACTS]: PermissionLevel.WRITE,
+    });
+    await expect(createVenue(form({ name: " " }))).resolves.toEqual({ error: "Name is required" });
+    await expect(createContact(form({ firstName: "", lastName: "" }))).resolves.toHaveProperty("error");
+    await expect(createEquipment(form({ name: "Riser", category: "Staging" }))).resolves.toBeUndefined();
+    await expect(createEquipment(form({ name: "Riser", category: "Staging" }))).resolves.toEqual({
+      error: "There's already equipment with that name in this category",
+    });
+    expect(await prisma.equipment.count({ where: { tenantId, name: "Riser" } })).toBe(1);
+
+    const other = await makeTenant();
+    const foreign = await prisma.equipment.create({ data: { tenantId: other.id, name: "Mic", category: "Audio" } });
+    await expect(updateEquipment(foreign.id, form({ name: "Mine", category: "Audio" }))).rejects.toMatchObject({ kind: "NOT_FOUND" });
+  });
+
   it("refuses linking a vendor contact twice and keeps the primary where it was", async () => {
     const { tenantId } = await member({ [PermissionResource.VENDORS]: PermissionLevel.WRITE });
     const vendor = await prisma.vendor.create({ data: { tenantId, name: "Caterer" } as never });
@@ -55,18 +76,18 @@ describe("directory forms: checked, not cast", () => {
 
   it("refuses a vendor with no name or with an order type that isn't one", async () => {
     const { tenantId } = await member({ [PermissionResource.VENDORS]: PermissionLevel.WRITE });
-    await expect(createVendor(form({ name: "   " }))).rejects.toThrow("Name is required");
-    await expect(createVendor(form({ name: "Acme", models: ["PAYROLL"] }))).rejects.toThrow("Pick order types from the list");
+    await expect(createVendor(form({ name: "   " }))).resolves.toEqual({ error: "Name is required" });
+    await expect(createVendor(form({ name: "Acme", models: ["PAYROLL"] }))).resolves.toEqual({ error: "Pick order types from the list" });
     expect(await prisma.vendor.count({ where: { tenantId } })).toBe(0);
   });
 
   it("refuses a room capacity that isn't a whole number", async () => {
     const { tenantId } = await member({ [PermissionResource.VENUES]: PermissionLevel.WRITE });
     const venue = await prisma.venue.create({ data: { tenantId, name: "Hall" } });
-    await expect(createRoom(venue.id, form({ name: "A", capacity: "lots" }))).rejects.toThrow("Capacity must be a whole number");
+    await expect(createRoom(venue.id, form({ name: "A", capacity: "lots" }))).resolves.toEqual({ error: "Capacity must be a whole number" });
     await expect(
       createRoom(venue.id, form({ name: "A", capacitySetup: ["Theater"], capacityCount: ["many"] })),
-    ).rejects.toThrow("Capacity must be a whole number");
+    ).resolves.toEqual({ error: "Capacity must be a whole number" });
     expect(await prisma.room.count({ where: { venueId: venue.id } })).toBe(0);
   });
 

@@ -8,7 +8,8 @@ import { AccessLevelSelect } from "@/components/AccessLevelSelect";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { useDebouncedSearch } from "@/lib/useDebouncedSearch";
-import { keepFormValues } from "@/lib/keepFormValues";
+import { ActionForm, ActionFormError, FormError } from "@/components/FormError";
+import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 
 type StaffEntry = {
   id: string;
@@ -30,9 +31,9 @@ type UserSearchResult = {
 
 type Props = {
   staff: StaffEntry[];
-  addStaff: (formData: FormData) => Promise<void>;
+  addStaff: (formData: FormData) => Promise<void | UserError>;
   removeStaff: (staffId: string) => Promise<void>;
-  setLevel: (staffId: string, accessLevel: string) => Promise<void>;
+  setLevel: (staffId: string, accessLevel: string) => Promise<void | UserError>;
   searchUsers: (query: string) => Promise<UserSearchResult[]>;
 };
 
@@ -65,11 +66,23 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
   };
 
   const handleSubmit = async (formData: FormData) => {
-    if (!selected) return;
+    if (!selected) return { error: "Pick a person" };
     formData.set("userId", selected.id);
-    await addStaff(formData);
-    closeAdd();
+    return addStaff(formData);
   };
+
+  // An access change refused by the server (e.g. your own cap) shows above the list.
+  const [levelError, setLevelError] = useState<string | null>(null);
+  const changeLevel = (staffId: string, next: string) =>
+    startTransition(async () => {
+      setLevelError(null);
+      try {
+        const result = await setLevel(staffId, next);
+        if (isUserError(result)) setLevelError(result.error);
+      } catch (e) {
+        setLevelError(actionErrorMessage(e, "Couldn't change access. Try again."));
+      }
+    });
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -89,9 +102,9 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
       </div>
 
       {showAdd && (
-        <form
-          onReset={keepFormValues}
+        <ActionForm
           action={handleSubmit}
+          onDone={closeAdd}
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3"
         >
           {!selected ? (
@@ -183,6 +196,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
             />
           </div>
 
+          <ActionFormError />
           <div className="flex gap-2 pt-1">
             <SubmitButton label="Assign" disabled={!selected} />
             <button
@@ -193,9 +207,10 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
+      <FormError error={levelError} className="mb-3" />
       {staff.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">No staff assigned</p>
       ) : (
@@ -222,11 +237,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
                   ariaLabel={`Access for ${entry.user.name || entry.user.email}`}
                   value={entry.accessLevel ?? UNCAPPED}
                   disabled={isPending || !canWrite}
-                  onChange={(next) => {
-                    startTransition(async () => {
-                      await setLevel(entry.id, next);
-                    });
-                  }}
+                  onChange={(next) => changeLevel(entry.id, next)}
                 />
                 <InlineDeleteButton
                   resource="EVENTS"

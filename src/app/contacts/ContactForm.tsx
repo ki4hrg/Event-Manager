@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type { Contact, CustomOption } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 
 type ContactFormProps = {
   contact?: Contact;
   contactRoles: CustomOption[];
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
 };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
@@ -31,7 +33,7 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
   const canWrite = useCanWrite("CONTACTS");
 
   return (
-    <form action={action} className="space-y-6 max-w-2xl">
+    <ActionForm action={action} className="space-y-6 max-w-2xl">
       <fieldset disabled={!canWrite} className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -172,6 +174,7 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
 
       </fieldset>
 
+      <ActionFormError />
       <div className="flex gap-4">
         {canWrite && <SubmitButton isEdit={isEdit} />}
         <Link
@@ -181,6 +184,6 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
           {canWrite ? "Cancel" : "Back"}
         </Link>
       </div>
-    </form>
+    </ActionForm>
   );
 }

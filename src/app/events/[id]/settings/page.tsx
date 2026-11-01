@@ -42,7 +42,7 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
 
   const updateEventAction = async (formData: FormData) => {
     "use server";
-    await updateEvent(id, formData);
+    return updateEvent(id, formData);
   };
 
   const saveAreasAction = async (scope: { regions: string[]; areas: string[] }) => {

@@ -79,12 +79,12 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
   const addKeyStaffAction = async (formData: FormData) => {
     "use server";
-    await addEventKeyStaff(id, formData);
+    return addEventKeyStaff(id, formData);
   };
 
   const updateKeyStaffAction = async (keyStaffId: string, formData: FormData) => {
     "use server";
-    await updateEventKeyStaff(keyStaffId, id, formData);
+    return updateEventKeyStaff(keyStaffId, id, formData);
   };
 
   const removeKeyStaffAction = async (keyStaffId: string) => {
@@ -99,7 +99,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
   const createContactAction = async (formData: FormData) => {
     "use server";
-    await createContactAndAddKeyStaff(id, formData);
+    return createContactAndAddKeyStaff(id, formData);
   };
 
   // "Empty" means nothing has been built yet, so the import offer is useful

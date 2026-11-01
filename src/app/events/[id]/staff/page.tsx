@@ -28,7 +28,7 @@ export default async function EventStaffPage({
 
   const addStaffAction = async (formData: FormData) => {
     "use server";
-    await addEventStaff(id, formData);
+    return addEventStaff(id, formData);
   };
 
   const removeStaffAction = async (staffId: string) => {
@@ -38,7 +38,7 @@ export default async function EventStaffPage({
 
   const setLevelAction = async (staffId: string, accessLevel: string) => {
     "use server";
-    await setEventStaffLevel(staffId, id, accessLevel);
+    return setEventStaffLevel(staffId, id, accessLevel);
   };
 
   const searchUsersAction = async (query: string) => {

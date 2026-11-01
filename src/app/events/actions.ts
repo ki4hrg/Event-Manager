@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
@@ -63,17 +64,21 @@ function readEventArgs(formData: FormData): EventWriteArgs {
 
 export async function createEvent(formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
-  await createEventCore(readEventArgs(formData), session.user.id, session.tenantId);
-  revalidatePath("/events");
-  redirect("/events");
+  return withUserErrors(async () => {
+    await createEventCore(readEventArgs(formData), session.user.id, session.tenantId);
+    revalidatePath("/events");
+    redirect("/events");
+  });
 }
 
 export async function updateEvent(id: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", id);
-  await updateEventCore(id, readEventArgs(formData), session.user.id);
-  revalidatePath("/events");
-  revalidatePath(`/events/${id}`);
-  redirect(`/events/${id}?success=Event updated`);
+  return withUserErrors(async () => {
+    await updateEventCore(id, readEventArgs(formData), session.user.id);
+    revalidatePath("/events");
+    revalidatePath(`/events/${id}`);
+    redirect(`/events/${id}?success=Event updated`);
+  });
 }
 
 export async function deleteEvent(id: string) {
@@ -103,17 +108,19 @@ export async function searchContactsForKeyStaff(query: string) {
 
 export async function addEventKeyStaff(eventId: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  await addEventKeyStaffCore(
-    {
-      eventId,
-      contactId: formRequiredId(formData, "contactId", "contact"),
-      title: formNote(formData, "title"),
-      models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
-      ...keyStaffEsgFromForm(formData),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}`);
+  return withUserErrors(async () => {
+    await addEventKeyStaffCore(
+      {
+        eventId,
+        contactId: formRequiredId(formData, "contactId", "contact"),
+        title: formNote(formData, "title"),
+        models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
+        ...keyStaffEsgFromForm(formData),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}`);
+  });
 }
 
 export async function updateEventKeyStaff(
@@ -122,18 +129,20 @@ export async function updateEventKeyStaff(
   formData: FormData
 ) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  await updateEventKeyStaffCore(
-    {
-      keyStaffId,
-      eventId,
-      title: formNote(formData, "title"),
-      models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
-      ...keyStaffEsgFromForm(formData),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}`);
-  revalidatePath(`/events/${eventId}/specifications`);
+  return withUserErrors(async () => {
+    await updateEventKeyStaffCore(
+      {
+        keyStaffId,
+        eventId,
+        title: formNote(formData, "title"),
+        models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
+        ...keyStaffEsgFromForm(formData),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/specifications`);
+  });
 }
 
 // Forms that render the ESG controls post `esgFields`; without it (older
@@ -157,20 +166,22 @@ export async function removeEventKeyStaff(keyStaffId: string, eventId: string) {
 
 export async function createContactAndAddKeyStaff(eventId: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  await createContactAndAddKeyStaffCore(
-    {
-      eventId,
-      firstName: formValue(formData, "firstName"),
-      lastName: formValue(formData, "lastName"),
-      email: formNote(formData, "email"),
-      organization: formNote(formData, "organization"),
-      title: formNote(formData, "title"),
-      models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
-      ...keyStaffEsgFromForm(formData),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}`);
+  return withUserErrors(async () => {
+    await createContactAndAddKeyStaffCore(
+      {
+        eventId,
+        firstName: formValue(formData, "firstName"),
+        lastName: formValue(formData, "lastName"),
+        email: formNote(formData, "email"),
+        organization: formNote(formData, "organization"),
+        title: formNote(formData, "title"),
+        models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
+        ...keyStaffEsgFromForm(formData),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}`);
+  });
 }
 
 // Where the event looks for hotels and reports by area: whole regions and

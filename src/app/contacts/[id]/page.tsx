@@ -41,7 +41,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
 
   const updateContactWithId = async (formData: FormData) => {
     "use server";
-    await updateContact(id, formData);
+    return updateContact(id, formData);
   };
 
   const deleteContactAction = async () => {

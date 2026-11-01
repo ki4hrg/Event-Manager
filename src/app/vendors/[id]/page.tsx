@@ -54,7 +54,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
 
   const updateVendorAction = async (formData: FormData) => {
     "use server";
-    await updateVendor(id, formData);
+    return updateVendor(id, formData);
   };
 
   const deleteVendorAction = async () => {

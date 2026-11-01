@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type { Room as RoomRecord, RoomCapacity, RoomGroup } from "@prisma/client";
 import { formatRoomCapacities } from "@/lib/roomCapacity";
 
@@ -15,11 +17,11 @@ type RoomListProps = {
   venueId: string;
   // The setup_type list: one capacity input per set-up.
   setupTypes: string[];
-  createRoom: (formData: FormData) => Promise<void>;
-  updateRoom: (roomId: string, formData: FormData) => Promise<void>;
+  createRoom: (formData: FormData) => Promise<void | UserError>;
+  updateRoom: (roomId: string, formData: FormData) => Promise<void | UserError>;
   deleteRoom: (roomId: string) => Promise<void>;
-  createRoomGroup: (formData: FormData) => Promise<void>;
-  updateRoomGroup: (groupId: string, formData: FormData) => Promise<void>;
+  createRoomGroup: (formData: FormData) => Promise<void | UserError>;
+  updateRoomGroup: (groupId: string, formData: FormData) => Promise<void | UserError>;
   deleteRoomGroup: (groupId: string) => Promise<void>;
 };
 
@@ -117,7 +119,7 @@ function RoomRow({
   isEditing: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
-  updateRoom: (roomId: string, formData: FormData) => Promise<void>;
+  updateRoom: (roomId: string, formData: FormData) => Promise<void | UserError>;
   deleteRoom: (roomId: string) => Promise<void>;
 }) {
   const canWrite = useCanWrite("VENUES");
@@ -125,11 +127,9 @@ function RoomRow({
     return (
       <tr>
         <td colSpan={4} className="px-6 py-4">
-          <form
-            action={async (formData) => {
-              await updateRoom(room.id, formData);
-              onCancelEdit();
-            }}
+          <ActionForm
+            action={(formData) => updateRoom(room.id, formData)}
+            onDone={() => onCancelEdit()}
             className="flex gap-3 items-center flex-wrap"
           >
             <input
@@ -164,7 +164,8 @@ function RoomRow({
             >
               Cancel
             </button>
-          </form>
+            <ActionFormError className="w-full" />
+          </ActionForm>
         </td>
       </tr>
     );
@@ -208,7 +209,7 @@ function RoomsTable({
   setupTypes: string[];
   editingId: string | null;
   setEditingId: (id: string | null) => void;
-  updateRoom: (roomId: string, formData: FormData) => Promise<void>;
+  updateRoom: (roomId: string, formData: FormData) => Promise<void | UserError>;
   deleteRoom: (roomId: string) => Promise<void>;
 }) {
   if (rooms.length === 0) {
@@ -289,11 +290,9 @@ export function RoomList({
       </div>
 
       {activeForm === "group" && (
-        <form
-          action={async (formData) => {
-            await createRoomGroup(formData);
-            setActiveForm(null);
-          }}
+        <ActionForm
+          action={createRoomGroup}
+          onDone={() => setActiveForm(null)}
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-wrap gap-3 items-center"
         >
           <input
@@ -312,15 +311,14 @@ export function RoomList({
           >
             Cancel
           </button>
-        </form>
+          <ActionFormError className="w-full" />
+        </ActionForm>
       )}
 
       {activeForm === "room" && (
-        <form
-          action={async (formData) => {
-            await createRoom(formData);
-            setActiveForm(null);
-          }}
+        <ActionForm
+          action={createRoom}
+          onDone={() => setActiveForm(null)}
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -364,7 +362,8 @@ export function RoomList({
               Cancel
             </button>
           </div>
-        </form>
+          <ActionFormError className="w-full" />
+        </ActionForm>
       )}
 
       {rooms.length === 0 && roomGroups.length === 0 ? (
@@ -377,11 +376,9 @@ export function RoomList({
               <div key={group.id} className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
                 <div className="flex justify-between items-center px-6 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                   {editingGroupId === group.id ? (
-                    <form
-                      action={async (formData) => {
-                        await updateRoomGroup(group.id, formData);
-                        setEditingGroupId(null);
-                      }}
+                    <ActionForm
+                      action={(formData) => updateRoomGroup(group.id, formData)}
+                      onDone={() => setEditingGroupId(null)}
                       className="flex gap-2 items-center flex-1 min-w-0"
                     >
                       <input
@@ -400,7 +397,8 @@ export function RoomList({
                       >
                         Cancel
                       </button>
-                    </form>
+                      <ActionFormError className="w-full" />
+                    </ActionForm>
                   ) : (
                     <>
                       <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">

@@ -121,33 +121,37 @@ export async function searchVendors(query: string) {
 
 export async function createVendor(formData: FormData) {
   const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
-  const vendor = await createVendorCore(
-    {
-      name: formName(formData, "name"),
-      models: formTexts(formData, "models"),
-      notes: formNote(formData, "notes"),
-    },
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath("/vendors");
-  redirect(`/vendors/${vendor.id}`);
+  return withUserErrors(async () => {
+    const vendor = await createVendorCore(
+      {
+        name: formName(formData, "name"),
+        models: formTexts(formData, "models"),
+        notes: formNote(formData, "notes"),
+      },
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath("/vendors");
+    redirect(`/vendors/${vendor.id}`);
+  });
 }
 
 export async function updateVendor(id: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
-  await updateVendorCore(
-    id,
-    {
-      name: formName(formData, "name"),
-      models: formTexts(formData, "models"),
-      notes: formNote(formData, "notes"),
-    },
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath(`/vendors/${id}`);
-  revalidatePath("/vendors");
+  return withUserErrors(async () => {
+    await updateVendorCore(
+      id,
+      {
+        name: formName(formData, "name"),
+        models: formTexts(formData, "models"),
+        notes: formNote(formData, "notes"),
+      },
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath(`/vendors/${id}`);
+    revalidatePath("/vendors");
+  });
 }
 
 export async function deleteVendor(id: string) {

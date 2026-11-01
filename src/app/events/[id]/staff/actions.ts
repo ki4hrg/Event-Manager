@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
@@ -85,17 +86,19 @@ function revalidateStaff(eventId: string) {
 
 export async function addEventStaff(eventId: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  await addEventStaffCore(
-    {
-      eventId,
-      userId: formRequiredId(formData, "userId", "user"),
-      // New assignments default to View — the safe end of the range, and the
-      // common case for someone being added to an event they don't run.
-      accessLevel: parseAccessCap(formData.get("accessLevel") ?? "VIEW"),
-    },
-    session.user.id,
-  );
-  revalidateStaff(eventId);
+  return withUserErrors(async () => {
+    await addEventStaffCore(
+      {
+        eventId,
+        userId: formRequiredId(formData, "userId", "user"),
+        // New assignments default to View — the safe end of the range, and the
+        // common case for someone being added to an event they don't run.
+        accessLevel: parseAccessCap(formData.get("accessLevel") ?? "VIEW"),
+      },
+      session.user.id,
+    );
+    revalidateStaff(eventId);
+  });
 }
 
 export async function setEventStaffLevel(
@@ -104,11 +107,13 @@ export async function setEventStaffLevel(
   accessLevel: string | null,
 ) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  await setEventStaffLevelCore(
-    { staffId, eventId, accessLevel: parseAccessCap(accessLevel) },
-    session.user.id,
-  );
-  revalidateStaff(eventId);
+  return withUserErrors(async () => {
+    await setEventStaffLevelCore(
+      { staffId, eventId, accessLevel: parseAccessCap(accessLevel) },
+      session.user.id,
+    );
+    revalidateStaff(eventId);
+  });
 }
 
 export async function removeEventStaff(staffId: string, eventId: string) {

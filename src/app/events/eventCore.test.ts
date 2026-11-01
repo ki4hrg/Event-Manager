@@ -32,10 +32,8 @@ describe("event core: arguments and form fields are checked", () => {
   it("refuses key staff with no contact or with an order type that isn't one", async () => {
     const { tenantId, eventId } = await event({ [PermissionResource.EVENTS]: PermissionLevel.WRITE });
     const contact = await prisma.contact.create({ data: { tenantId, firstName: "Ada", lastName: "L" } });
-    await expect(addEventKeyStaff(eventId, form({ title: "Lead" }))).rejects.toThrow("Pick a contact");
-    await expect(addEventKeyStaff(eventId, form({ contactId: contact.id, models: ["PAYROLL"] }))).rejects.toThrow(
-      "Pick order types from the list",
-    );
+    await expect(addEventKeyStaff(eventId, form({ title: "Lead" }))).resolves.toEqual({ error: "Pick a contact" });
+    await expect(addEventKeyStaff(eventId, form({ contactId: contact.id, models: ["PAYROLL"] }))).resolves.toEqual({ error: "Pick order types from the list" });
     expect(await prisma.eventKeyStaff.count({ where: { eventId } })).toBe(0);
   });
 
