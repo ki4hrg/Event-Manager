@@ -8,10 +8,13 @@ import { VendorLinkControl, type AssignedVendor, type AvailableVendor } from "@/
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { FormError, useActionError } from "@/components/FormError";
+import { keepFormValues } from "@/lib/keepFormValues";
+import type { UserError } from "@/lib/userErrors";
 
 type CateringOrderFormProps = {
   cateringOrder?: CateringOrder | null;
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   serviceStyleOptions: CustomOption[];
   mealTypeOptions?: CustomOption[];
   eventId: string;
@@ -58,6 +61,7 @@ export function CateringOrderForm({
   // Read-only users get the detail view with no way back into edit mode.
   const canWrite = useCanWrite("CATERING_ORDERS");
   const [editing, setEditing] = useState(false);
+  const { error, run } = useActionError();
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
@@ -98,9 +102,9 @@ export function CateringOrderForm({
   return (
     <form
       action={async (formData) => {
-        await action(formData);
-        if (isEdit) setEditing(false);
+        if ((await run(() => action(formData))) && isEdit) setEditing(false);
       }}
+      onReset={keepFormValues}
       className={noCard ? "space-y-0" : "space-y-6 max-w-2xl"}
     >
       <div className={cardClass}>
@@ -206,6 +210,7 @@ export function CateringOrderForm({
         </div>
       </div>
 
+      <FormError error={error} className={noCard ? "my-4" : ""} />
       <div className="flex gap-4">
         <SaveButton isEdit={isEdit} />
         {isEdit ? (

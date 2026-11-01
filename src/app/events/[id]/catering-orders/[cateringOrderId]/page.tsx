@@ -209,31 +209,31 @@ export default async function CateringOrderPage({
 
   const updateDetailsAction = async (formData: FormData) => {
     "use server";
-    await updateCateringOrderDetails(cateringOrderId, eventId, formData);
+    return updateCateringOrderDetails(cateringOrderId, eventId, formData);
   };
 
   const updateGuestCountsAction = async (formData: FormData) => {
     "use server";
-    await updateCateringOrderGuestCounts(cateringOrderId, eventId, formData);
+    return updateCateringOrderGuestCounts(cateringOrderId, eventId, formData);
   };
 
   const updateServiceAction = async (formData: FormData) => {
     "use server";
-    await updateCateringOrderService(cateringOrderId, eventId, formData);
+    return updateCateringOrderService(cateringOrderId, eventId, formData);
   };
 
   const updateContractAction = async (formData: FormData) => {
     "use server";
-    await updateCateringOrderContract(cateringOrderId, eventId, formData);
+    return updateCateringOrderContract(cateringOrderId, eventId, formData);
   };
 
   const createTimelineAction = async (formData: FormData) => {
     "use server";
-    await createTimelineItem(cateringOrderId, eventId, formData);
+    return createTimelineItem(cateringOrderId, eventId, formData);
   };
   const updateTimelineAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateTimelineItem(id, cateringOrderId, eventId, formData);
+    return updateTimelineItem(id, cateringOrderId, eventId, formData);
   };
   const deleteTimelineAction = async (id: string) => {
     "use server";
@@ -255,11 +255,11 @@ export default async function CateringOrderPage({
 
   const createLineItemAction = async (formData: FormData) => {
     "use server";
-    await createCateringOrderLineItem(cateringOrderId, eventId, formData);
+    return createCateringOrderLineItem(cateringOrderId, eventId, formData);
   };
   const updateLineItemAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateCateringOrderLineItem(id, cateringOrderId, eventId, formData);
+    return updateCateringOrderLineItem(id, cateringOrderId, eventId, formData);
   };
   const deleteLineItemAction = async (id: string) => {
     "use server";
@@ -268,11 +268,11 @@ export default async function CateringOrderPage({
 
   const createMenuSectionAction = async (formData: FormData) => {
     "use server";
-    await createCateringOrderMenuSection(cateringOrderId, eventId, formData);
+    return createCateringOrderMenuSection(cateringOrderId, eventId, formData);
   };
   const updateMenuSectionAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateCateringOrderMenuSection(id, cateringOrderId, eventId, formData);
+    return updateCateringOrderMenuSection(id, cateringOrderId, eventId, formData);
   };
   const deleteMenuSectionAction = async (id: string) => {
     "use server";
@@ -281,11 +281,11 @@ export default async function CateringOrderPage({
 
   const createServiceLocationAction = async (formData: FormData) => {
     "use server";
-    await createCateringOrderServiceLocation(cateringOrderId, eventId, formData);
+    return createCateringOrderServiceLocation(cateringOrderId, eventId, formData);
   };
   const updateServiceLocationAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateCateringOrderServiceLocation(id, cateringOrderId, eventId, formData);
+    return updateCateringOrderServiceLocation(id, cateringOrderId, eventId, formData);
   };
   const deleteServiceLocationAction = async (id: string) => {
     "use server";

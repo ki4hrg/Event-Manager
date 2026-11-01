@@ -42,7 +42,7 @@ import {
   type BulkCateringOrderUpdates,
 } from "./core";
 import { formId, formInt, formName, formNote, formNumber, formRequiredId, formValue, parseWhole } from "@/lib/validation";
-import { UserFacingError } from "@/lib/userErrors";
+import { UserFacingError, withUserErrors } from "@/lib/userErrors";
 
 export async function getCateringOrders(eventId: string) {
   await requirePermission("CATERING_ORDERS", "VIEW", eventId);
@@ -111,66 +111,72 @@ function parseDateField(value: string | null): Date | null {
 
 export async function createCateringOrder(eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  const cateringOrder = await createCateringOrderCore(
-    eventId,
-    {
-      name: formName(formData, "name"),
-      functionId: formId(formData, "functionId"),
-      serviceStyle: formNote(formData, "serviceStyle"),
-      mealType: formNote(formData, "mealType"),
-      expectedCount: formInt(formData, "expectedCount", { min: 0 }),
-      confirmedCount: formInt(formData, "confirmedCount", { min: 0 }),
-      guaranteeCount: formInt(formData, "guaranteeCount", { min: 0 }),
-      staffingNotes: formNote(formData, "staffingNotes"),
-      rentalMinimum: formNumber(formData, "rentalMinimum"),
-      fbMinimum: formNumber(formData, "fbMinimum"),
-      depositDeadline: parseDateField(formValue(formData, "depositDeadline")),
-      guaranteeDeadline: parseDateField(formValue(formData, "guaranteeDeadline")),
-      paymentDeadline: parseDateField(formValue(formData, "paymentDeadline")),
-      cancellationTerms: formNote(formData, "cancellationTerms"),
-      dietaryNotes: formNote(formData, "dietaryNotes"),
-      notes: formNote(formData, "notes"),
-      vendorId: formId(formData, "vendorId"),
-    },
-    session.user.id,
-  );
+  return withUserErrors(async () => {
+    const cateringOrder = await createCateringOrderCore(
+      eventId,
+      {
+        name: formName(formData, "name"),
+        functionId: formId(formData, "functionId"),
+        serviceStyle: formNote(formData, "serviceStyle"),
+        mealType: formNote(formData, "mealType"),
+        expectedCount: formInt(formData, "expectedCount", { min: 0 }),
+        confirmedCount: formInt(formData, "confirmedCount", { min: 0 }),
+        guaranteeCount: formInt(formData, "guaranteeCount", { min: 0 }),
+        staffingNotes: formNote(formData, "staffingNotes"),
+        rentalMinimum: formNumber(formData, "rentalMinimum"),
+        fbMinimum: formNumber(formData, "fbMinimum"),
+        depositDeadline: parseDateField(formValue(formData, "depositDeadline")),
+        guaranteeDeadline: parseDateField(formValue(formData, "guaranteeDeadline")),
+        paymentDeadline: parseDateField(formValue(formData, "paymentDeadline")),
+        cancellationTerms: formNote(formData, "cancellationTerms"),
+        dietaryNotes: formNote(formData, "dietaryNotes"),
+        notes: formNote(formData, "notes"),
+        vendorId: formId(formData, "vendorId"),
+      },
+      session.user.id,
+    );
 
-  revalidatePath(`/events/${eventId}/catering-orders`);
-  redirect(`/events/${eventId}/catering-orders/${cateringOrder.id}`);
+    revalidatePath(`/events/${eventId}/catering-orders`);
+    redirect(`/events/${eventId}/catering-orders/${cateringOrder.id}`);
+  });
 }
 
 export async function updateCateringOrderDetails(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateCateringOrderCore(
-    id,
-    eventId,
-    {
-      name: formName(formData, "name"),
-      serviceStyle: formNote(formData, "serviceStyle"),
-      mealType: formNote(formData, "mealType"),
-      notes: formNote(formData, "notes"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/catering-orders/${id}`);
-  redirect(`/events/${eventId}/catering-orders/${id}?tab=overview&success=Saved`);
+  return withUserErrors(async () => {
+    await updateCateringOrderCore(
+      id,
+      eventId,
+      {
+        name: formName(formData, "name"),
+        serviceStyle: formNote(formData, "serviceStyle"),
+        mealType: formNote(formData, "mealType"),
+        notes: formNote(formData, "notes"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/catering-orders/${id}`);
+    redirect(`/events/${eventId}/catering-orders/${id}?tab=overview&success=Saved`);
+  });
 }
 
 export async function updateCateringOrderGuestCounts(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateCateringOrderCore(
-    id,
-    eventId,
-    {
-      expectedCount: formInt(formData, "expectedCount", { min: 0 }),
-      confirmedCount: formInt(formData, "confirmedCount", { min: 0 }),
-      guaranteeCount: formInt(formData, "guaranteeCount", { min: 0 }),
-      actualCount: formInt(formData, "actualCount", { min: 0 }),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/catering-orders/${id}`);
-  redirect(`/events/${eventId}/catering-orders/${id}?tab=overview&success=Saved`);
+  return withUserErrors(async () => {
+    await updateCateringOrderCore(
+      id,
+      eventId,
+      {
+        expectedCount: formInt(formData, "expectedCount", { min: 0 }),
+        confirmedCount: formInt(formData, "confirmedCount", { min: 0 }),
+        guaranteeCount: formInt(formData, "guaranteeCount", { min: 0 }),
+        actualCount: formInt(formData, "actualCount", { min: 0 }),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/catering-orders/${id}`);
+    redirect(`/events/${eventId}/catering-orders/${id}?tab=overview&success=Saved`);
+  });
 }
 
 // Parallel dietaryLabel / dietaryCount inputs, one pair per dietary need.
@@ -187,38 +193,42 @@ function readDietaryCounts(formData: FormData) {
 
 export async function updateCateringOrderService(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateCateringOrderCore(
-    id,
-    eventId,
-    {
-      dietaryNotes: formNote(formData, "dietaryNotes"),
-      staffingNotes: formNote(formData, "staffingNotes"),
-      dietaryCounts: readDietaryCounts(formData),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/catering-orders/${id}`);
-  redirect(`/events/${eventId}/catering-orders/${id}?tab=service&success=Saved`);
+  return withUserErrors(async () => {
+    await updateCateringOrderCore(
+      id,
+      eventId,
+      {
+        dietaryNotes: formNote(formData, "dietaryNotes"),
+        staffingNotes: formNote(formData, "staffingNotes"),
+        dietaryCounts: readDietaryCounts(formData),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/catering-orders/${id}`);
+    redirect(`/events/${eventId}/catering-orders/${id}?tab=service&success=Saved`);
+  });
 }
 
 export async function updateCateringOrderContract(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateCateringOrderCore(
-    id,
-    eventId,
-    {
-      depositDeadline: parseDateField(formValue(formData, "depositDeadline")),
-      guaranteeDeadline: parseDateField(formValue(formData, "guaranteeDeadline")),
-      paymentDeadline: parseDateField(formValue(formData, "paymentDeadline")),
-      rentalMinimum: formNumber(formData, "rentalMinimum"),
-      fbMinimum: formNumber(formData, "fbMinimum"),
-      cancellationTerms: formNote(formData, "cancellationTerms"),
-      notes: formNote(formData, "notes"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/catering-orders/${id}`);
-  redirect(`/events/${eventId}/catering-orders/${id}?tab=contract&success=Saved`);
+  return withUserErrors(async () => {
+    await updateCateringOrderCore(
+      id,
+      eventId,
+      {
+        depositDeadline: parseDateField(formValue(formData, "depositDeadline")),
+        guaranteeDeadline: parseDateField(formValue(formData, "guaranteeDeadline")),
+        paymentDeadline: parseDateField(formValue(formData, "paymentDeadline")),
+        rentalMinimum: formNumber(formData, "rentalMinimum"),
+        fbMinimum: formNumber(formData, "fbMinimum"),
+        cancellationTerms: formNote(formData, "cancellationTerms"),
+        notes: formNote(formData, "notes"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/catering-orders/${id}`);
+    redirect(`/events/${eventId}/catering-orders/${id}?tab=contract&success=Saved`);
+  });
 }
 
 export async function deleteCateringOrder(id: string, eventId: string) {
@@ -279,14 +289,18 @@ function parseTimelineItemData(formData: FormData): TimelineItemWriteArgs {
 
 export async function createTimelineItem(cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await createTimelineItemCore(cateringOrderId, eventId, parseTimelineItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await createTimelineItemCore(cateringOrderId, eventId, parseTimelineItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function updateTimelineItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateTimelineItemCore(id, cateringOrderId, eventId, parseTimelineItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await updateTimelineItemCore(id, cateringOrderId, eventId, parseTimelineItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function deleteTimelineItem(id: string, cateringOrderId: string, eventId: string) {
@@ -338,14 +352,18 @@ function parseLineItemData(formData: FormData): LineItemWriteArgs {
 
 export async function createCateringOrderLineItem(cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await createCateringOrderLineItemCore(cateringOrderId, eventId, parseLineItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await createCateringOrderLineItemCore(cateringOrderId, eventId, parseLineItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function updateCateringOrderLineItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateCateringOrderLineItemCore(id, cateringOrderId, eventId, parseLineItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await updateCateringOrderLineItemCore(id, cateringOrderId, eventId, parseLineItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function deleteCateringOrderLineItem(id: string, cateringOrderId: string, eventId: string) {
@@ -364,14 +382,18 @@ function parseMenuSectionData(formData: FormData): MenuSectionWriteArgs {
 
 export async function createCateringOrderMenuSection(cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await createCateringOrderMenuSectionCore(cateringOrderId, eventId, parseMenuSectionData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await createCateringOrderMenuSectionCore(cateringOrderId, eventId, parseMenuSectionData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function updateCateringOrderMenuSection(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateCateringOrderMenuSectionCore(id, cateringOrderId, eventId, parseMenuSectionData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await updateCateringOrderMenuSectionCore(id, cateringOrderId, eventId, parseMenuSectionData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function deleteCateringOrderMenuSection(id: string, cateringOrderId: string, eventId: string) {
@@ -391,14 +413,18 @@ function parseServiceLocationData(formData: FormData): ServiceLocationWriteArgs 
 
 export async function createCateringOrderServiceLocation(cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await createCateringOrderServiceLocationCore(cateringOrderId, eventId, parseServiceLocationData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await createCateringOrderServiceLocationCore(cateringOrderId, eventId, parseServiceLocationData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function updateCateringOrderServiceLocation(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  await updateCateringOrderServiceLocationCore(id, cateringOrderId, eventId, parseServiceLocationData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  return withUserErrors(async () => {
+    await updateCateringOrderServiceLocationCore(id, cateringOrderId, eventId, parseServiceLocationData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  });
 }
 
 export async function deleteCateringOrderServiceLocation(id: string, cateringOrderId: string, eventId: string) {

@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { FormError, useActionError } from "@/components/FormError";
+import { keepFormValues } from "@/lib/keepFormValues";
+import type { UserError } from "@/lib/userErrors";
 import type { TimelineItem } from "@prisma/client";
 import { formatTime } from "@/lib/agendaUtils";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
@@ -11,8 +14,8 @@ import { syncRangeEnd } from "@/lib/dateRange";
 type TimelineTableProps = {
   items: TimelineItem[];
   timezone: string;
-  createItem: (formData: FormData) => Promise<void>;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  createItem: (formData: FormData) => Promise<void | UserError>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteItem: (id: string) => Promise<void>;
 };
 
@@ -53,13 +56,16 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const createError = useActionError();
+  const updateError = useActionError();
+
   const handleCreate = async (formData: FormData) => {
-    await createItem(formData);
+    if (!(await createError.run(() => createItem(formData)))) return;
     setShowAddForm(false);
   };
 
   const handleUpdate = async (id: string, formData: FormData) => {
-    await updateItem(id, formData);
+    if (!(await updateError.run(() => updateItem(id, formData)))) return;
     setEditingId(null);
   };
 
@@ -69,7 +75,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Timeline</h2>
         {canWrite && (
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => { createError.setError(null); setShowAddForm(true); }}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
           >
             Add Item
@@ -78,7 +84,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
       </div>
 
       {showAddForm && (
-        <form action={handleCreate} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+        <form action={handleCreate} onReset={keepFormValues} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Label *</label>
@@ -117,6 +123,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
               />
             </div>
           </div>
+          <FormError error={createError.error} />
           <div className="flex gap-2">
             <SubmitButton label="Add" />
             <button
@@ -137,7 +144,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
           {items.map((item) => (
             <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === item.id ? (
-                <form action={(fd) => handleUpdate(item.id, fd)} className="space-y-3">
+                <form action={(fd) => handleUpdate(item.id, fd)} onReset={keepFormValues} className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Label *</label>
@@ -180,6 +187,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
                       />
                     </div>
                   </div>
+                  <FormError error={updateError.error} />
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
                     <button
@@ -203,7 +211,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
                   </div>
                   <div className="flex gap-2 ml-2 shrink-0">
                     {canWrite && (
-                      <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
+                      <button onClick={() => { updateError.setError(null); setEditingId(item.id); }} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                     )}
                     {canDelete && (
                       <InlineConfirmButton
