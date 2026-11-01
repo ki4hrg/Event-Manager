@@ -8,18 +8,22 @@ import { redirect, notFound } from "next/navigation";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { defaultScheduleType } from "@/lib/scheduleTypes";
 import { assertEventRefs } from "@/lib/eventRefs";
+import { assertIds } from "@/lib/validation";
 
 async function assertBreakoutGroupInEvent(groupId: string, eventId: string) {
+  assertIds(groupId);
   const found = await prisma.breakoutGroup.findUnique({ where: { id: groupId, eventId }, select: { id: true } });
   if (!found) notFound();
 }
 
 async function assertSessionInEvent(functionId: string, eventId: string) {
+  assertIds(functionId);
   const found = await prisma.function.findUnique({ where: { id: functionId, eventId, type: "BREAKOUT_BLOCK" }, select: { id: true } });
   if (!found) notFound();
 }
 
 async function assertPresentationInEvent(presentationId: string, eventId: string) {
+  assertIds(presentationId);
   const found = await prisma.presentation.findUnique({ where: { id: presentationId, eventId }, select: { id: true } });
   if (!found) notFound();
 }

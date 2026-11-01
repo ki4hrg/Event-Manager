@@ -74,5 +74,10 @@ them, not ahead of time.
 12. Directory: vendors, venues, contacts, equipment, storage locations, files.
 13. Inbound mail model output: a zod schema for each proposal kind.
 
+Across every area: an id argument is checked to be an id before it reaches a Prisma `where`
+(`assertIds` in `src/lib/validation.ts`; the single-id `assert…In(Event|Tenant|Venue)` helpers
+call it). The admin, staff, media-deliverable and status-default sites that could turn one call
+into a mass delete are fixed; each remaining area PR checks its own.
+
 Then: refusals reach the person (#252, `UserFacingError` on every user-facing refusal), and
 `/security-review` over the whole phase.

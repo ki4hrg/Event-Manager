@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { assertIds } from "@/lib/validation";
 
 // Admin master list: returns every API key across all users (including
 // revoked) so an admin can audit and revoke when needed. Self-service minting
@@ -30,6 +31,7 @@ export async function getAllApiKeys() {
 
 export async function adminRevokeApiKey(id: string): Promise<void> {
   const { tenantId } = await requirePermission(PermissionResource.API_KEYS, "DELETE");
+  assertIds(id);
   // Scoped to keys owned by this organization's members. updateMany returns
   // count 0 if id is unknown; we don't surface a 404 (consistent with the
   // self-service action's behavior).

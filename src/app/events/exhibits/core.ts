@@ -9,6 +9,7 @@ import { PermissionError, requireEventTenantId, requirePermissionForUser } from 
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { BOOTH_SHARED_KEYS } from "@/lib/boothGroups";
 import { rangeTouched } from "@/lib/dateRange";
+import { assertIds } from "@/lib/validation";
 
 // Settings a booth group shares with its booths (BOOTH_SHARED_KEYS).
 export type BoothSharedArgs = {
@@ -140,11 +141,13 @@ function boothData(args: Partial<BoothWriteArgs>): Partial<Prisma.ExhibitBoothUn
 }
 
 async function assertBoothInEvent(boothId: string, eventId: string) {
+  assertIds(boothId);
   const b = await prisma.exhibitBooth.findFirst({ where: { id: boothId, eventId }, select: { id: true } });
   if (!b) throw new PermissionError("NOT_FOUND");
 }
 
 async function assertGroupInEvent(groupId: string, eventId: string) {
+  assertIds(groupId);
   const g = await prisma.exhibitBoothGroup.findFirst({ where: { id: groupId, eventId }, select: { id: true } });
   if (!g) throw new PermissionError("NOT_FOUND", "Booth group not found");
 }

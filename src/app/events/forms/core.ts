@@ -16,6 +16,7 @@ import { FORM_TYPE_LABEL, formsHeading, httpsUrl } from "@/lib/forms/meta";
 import { BUNDLE_ORDER, removeSubmissionFiles } from "@/lib/forms/links";
 import { workflowCompletionCore } from "@/app/events/workflows/core";
 import { UserFacingError } from "@/lib/userErrors";
+import { assertIds } from "@/lib/validation";
 
 const MAX_LINK_DAYS = 366;
 
@@ -226,6 +227,7 @@ export async function formLinkDisplay(link: FormLinkTarget & { id: string; bundl
 // Revoking a bundle revokes every link in it.
 export async function revokeFormLinkCore(id: string, eventId: string, userId: string) {
   await requirePermissionForUser(userId, "FORMS", "WRITE", eventId);
+  assertIds(id);
   await prisma.formLink.updateMany({
     where: { eventId, revokedAt: null, OR: [{ id }, { parentId: id }] },
     data: { revokedAt: new Date() },
@@ -238,6 +240,7 @@ export async function revokeFormLinkCore(id: string, eventId: string, userId: st
 // their records and stay.
 export async function deleteFormLinkCore(id: string, eventId: string, userId: string) {
   await requirePermissionForUser(userId, "FORMS", "WRITE", eventId);
+  assertIds(id);
   const link = await prisma.formLink.findFirst({ where: { id, eventId }, select: { revokedAt: true } });
   if (!link) throw new PermissionError("NOT_FOUND", "Form link not found");
   if (!link.revokedAt) throw new UserFacingError("Revoke the link before deleting it");
@@ -261,6 +264,7 @@ export async function deleteFormLinkCore(id: string, eventId: string, userId: st
 
 export async function rejectFormSubmissionCore(id: string, eventId: string, notes: string | null, userId: string) {
   await requirePermissionForUser(userId, "FORMS", "WRITE", eventId);
+  assertIds(id);
   const r = await prisma.formSubmission.updateMany({
     where: { id, eventId, state: "SUBMITTED" },
     data: { state: "REJECTED", reviewNotes: notes, handledById: userId, handledAt: new Date() },
@@ -301,6 +305,7 @@ const linkTargetSelect = {
 
 export async function applyFormSubmissionCore(id: string, eventId: string, args: ApplyFormSubmissionArgs, userId: string) {
   await requirePermissionForUser(userId, "FORMS", "WRITE", eventId);
+  assertIds(id);
   const tenantId = await requireEventTenantId(eventId);
   const sub = await prisma.formSubmission.findFirst({
     where: { id, eventId, tenantId },
@@ -319,7 +324,7 @@ export async function applyFormSubmissionCore(id: string, eventId: string, args:
   await assertApproved(id, sub.requiredTemplateId);
   // Claim it so a second click can't apply twice; put it back if apply fails.
   const claimed = await prisma.formSubmission.updateMany({
-    where: { id, state: "SUBMITTED" },
+    where: { id, eventId, tenantId, state: "SUBMITTED" },
     data: { state: "APPLIED", handledById: userId, handledAt: new Date(), reviewNotes: args.notes },
   });
   if (claimed.count === 0) throw new Error("This submission was already handled");

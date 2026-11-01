@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { withUserErrors } from "@/lib/userErrors";
-import { idList, idSchema, parseArgs, readJsonList } from "@/lib/validation";
+import { assertIds, idList, idSchema, parseArgs, readJsonList } from "@/lib/validation";
 import {
   awardVendorQuoteCore,
   clearRfpLineAwardsCore,
@@ -158,6 +158,8 @@ export async function awardVendorQuote(id: string, eventId: string, declineOther
 // From the comparison: award RFP lines to a quote (taking them from any
 // other), or with no quote take the award off them. The client refreshes.
 export async function setRfpLineAward(rfpId: string, eventId: string, lineItemIds: string[], quoteId: string | null) {
+  // Shape only, before the lookup the permission check depends on.
+  assertIds(rfpId);
   const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
   if (!rfp) notFound();
   const session = await requirePermission(resourceForKind(rfp.kind), "WRITE", eventId);

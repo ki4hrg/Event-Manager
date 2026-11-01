@@ -7,6 +7,7 @@ import { requireSuperAdmin } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PERMISSION_GROUPS, permissionFieldName } from "./resources";
+import { assertIds } from "@/lib/validation";
 
 export async function getRoles() {
   await requirePermission(PermissionResource.ROLES, "VIEW");
@@ -22,6 +23,7 @@ export async function getRoles() {
 
 export async function getRole(id: string) {
   await requirePermission(PermissionResource.ROLES, "VIEW");
+  assertIds(id);
   return prisma.role.findUnique({
     where: { id },
     include: {
@@ -103,6 +105,7 @@ export async function createRole(formData: FormData) {
 
 export async function updateRole(id: string, formData: FormData) {
   const session = await requireSuperAdmin();
+  assertIds(id);
 
   const role = await prisma.role.findUnique({
     where: { id },
@@ -135,6 +138,7 @@ export async function updateRole(id: string, formData: FormData) {
 
 export async function deleteRole(id: string) {
   await requireSuperAdmin();
+  assertIds(id);
 
   const role = await prisma.role.findUnique({
     where: { id },
@@ -164,6 +168,7 @@ export async function deleteRole(id: string) {
  */
 export async function duplicateRole(id: string) {
   const session = await requireSuperAdmin();
+  assertIds(id);
 
   const source = await prisma.role.findUnique({
     where: { id },

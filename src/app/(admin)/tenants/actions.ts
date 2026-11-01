@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin, slugifyTenantName } from "@/lib/tenant";
 import { orgProfileFromForm, orgProfileSelect } from "@/lib/orgProfile";
 import { createTenantCore } from "./core";
+import { assertIds } from "@/lib/validation";
 
 // Everything here is super-admin only: tenants and cross-tenant membership are
 // platform administration, above any single tenant's roles.
@@ -26,6 +27,7 @@ export async function getTenants() {
 
 export async function getTenant(id: string) {
   await requireSuperAdmin();
+  assertIds(id);
   return prisma.tenant.findUnique({
     where: { id },
     select: {
@@ -70,6 +72,7 @@ export async function createTenant(formData: FormData) {
 
 export async function updateTenant(id: string, formData: FormData) {
   await requireSuperAdmin();
+  assertIds(id);
   const name = ((formData.get("name") as string) || "").trim();
   const slug = slugifyTenantName((formData.get("slug") as string) || name);
   if (!name) throw new Error("Name is required");
@@ -88,6 +91,7 @@ export async function updateTenant(id: string, formData: FormData) {
 // tenant owns. The confirm step on the button is the only guard.
 export async function deleteTenant(id: string) {
   await requireSuperAdmin();
+  assertIds(id);
   const count = await prisma.tenant.count();
   if (count <= 1) throw new Error("The last tenant cannot be deleted");
   await prisma.tenant.delete({ where: { id } });
@@ -110,6 +114,7 @@ export async function addMembership(tenantId: string, userId: string, roleId: st
   await requireSuperAdmin();
   if (!userId) throw new Error("User is required");
   if (!roleId) throw new Error("Role is required");
+  assertIds(tenantId, userId, roleId);
   await prisma.tenantMembership.upsert({
     where: { tenantId_userId: { tenantId, userId } },
     update: { roleId },
@@ -121,6 +126,7 @@ export async function addMembership(tenantId: string, userId: string, roleId: st
 export async function setMembershipRole(tenantId: string, userId: string, roleId: string) {
   await requireSuperAdmin();
   if (!roleId) throw new Error("Role is required");
+  assertIds(tenantId, userId, roleId);
   await prisma.tenantMembership.update({
     where: { tenantId_userId: { tenantId, userId } },
     data: { roleId },
@@ -130,6 +136,7 @@ export async function setMembershipRole(tenantId: string, userId: string, roleId
 
 export async function removeMembership(tenantId: string, userId: string) {
   await requireSuperAdmin();
+  assertIds(tenantId, userId);
   await prisma.$transaction([
     prisma.eventStaff.deleteMany({ where: { userId, event: { tenantId } } }),
     prisma.tenantMembership.deleteMany({ where: { tenantId, userId } }),

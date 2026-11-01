@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { UNCAPPED } from "@/lib/accessLevels";
 import { eventScopeWhere } from "@/app/events/core";
+import { assertIds } from "@/lib/validation";
 
 // A cap of NONE would leave someone on the staff list — and therefore in their
 // own events list — while denying them the event entirely. Removing the staff
@@ -72,6 +73,7 @@ export async function setEventStaffLevelCore(
     "WRITE",
     args.eventId,
   );
+  assertIds(args.staffId);
 
   const existing = await prisma.eventStaff.findFirst({
     where: { id: args.staffId, eventId: args.eventId },
@@ -91,6 +93,7 @@ export async function removeEventStaffCore(
   actorUserId: string,
 ) {
   await requirePermissionForUser(actorUserId, PermissionResource.EVENTS, "WRITE", eventId);
+  assertIds(staffId);
   await prisma.eventStaff.deleteMany({ where: { id: staffId, eventId } });
 }
 

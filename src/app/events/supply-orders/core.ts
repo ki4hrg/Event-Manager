@@ -8,8 +8,10 @@ import { requirePermissionForUser, PermissionError, requireEventTenantId } from 
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
 import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
+import { assertIds } from "@/lib/validation";
 
 async function assertSupplyOrderInEvent(supplyOrderId: string, eventId: string) {
+  assertIds(supplyOrderId);
   const found = await prisma.supplyOrder.findUnique({
     where: { id: supplyOrderId, eventId },
     select: { id: true },
@@ -276,6 +278,7 @@ export async function unlinkSupplyOrderFromFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  assertIds(supplyOrderId, functionId);
   const r = await prisma.supplyOrderFunction.deleteMany({
     where: { supplyOrderId, functionId, supplyOrder: { eventId } },
   });
@@ -306,6 +309,7 @@ export async function unlinkSupplyOrderFromPresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  assertIds(supplyOrderId, presentationId);
   const r = await prisma.supplyOrderPresentation.deleteMany({
     where: { supplyOrderId, presentationId, supplyOrder: { eventId } },
   });

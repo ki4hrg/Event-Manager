@@ -7,6 +7,7 @@ import { isSuperAdmin, requireSuperAdmin } from "@/lib/tenant";
 import { sendInviteEmail, sendPasswordResetEmail } from "@/lib/email";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { assertIds } from "@/lib/validation";
 
 // Users are global accounts; this section administers the active tenant's
 // *members* — the users holding a TenantMembership here, and the role each
@@ -41,6 +42,7 @@ export async function getUsers() {
 // everyone else sees only their own tenant's members.
 export async function getUser(id: string) {
   const { tenantId } = await requirePermission(PermissionResource.USERS, "VIEW");
+  assertIds(id);
   const superAdmin = await isSuperAdmin();
   const user = await prisma.user.findFirst({
     where: superAdmin ? { id } : { id, memberships: { some: { tenantId } } },
@@ -151,6 +153,7 @@ export async function createUser(formData: FormData) {
 
 export async function updateUser(id: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.USERS, "WRITE");
+  assertIds(id);
   const tenantId = session.tenantId;
   const superAdmin = await isSuperAdmin();
 
@@ -222,6 +225,7 @@ export async function updateUser(id: string, formData: FormData) {
 
 export async function resendPasswordResetEmail(userId: string): Promise<void> {
   const { tenantId } = await requirePermission(PermissionResource.USERS, "WRITE");
+  assertIds(userId);
   const superAdmin = await isSuperAdmin();
 
   const user = await prisma.user.findFirst({
@@ -238,6 +242,7 @@ export async function resendPasswordResetEmail(userId: string): Promise<void> {
 // this tenant's events. The account itself, and its other memberships, stay.
 export async function removeUserFromTenant(id: string) {
   const session = await requirePermission(PermissionResource.USERS, "DELETE");
+  assertIds(id);
   const tenantId = session.tenantId;
 
   if (session.user.id === id) {
@@ -257,6 +262,7 @@ export async function removeUserFromTenant(id: string) {
 // ends at their own tenant's membership list.
 export async function deleteUser(id: string) {
   const ctx = await requireSuperAdmin();
+  assertIds(id);
 
   if (ctx.userId === id) {
     throw new Error("You cannot delete your own account");

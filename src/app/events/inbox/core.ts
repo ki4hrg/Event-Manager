@@ -41,6 +41,7 @@ import { MIME_BY_EXT, OPEN_STATUSES } from "./views";
 import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInboxSlug } from "@/lib/inboundMail";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { UserFacingError } from "@/lib/userErrors";
+import { assertIds } from "@/lib/validation";
 
 // Event inboxes (docs/proposals/email-ingest.md). No "use server": the ingest
 // is called by the signed /api/inbound-email route, and the person-facing
@@ -957,6 +958,9 @@ export async function purgeDismissedInboundEmails(tenantId?: string): Promise<nu
 // ─── Person-facing cores ─────────────────────────────────────────────────────
 
 async function inboxItem(id: string, tenantId: string, eventId: string | null) {
+  // Every claim and apply loads the item here first; an id that's a filter
+  // object would match (and then claim) every item in scope.
+  assertIds(id);
   const item = await prisma.inboundEmail.findFirst({ where: { id, tenantId, eventId } });
   if (!item) throw new Error("Inbox item not found");
   return item;

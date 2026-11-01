@@ -8,8 +8,10 @@ import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
 import { assertPackingSubstatus, packingItemsWrite, packingSubstatusFor } from "@/lib/packingSubstatus";
 import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
+import { assertIds } from "@/lib/validation";
 
 async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
+  assertIds(printOrderId);
   const found = await prisma.printOrder.findUnique({
     where: { id: printOrderId, eventId },
     select: { id: true },
@@ -273,6 +275,7 @@ export async function unlinkPrintOrderFromFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  assertIds(printOrderId, functionId);
   // printOrder.eventId scope on the delete means a caller can't unlink across events.
   const r = await prisma.printOrderFunction.deleteMany({
     where: { printOrderId, functionId, printOrder: { eventId } },
@@ -301,6 +304,7 @@ export async function unlinkPrintOrderFromPresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  assertIds(printOrderId);
   return prisma.printOrder.update({
     where: { id: printOrderId, eventId },
     data: { presentationId: null, updatedById: userId },
@@ -313,6 +317,7 @@ export async function unlinkPrintOrdersFromPresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  assertIds(presentationId);
   const r = await prisma.printOrder.updateMany({
     where: { presentationId, eventId },
     data: { presentationId: null, updatedById: userId },

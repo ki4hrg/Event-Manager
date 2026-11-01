@@ -9,8 +9,10 @@ import { catalogIdForName, resolveEquipmentName } from "@/lib/equipment-utils";
 import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
+import { assertIds } from "@/lib/validation";
 
 async function assertSetupOrderInEvent(setupOrderId: string, eventId: string) {
+  assertIds(setupOrderId);
   const found = await prisma.setupOrder.findUnique({
     where: { id: setupOrderId, eventId },
     select: { id: true },
@@ -258,6 +260,7 @@ export async function unlinkSetupOrderFromFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SETUP_ORDERS", "WRITE", eventId);
+  assertIds(setupOrderId, functionId);
   // Belt + suspenders: the assert below already verifies setupOrder is in
   // event, but the explicit `setupOrder: { eventId }` scope on the delete
   // matches the print/supply patterns and makes the query self-protecting
@@ -295,6 +298,7 @@ export async function unlinkSetupOrderFromPresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SETUP_ORDERS", "WRITE", eventId);
+  assertIds(setupOrderId, presentationId);
   await assertSetupOrderInEvent(setupOrderId, eventId);
   const r = await prisma.setupOrderPresentation.deleteMany({
     where: { setupOrderId, presentationId, setupOrder: { eventId } },

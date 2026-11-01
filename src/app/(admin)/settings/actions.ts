@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
@@ -20,6 +22,7 @@ import {
   type OptionCategory,
 } from "@/lib/optionCategories";
 import { duplicateLabelError, inUseError, labelFormError } from "./optionLabels";
+import { assertIds, idList, parseArgs } from "@/lib/validation";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -118,6 +121,7 @@ export async function createOption(category: OptionCategory, formData: FormData)
 export async function updateOption(category: OptionCategory, id: string, formData: FormData) {
   const def = optionCategory(category);
   const { tenantId } = await requirePermission(def.resource, "WRITE");
+  assertIds(id);
   const label = ((formData.get("label") as string) ?? "").trim();
   if (!label) throw new Error("Label is required");
 
@@ -152,6 +156,7 @@ export async function updateOption(category: OptionCategory, id: string, formDat
 export async function deleteOption(category: OptionCategory, id: string) {
   const def = optionCategory(category);
   const { tenantId } = await requirePermission(def.resource, "DELETE");
+  assertIds(id);
   const option = await prisma.customOption.findFirst({
     where: { id, tenantId, category },
     select: { isSystem: true, label: true },
@@ -174,6 +179,7 @@ export async function deleteOption(category: OptionCategory, id: string) {
 export async function mergeOption(category: OptionCategory, id: string, intoId: string) {
   const def = optionCategory(category);
   const { tenantId } = await requirePermission(def.resource, "DELETE");
+  assertIds(id, intoId);
   if (!isMergeable(category)) throw new Error("These options can't be merged");
   const [from, into] = await Promise.all([
     prisma.customOption.findFirst({ where: { id, tenantId, category }, select: { label: true, isSystem: true } }),
@@ -192,6 +198,9 @@ export async function mergeOption(category: OptionCategory, id: string, intoId: 
 export async function mapOffListLabel(category: OptionCategory, label: string, intoId: string) {
   const def = optionCategory(category);
   const { tenantId } = await requirePermission(def.resource, "WRITE");
+  assertIds(intoId);
+  // Every use of this label is rewritten: a filter object would rewrite them all.
+  label = parseArgs(z.string().min(1).max(1_000), label);
   const into = await prisma.customOption.findFirst({ where: { id: intoId, tenantId, category }, select: { label: true } });
   if (!into) throw new Error("Option not found");
   await prisma.$transaction((tx) => propagateLabelRename(tx, tenantId, category, label, into.label));
@@ -202,6 +211,7 @@ export async function mapOffListLabel(category: OptionCategory, label: string, i
 export async function reorderOptions(category: OptionCategory, orderedIds: string[]) {
   const def = optionCategory(category);
   const { tenantId } = await requirePermission(def.resource, "WRITE");
+  orderedIds = parseArgs(idList(2_000), orderedIds);
   await prisma.$transaction(
     orderedIds.map((id, index) =>
       prisma.customOption.updateMany({

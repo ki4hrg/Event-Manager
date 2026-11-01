@@ -6,10 +6,12 @@ import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { requireListLabels } from "@/lib/hotelLabels";
+import { assertIds } from "@/lib/validation";
 
 // Every venue-scoped core asserts the venue is the tenant's own before touching
 // its rooms, groups, or contacts; a foreign id reads as not-found.
 async function assertVenueInTenant(venueId: string, tenantId: string) {
+  assertIds(venueId);
   const venue = await prisma.venue.findFirst({ where: { id: venueId, tenantId }, select: { id: true } });
   if (!venue) throw new PermissionError("NOT_FOUND");
 }
@@ -143,7 +145,8 @@ function capacityRows(capacities: NonNullable<RoomWriteArgs["capacities"]>) {
 
 // A room's group is one of its own venue's groups.
 async function assertRoomGroupInVenue(groupId: string | null, venueId: string) {
-  if (!groupId) return;
+  if (groupId === null || groupId === "") return;
+  assertIds(groupId);
   const group = await prisma.roomGroup.findFirst({ where: { id: groupId, venueId }, select: { id: true } });
   if (!group) throw new PermissionError("NOT_FOUND", "Room group not found");
 }
