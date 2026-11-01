@@ -261,6 +261,7 @@ export async function unlinkCateringOrderFromFunctionCore(
   userId: string,
 ): Promise<{ previousFunctionId: string | null }> {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
+  assertIds(cateringOrderId);
   const cateringOrder = await prisma.cateringOrder.findUnique({
     where: { id: cateringOrderId, eventId },
     select: { functionId: true },
@@ -279,6 +280,7 @@ export async function unlinkCateringOrdersFromFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
+  assertIds(functionId);
   const unlinked = await prisma.cateringOrder.findMany({ where: { functionId, eventId }, select: { id: true } });
   const r = await prisma.cateringOrder.updateMany({
     where: { functionId, eventId },

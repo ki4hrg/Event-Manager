@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
-import { PermissionError } from "@/lib/permissions";
+import { PermissionError } from "@/lib/permissionError";
 
 // Shared building blocks for parsing what a client sends. Area-specific
 // schemas live beside the core that uses them (see QuoteLineSchema in
@@ -79,5 +79,6 @@ export const looseText = (max = 100_000) =>
  * that isn't an id reads as not found.
  */
 export function assertIds(...values: unknown[]): void {
+  if (values.length > 10_000) throw new PermissionError("NOT_FOUND");
   if (!values.every((v) => idSchema.safeParse(v).success)) throw new PermissionError("NOT_FOUND");
 }

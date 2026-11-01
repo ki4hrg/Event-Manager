@@ -112,9 +112,9 @@ function revalidateMembership(tenantId: string, userId: string) {
 
 export async function addMembership(tenantId: string, userId: string, roleId: string) {
   await requireSuperAdmin();
-  assertIds(tenantId, userId, roleId);
   if (!userId) throw new Error("User is required");
   if (!roleId) throw new Error("Role is required");
+  assertIds(tenantId, userId, roleId);
   await prisma.tenantMembership.upsert({
     where: { tenantId_userId: { tenantId, userId } },
     update: { roleId },
@@ -125,8 +125,8 @@ export async function addMembership(tenantId: string, userId: string, roleId: st
 
 export async function setMembershipRole(tenantId: string, userId: string, roleId: string) {
   await requireSuperAdmin();
-  assertIds(tenantId, userId, roleId);
   if (!roleId) throw new Error("Role is required");
+  assertIds(tenantId, userId, roleId);
   await prisma.tenantMembership.update({
     where: { tenantId_userId: { tenantId, userId } },
     data: { roleId },

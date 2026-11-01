@@ -7,6 +7,8 @@ import { makeMember, makeTenant, makeUser } from "../../../test/fixtures";
 import { removeEventStaffCore } from "./[id]/staff/core";
 import { savePickupCountsCore } from "./hotels/blockCore";
 import { unlinkMediaDeliverableFromFunction } from "./media-deliverables/actions";
+import { createFormLinkCore, revokeFormLinkCore, type CreateFormLinkArgs } from "./forms/core";
+import { unlinkSupplyOrderFromFunctionCore } from "./supply-orders/core";
 
 // revalidatePath needs Next's request store, which tests don't have.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -53,5 +55,27 @@ describe("ids that are filter objects read as not found", () => {
     await prisma.mediaDeliverableFunction.create({ data: { mediaDeliverableId: md.id, functionId: fn.id } });
     await expect(unlinkMediaDeliverableFromFunction(FILTER, FILTER, eventId)).rejects.toBeInstanceOf(PermissionError);
     expect(await prisma.mediaDeliverableFunction.count({ where: { mediaDeliverableId: md.id } })).toBe(1);
+  });
+
+  it("revokeFormLinkCore leaves the event's other links open", async () => {
+    const { userId, eventId } = await event({ [PermissionResource.FORMS]: PermissionLevel.WRITE });
+    const args = {
+      eventId, formType: "ITEM_REQUEST", functionId: null, contactId: null, presentationId: null, boothGroupId: null,
+      label: null, recipientName: null, recipientEmail: null, sections: [], intro: null, mediaUploadUrl: null,
+      options: null, workflowTemplateId: null, dueAt: null, expiresAt: new Date(Date.now() + 86_400_000), maxSubmissions: null,
+    } as CreateFormLinkArgs;
+    await createFormLinkCore(args, userId);
+    await createFormLinkCore(args, userId);
+    await expect(revokeFormLinkCore(FILTER, eventId, userId)).rejects.toBeInstanceOf(PermissionError);
+    expect(await prisma.formLink.count({ where: { eventId, revokedAt: null } })).toBe(2);
+  });
+
+  it("unlinkSupplyOrderFromFunctionCore leaves the event's links alone", async () => {
+    const { userId, eventId } = await event({ [PermissionResource.SUPPLY_ORDERS]: PermissionLevel.WRITE });
+    const fn = await prisma.function.create({ data: { eventId, name: "Lunch" } });
+    const order = await prisma.supplyOrder.create({ data: { eventId, name: "Swag" } });
+    await prisma.supplyOrderFunction.create({ data: { supplyOrderId: order.id, functionId: fn.id } });
+    await expect(unlinkSupplyOrderFromFunctionCore(FILTER, FILTER, eventId, userId)).rejects.toBeInstanceOf(PermissionError);
+    expect(await prisma.supplyOrderFunction.count({ where: { supplyOrderId: order.id } })).toBe(1);
   });
 });

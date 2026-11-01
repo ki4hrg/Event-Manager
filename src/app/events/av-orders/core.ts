@@ -195,6 +195,7 @@ export async function unlinkAVOrderFromFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  assertIds(avOrderId, functionId);
   await assertAVOrderInEvent(avOrderId, eventId);
   const r = await prisma.aVOrderFunction.deleteMany({
     where: { avOrderId, functionId, avOrder: { eventId } },
@@ -228,6 +229,7 @@ export async function unlinkAVOrderFromPresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  assertIds(avOrderId, presentationId);
   await assertAVOrderInEvent(avOrderId, eventId);
   const r = await prisma.aVOrderPresentation.deleteMany({
     where: { avOrderId, presentationId, avOrder: { eventId } },

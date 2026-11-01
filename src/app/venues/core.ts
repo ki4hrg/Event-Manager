@@ -145,8 +145,8 @@ function capacityRows(capacities: NonNullable<RoomWriteArgs["capacities"]>) {
 
 // A room's group is one of its own venue's groups.
 async function assertRoomGroupInVenue(groupId: string | null, venueId: string) {
-  if (groupId !== null) assertIds(groupId);
-  if (!groupId) return;
+  if (groupId === null || groupId === "") return;
+  assertIds(groupId);
   const group = await prisma.roomGroup.findFirst({ where: { id: groupId, venueId }, select: { id: true } });
   if (!group) throw new PermissionError("NOT_FOUND", "Room group not found");
 }

@@ -278,6 +278,7 @@ export async function unlinkSupplyOrderFromFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  assertIds(supplyOrderId, functionId);
   const r = await prisma.supplyOrderFunction.deleteMany({
     where: { supplyOrderId, functionId, supplyOrder: { eventId } },
   });
@@ -308,6 +309,7 @@ export async function unlinkSupplyOrderFromPresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  assertIds(supplyOrderId, presentationId);
   const r = await prisma.supplyOrderPresentation.deleteMany({
     where: { supplyOrderId, presentationId, supplyOrder: { eventId } },
   });

@@ -260,6 +260,7 @@ export async function unlinkSetupOrderFromFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SETUP_ORDERS", "WRITE", eventId);
+  assertIds(setupOrderId, functionId);
   // Belt + suspenders: the assert below already verifies setupOrder is in
   // event, but the explicit `setupOrder: { eventId }` scope on the delete
   // matches the print/supply patterns and makes the query self-protecting
@@ -297,6 +298,7 @@ export async function unlinkSetupOrderFromPresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SETUP_ORDERS", "WRITE", eventId);
+  assertIds(setupOrderId, presentationId);
   await assertSetupOrderInEvent(setupOrderId, eventId);
   const r = await prisma.setupOrderPresentation.deleteMany({
     where: { setupOrderId, presentationId, setupOrder: { eventId } },
