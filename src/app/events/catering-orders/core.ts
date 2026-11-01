@@ -11,6 +11,7 @@ import { rangeTouched } from "@/lib/dateRange";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore, refreshWorkflowStatus } from "@/app/events/workflows/core";
 import { assertIds } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
 
 async function assertCateringOrderInEvent(cateringOrderId: string, eventId: string) {
   assertIds(cateringOrderId);
@@ -305,11 +306,18 @@ export type TimelineItemWriteArgs = {
 // A timeline item may be a moment (no end); an end, when set, can't precede the
 // start. `stored` is the item being updated (null on create): times it already
 // holds aren't rechecked, so an item stored reversed still saves its other edits.
+// Event-local YYYY-MM-DDTHH:MM (seconds tolerated); anything else would parse
+// to an Invalid Date and throw deep in the timezone conversion.
+const LOCAL_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
+
 function timelineTimes(args: TimelineItemWriteArgs, timezone: string, stored: { startTime: Date; endTime: Date | null } | null) {
+  if (!args.startTime) throw new UserFacingError("Start time is required");
+  if (!LOCAL_DATE_TIME.test(args.startTime)) throw new UserFacingError("Start time must be a date and time");
+  if (args.endTime && !LOCAL_DATE_TIME.test(args.endTime)) throw new UserFacingError("End time must be a date and time");
   const startTime = parseDateTimeInTimezone(args.startTime, timezone);
   const endTime = args.endTime ? parseDateTimeInTimezone(args.endTime, timezone) : null;
   if (endTime && endTime < startTime && rangeTouched(stored && { start: stored.startTime, end: stored.endTime }, startTime, endTime)) {
-    throw new Error("End time can't be before the start time");
+    throw new UserFacingError("End time can't be before the start time");
   }
   return { startTime, endTime };
 }

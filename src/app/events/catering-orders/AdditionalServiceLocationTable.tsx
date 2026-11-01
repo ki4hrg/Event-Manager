@@ -141,7 +141,7 @@ export function AdditionalServiceLocationTable({
           orderExpectedCount={orderExpectedCount}
           onSubmit={handleCreate}
           error={createError.error}
-          onCancel={() => setShowAddForm(false)}
+          onCancel={() => { createError.setError(null); setShowAddForm(false); }}
         />
       )}
 
@@ -178,7 +178,7 @@ export function AdditionalServiceLocationTable({
                   orderExpectedCount={orderExpectedCount}
                   onSubmit={(fd) => handleUpdate(loc.id, fd)}
                   error={updateError.error}
-                  onCancel={() => setEditingId(null)}
+                  onCancel={() => { updateError.setError(null); setEditingId(null); }}
                 />
               ) : (
                 <div>

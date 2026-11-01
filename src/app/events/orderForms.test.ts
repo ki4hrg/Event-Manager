@@ -3,7 +3,7 @@ import { PermissionLevel, PermissionResource, PermissionScope } from "@prisma/cl
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../../test/fixtures";
-import { createCateringOrder, createTimelineItem, updateCateringOrderGuestCounts } from "./catering-orders/actions";
+import { createCateringOrder, createTimelineItem, updateCateringOrderContract, updateCateringOrderGuestCounts } from "./catering-orders/actions";
 import { createSetupTable } from "./setup-orders/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
@@ -47,8 +47,30 @@ describe("order forms: numbers, ids and enums are checked, not parsed into NaN",
 
     // A foreign order id is not a refusal to show: it reads as not found and throws.
     const other = await event({ [PermissionResource.CATERING_ORDERS]: PermissionLevel.WRITE });
-    await expect(createTimelineItem(order.id, other.eventId, form({ label: "Doors", startTime: "2026-11-01T09:00" }))).rejects.toThrow();
+    await expect(createTimelineItem(order.id, other.eventId, form({ label: "Doors", startTime: "2026-11-01T09:00" }))).rejects.toMatchObject({
+      kind: "NOT_FOUND",
+    });
     expect(await prisma.timelineItem.count({ where: { cateringOrderId: order.id } })).toBe(0);
+  });
+
+  it("returns timeline time refusals as { error }", async () => {
+    const { eventId } = await event({ [PermissionResource.CATERING_ORDERS]: PermissionLevel.WRITE });
+    const order = await prisma.cateringOrder.create({ data: { eventId, name: "Lunch" } as never });
+    const add = (fields: Record<string, string>) => createTimelineItem(order.id, eventId, form({ label: "Doors", ...fields }));
+    await expect(add({})).resolves.toEqual({ error: "Start time is required" });
+    await expect(add({ startTime: "soon" })).resolves.toEqual({ error: "Start time must be a date and time" });
+    await expect(add({ startTime: "2026-11-01T10:00", endTime: "2026-11-01T09:00" })).resolves.toEqual({
+      error: "End time can't be before the start time",
+    });
+    expect(await prisma.timelineItem.count({ where: { cateringOrderId: order.id } })).toBe(0);
+  });
+
+  it("refuses a contract deadline that isn't a date instead of clearing it", async () => {
+    const { eventId } = await event({ [PermissionResource.CATERING_ORDERS]: PermissionLevel.WRITE });
+    const deadline = new Date("2026-10-01");
+    const order = await prisma.cateringOrder.create({ data: { eventId, name: "Lunch", depositDeadline: deadline } as never });
+    await expect(updateCateringOrderContract(order.id, eventId, form({ depositDeadline: "2026-13-45" }))).resolves.toHaveProperty("error");
+    expect((await prisma.cateringOrder.findUniqueOrThrow({ where: { id: order.id } })).depositDeadline).toEqual(deadline);
   });
 
   it("refuses a setup table with no quantity instead of storing NaN", async () => {

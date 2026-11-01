@@ -41,7 +41,7 @@ import {
   type ServiceLocationWriteArgs,
   type BulkCateringOrderUpdates,
 } from "./core";
-import { formId, formInt, formName, formNote, formNumber, formRequiredId, formValue, parseWhole } from "@/lib/validation";
+import { formDate, formId, formInt, formName, formNote, formNumber, formRequiredId, formValue, parseWhole } from "@/lib/validation";
 import { UserFacingError, withUserErrors } from "@/lib/userErrors";
 
 export async function getCateringOrders(eventId: string) {
@@ -103,10 +103,9 @@ export async function getCateringOrder(id: string) {
   return row;
 }
 
-function parseDateField(value: string | null): Date | null {
-  if (!value) return null;
-  const d = new Date(value);
-  return isNaN(d.getTime()) ? null : d;
+// A blank deadline clears it; anything else must be a real date.
+function optionalDate(formData: FormData, key: string): Date | null {
+  return formValue(formData, key) ? formDate(formData, key) : null;
 }
 
 export async function createCateringOrder(eventId: string, formData: FormData) {
@@ -125,9 +124,9 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
         staffingNotes: formNote(formData, "staffingNotes"),
         rentalMinimum: formNumber(formData, "rentalMinimum"),
         fbMinimum: formNumber(formData, "fbMinimum"),
-        depositDeadline: parseDateField(formValue(formData, "depositDeadline")),
-        guaranteeDeadline: parseDateField(formValue(formData, "guaranteeDeadline")),
-        paymentDeadline: parseDateField(formValue(formData, "paymentDeadline")),
+        depositDeadline: optionalDate(formData, "depositDeadline"),
+        guaranteeDeadline: optionalDate(formData, "guaranteeDeadline"),
+        paymentDeadline: optionalDate(formData, "paymentDeadline"),
         cancellationTerms: formNote(formData, "cancellationTerms"),
         dietaryNotes: formNote(formData, "dietaryNotes"),
         notes: formNote(formData, "notes"),
@@ -216,9 +215,9 @@ export async function updateCateringOrderContract(id: string, eventId: string, f
       id,
       eventId,
       {
-        depositDeadline: parseDateField(formValue(formData, "depositDeadline")),
-        guaranteeDeadline: parseDateField(formValue(formData, "guaranteeDeadline")),
-        paymentDeadline: parseDateField(formValue(formData, "paymentDeadline")),
+        depositDeadline: optionalDate(formData, "depositDeadline"),
+        guaranteeDeadline: optionalDate(formData, "guaranteeDeadline"),
+        paymentDeadline: optionalDate(formData, "paymentDeadline"),
         rentalMinimum: formNumber(formData, "rentalMinimum"),
         fbMinimum: formNumber(formData, "fbMinimum"),
         cancellationTerms: formNote(formData, "cancellationTerms"),

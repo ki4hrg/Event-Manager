@@ -4,7 +4,6 @@ import { useFormStatus } from "react-dom";
 import type { CateringOrder, CateringOrderDietaryCount } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { FormError, useActionError } from "@/components/FormError";
-import { keepFormValues } from "@/lib/keepFormValues";
 import type { UserError } from "@/lib/userErrors";
 
 type CateringOrderServiceFormProps = {
@@ -31,7 +30,7 @@ export function CateringOrderServiceForm({ cateringOrder, dietaryNeeds, action }
   // This form has no view/edit toggle, so read-only is a disabled fieldset:
   // the values still read normally, they just can't be typed into.
   const canWrite = useCanWrite("CATERING_ORDERS");
-  const { error, run } = useActionError();
+  const { error, run, keepOnRefusal } = useActionError();
   const stored = new Map(cateringOrder.dietaryCounts.map((c) => [c.label, c.count]));
   // The list, then any counted label no longer on it.
   const needs = [...dietaryNeeds, ...cateringOrder.dietaryCounts.map((c) => c.label).filter((l) => !dietaryNeeds.includes(l))];
@@ -41,7 +40,7 @@ export function CateringOrderServiceForm({ cateringOrder, dietaryNeeds, action }
       action={async (formData) => {
         await run(() => action(formData));
       }}
-      onReset={keepFormValues}
+      onReset={keepOnRefusal}
       className="space-y-6"
     >
       <fieldset disabled={!canWrite} className="space-y-6">

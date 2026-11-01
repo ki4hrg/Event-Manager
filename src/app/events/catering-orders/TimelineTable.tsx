@@ -128,7 +128,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
             <SubmitButton label="Add" />
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
+              onClick={() => { createError.setError(null); setShowAddForm(false); }}
               className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
             >
               Cancel
@@ -192,7 +192,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
                     <SubmitButton label="Save" />
                     <button
                       type="button"
-                      onClick={() => setEditingId(null)}
+                      onClick={() => { updateError.setError(null); setEditingId(null); }}
                       className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
                     >
                       Cancel
