@@ -1,11 +1,16 @@
+import { envValue } from "./envValue";
 import path from "path";
 import type { FileUpload } from "@prisma/client";
 import { prisma } from "./prisma";
 
-export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/data/uploads";
+// Read with the same clean-up as the startup check (#275); blank is unset, as in
+// docker-entrypoint.sh's ${UPLOAD_DIR:-/data/uploads}.
+export const UPLOAD_DIR = envValue(process.env.UPLOAD_DIR) ?? "/data/uploads";
 
 const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
-const parsedMax = process.env.MAX_UPLOAD_BYTES ? parseInt(process.env.MAX_UPLOAD_BYTES, 10) : NaN;
+// Plain digits only (parseInt read "1e6" as 1); anything else is the default.
+const rawMax = envValue(process.env.MAX_UPLOAD_BYTES);
+const parsedMax = rawMax && /^\d+$/.test(rawMax) ? Number(rawMax) : NaN;
 export const MAX_UPLOAD_BYTES = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : DEFAULT_MAX_UPLOAD_BYTES;
 
 // The upload routes sit outside the proxy (src/proxy.ts), so nothing else caps
