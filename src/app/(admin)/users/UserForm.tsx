@@ -21,7 +21,8 @@ function SubmitButton({ isCreate }: { isCreate: boolean }) {
   );
 }
 
-type RoleOption = { id: string; name: string; isSystem: boolean };
+// assignable: within the signed-in admin's role ceiling (#284).
+type RoleOption = { id: string; name: string; isSystem: boolean; assignable?: boolean };
 
 interface UserFormProps {
   user?: {
@@ -69,7 +70,10 @@ export function UserForm({
   }
 
   const defaultRoleId =
-    user?.roleId ?? roles.find((r) => r.name === DEFAULT_ROLE_NAME)?.id ?? roles[0]?.id ?? "";
+    user?.roleId ??
+    roles.find((r) => r.name === DEFAULT_ROLE_NAME && r.assignable !== false)?.id ??
+    roles.find((r) => r.assignable !== false)?.id ??
+    "";
 
   if (!editing && user) {
     return (
@@ -182,8 +186,10 @@ export function UserForm({
             disabled={isSelf}
             className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
           >
+            {/* Roles the admin can't give stay listed (the member's current one must
+                show) but can't be picked. */}
             {roles.map((role) => (
-              <option key={role.id} value={role.id}>
+              <option key={role.id} value={role.id} disabled={role.assignable === false && role.id !== user?.roleId}>
                 {role.name}
                 {role.isSystem ? " (system)" : ""}
               </option>

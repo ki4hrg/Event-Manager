@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+import { assertRoleWithinCeiling, requirePermission } from "@/lib/permissions";
 import { isSuperAdmin, requireSuperAdmin } from "@/lib/tenant";
 import { sendInviteEmail, sendPasswordResetEmail } from "@/lib/email";
 import { revalidatePath } from "next/cache";
@@ -112,6 +112,7 @@ export async function createUser(formData: FormData) {
   const showDiagnostics = superAdmin && formData.get("showDiagnostics") === "true";
 
   const role = await resolveRole(roleId);
+  await assertRoleWithinCeiling(session.user.id, tenantId, role.id);
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
@@ -212,6 +213,11 @@ export async function updateUser(id: string, formData: FormData) {
   let nextRoleId: string | null = membership?.roleId ?? null;
   if (!isSelf && membership) {
     nextRoleId = (await resolveRole(submittedRoleId)).id;
+    // Both ends: the role taken away and the role given must be within reach.
+    if (nextRoleId !== membership.roleId) {
+      await assertRoleWithinCeiling(session.user.id, tenantId, membership.roleId);
+      await assertRoleWithinCeiling(session.user.id, tenantId, nextRoleId);
+    }
   }
   let nextSuperAdmin = current.isSuperAdmin;
   let nextDiagnostics = current.showDiagnostics;
@@ -264,6 +270,10 @@ export async function removeUserFromTenant(id: string) {
   if (session.user.id === id) {
     throw new Error("You cannot remove yourself from the organization");
   }
+
+  // Removing a member takes their role away: the caller must be able to give it.
+  const removed = await prisma.tenantMembership.findUnique({ where: { tenantId_userId: { tenantId, userId: id } }, select: { roleId: true } });
+  if (removed) await assertRoleWithinCeiling(session.user.id, tenantId, removed.roleId);
 
   await prisma.$transaction([
     prisma.eventStaff.deleteMany({ where: { userId: id, event: { tenantId } } }),
