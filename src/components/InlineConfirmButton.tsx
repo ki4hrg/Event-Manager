@@ -18,6 +18,8 @@ type InlineConfirmButtonProps = {
   // Trigger styling; defaults to a red text link for row actions.
   className?: string;
   disabled?: boolean;
+  // Shown when the action throws instead of returning { error }.
+  fallback?: string;
 };
 
 // Callback flavour of InlineDeleteButton for deletes/unlinks that aren't
@@ -31,6 +33,7 @@ export function InlineConfirmButton({
   requiredLevel = "DELETE",
   className = "text-red-600 dark:text-red-400 hover:underline text-sm",
   disabled = false,
+  fallback = "Couldn't do that. Try again.",
 }: InlineConfirmButtonProps) {
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -54,7 +57,7 @@ export function InlineConfirmButton({
                 if (isUserError(result)) return setError(result.error);
                 setConfirming(false);
               } catch (e) {
-                setError(actionErrorMessage(e, "Couldn't do that. Try again."));
+                setError(actionErrorMessage(e, fallback));
               }
             })
           }

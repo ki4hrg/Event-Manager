@@ -114,7 +114,7 @@ export default async function UserDetailPage({
 
   const revokeAction = async (staffId: string, eventId: string) => {
     "use server";
-    await revokeUserEventAccess(userId, staffId, eventId);
+    return revokeUserEventAccess(userId, staffId, eventId);
   };
 
   const grantSeriesAction = async (seriesId: string, accessLevel: string) => {

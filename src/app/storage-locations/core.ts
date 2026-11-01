@@ -1,6 +1,6 @@
 import { LocationKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermissionForUser } from "@/lib/permissions";
+import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { assertNoCycle, buildLocationIndex } from "@/lib/storageLocations";
 import { UserFacingError } from "@/lib/userErrors";
 
@@ -159,7 +159,7 @@ export async function deleteStorageLocationCore(id: string, userId: string, tena
     where: { id, tenantId },
     select: { name: true, _count: { select: { inventoryItems: true } } },
   });
-  if (!location) throw new Error("Location not found.");
+  if (!location) throw new PermissionError("NOT_FOUND", "Location not found");
   const held = location._count.inventoryItems;
   if (held > 0) {
     throw new UserFacingError(

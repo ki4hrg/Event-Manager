@@ -37,7 +37,7 @@ describe("directory forms: checked, not cast", () => {
     });
     const easel = await prisma.equipment.create({ data: { tenantId, name: "Easel", category: "Display" } });
     const shelf = await prisma.storageLocation.create({ data: { tenantId, name: "Shelf A" } });
-    await prisma.inventoryItem.create({ data: { tenantId, equipmentId: easel.id, locationId: shelf.id } as never });
+    await prisma.inventoryItem.create({ data: { tenantId, equipmentId: easel.id, locationId: shelf.id } });
     await expect(deleteEquipment(easel.id)).resolves.toEqual({
       error: '"Easel" is stocked in 1 location. Remove those inventory items first.',
     });
@@ -46,6 +46,14 @@ describe("directory forms: checked, not cast", () => {
     });
     expect(await prisma.equipment.count({ where: { id: easel.id } })).toBe(1);
     expect(await prisma.storageLocation.count({ where: { id: shelf.id } })).toBe(1);
+
+    // Another tenant's equipment or location reads as not found, not as a refusal.
+    const other = await makeTenant();
+    const theirs = await prisma.equipment.create({ data: { tenantId: other.id, name: "Easel", category: "Display" } });
+    const theirShelf = await prisma.storageLocation.create({ data: { tenantId: other.id, name: "Shelf B" } });
+    await expect(deleteEquipment(theirs.id)).rejects.toMatchObject({ kind: "NOT_FOUND" });
+    await expect(deleteStorageLocation(theirShelf.id)).rejects.toMatchObject({ kind: "NOT_FOUND" });
+    await expect(deleteStorageLocation({ not: "" } as never)).rejects.toMatchObject({ kind: "NOT_FOUND" });
   });
 
   it("returns directory refusals as { error }: no name, a duplicate, and still not-found for another tenant", async () => {
