@@ -112,6 +112,7 @@ export async function grantSeriesAccessCore(
   // The series decides the tenant; a global gate there first, so a caller with
   // no event write at all gets a clean refusal instead of an empty "skipped
   // everything" result.
+  assertIds(args.userId, args.seriesId);
   const series = await prisma.eventSeries.findUnique({
     where: { id: args.seriesId },
     select: { tenantId: true },

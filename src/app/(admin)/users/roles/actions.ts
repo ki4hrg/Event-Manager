@@ -72,6 +72,19 @@ function readLevel(
   return PermissionLevel.NONE;
 }
 
+// A role's name and description as the role form posts them.
+function readRoleFields(formData: FormData) {
+  const text = (key: string) => {
+    const v = formData.get(key);
+    return (typeof v === "string" ? v : "").trim();
+  };
+  const name = text("name");
+  const description = text("description") || null;
+  if (name.length > 100) throw new Error("Name must be at most 100 characters");
+  if (description && description.length > 2_000) throw new Error("Description must be at most 2000 characters");
+  return { name, description };
+}
+
 // Role definitions are global — one Admin/User/Viewer matrix shared by every
 // tenant. Editing one changes what the role means in every organization, so
 // every mutation is super-admin only; ROLES VIEW/WRITE on a tenant role only
@@ -79,8 +92,7 @@ function readLevel(
 export async function createRole(formData: FormData) {
   const session = await requireSuperAdmin();
 
-  const name = ((formData.get("name") as string) || "").trim();
-  const description = (formData.get("description") as string)?.trim() || null;
+  const { name, description } = readRoleFields(formData);
   if (!name) throw new Error("Name is required");
 
   const duplicate = await prisma.role.findUnique({ where: { name }, select: { id: true } });
@@ -114,8 +126,7 @@ export async function updateRole(id: string, formData: FormData) {
   if (!role) throw new Error("Role not found");
   if (role.isSystem) throw new Error("System roles cannot be modified");
 
-  const name = ((formData.get("name") as string) || "").trim();
-  const description = (formData.get("description") as string)?.trim() || null;
+  const { name, description } = readRoleFields(formData);
   if (!name) throw new Error("Name is required");
 
   if (name !== role.name) {

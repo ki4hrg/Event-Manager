@@ -12,6 +12,7 @@ import {
   parseAccessCap,
 } from "@/app/events/[id]/staff/core";
 import { eventScopeWhere } from "@/app/events/core";
+import { assertIds } from "@/lib/validation";
 
 // Reading someone's assignments is part of administering the user, so it rides
 // on USERS VIEW, but only over events the admin can open themselves ("Visible
@@ -20,6 +21,7 @@ import { eventScopeWhere } from "@/app/events/core";
 // the shared core — seeing a row doesn't grant changing it.
 export async function getUserEventAccess(userId: string) {
   const session = await requirePermission(PermissionResource.USERS, "VIEW");
+  assertIds(userId);
   return prisma.eventStaff.findMany({
     where: { userId, event: await eventScopeWhere(session.user.id, session.tenantId) },
     select: {
@@ -52,7 +54,8 @@ export async function getSeriesGrantOptions() {
 
 export async function searchEventsForUserAccess(userId: string, query: string) {
   const session = await requirePermission(PermissionResource.USERS, "VIEW");
-  if (!query || query.length < 2) return [];
+  assertIds(userId);
+  if (typeof query !== "string" || query.length < 2 || query.length > 200) return [];
   return prisma.event.findMany({
     where: {
       AND: [
