@@ -44,7 +44,7 @@ export default async function BoothGroupPage({ params }: { params: Promise<{ id:
 
   const updateAction = async (formData: FormData) => {
     "use server";
-    await updateBoothGroup(groupId, eventId, formData);
+    return updateBoothGroup(groupId, eventId, formData);
   };
   const deleteAction = async () => {
     "use server";

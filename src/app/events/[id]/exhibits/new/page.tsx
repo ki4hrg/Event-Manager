@@ -25,7 +25,7 @@ export default async function NewBoothPage({
 
   const createAction = async (formData: FormData) => {
     "use server";
-    await createExhibitBooth(eventId, formData);
+    return createExhibitBooth(eventId, formData);
   };
 
   return (

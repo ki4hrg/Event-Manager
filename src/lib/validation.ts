@@ -224,6 +224,17 @@ export function formDateKey(formData: FormData, key: string): string | null {
   return raw;
 }
 
+/** A datetime-local value (YYYY-MM-DDTHH:MM, seconds tolerated) that is a real moment; blank is null.
+ *  Returned as typed: the caller converts it in the event's timezone. */
+export function formDateTimeKey(formData: FormData, key: string, label = fieldLabel(key)): string | null {
+  const raw = formString(formData, key);
+  if (!raw) return null;
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
+  const real = m && dateKeySchema.safeParse(m[1]).success && Number(m[2]) < 24 && Number(m[3]) < 60 && Number(m[4] ?? 0) < 60;
+  if (!real) throw new UserFacingError(`${label} must be a date and time`);
+  return raw;
+}
+
 /** Free text kept exactly as typed (notes resent by an autosave), bounded; blank is null. */
 export function formRawNote(formData: FormData, key: string, max = 100_000): string | null {
   const raw = formData.get(key);

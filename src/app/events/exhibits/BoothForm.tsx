@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { ExhibitBooth, ExhibitBoothGroup } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { BOOTH_SHARED_KEYS, withGroupDefaults, type BoothShared, type BoothSharedKey } from "@/lib/boothGroups";
 import { PROVIDED_BY_LABELS } from "@/lib/esg/apex";
@@ -22,7 +24,7 @@ type CommonProps = {
   functions: Choice[];
   boothTypes: string[];
   costCenters: string[];
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   cancelHref: string;
 };
 
@@ -385,11 +387,9 @@ export function BoothForm({
 
   return (
     <Shell title="Details" editing={editing} setEditing={setEditing} canWrite={canWrite} view={view()}>
-      <form
-        action={async (formData) => {
-          await action(formData);
-          if (isEdit) setEditing(false);
-        }}
+      <ActionForm
+        action={action}
+        onDone={() => isEdit && setEditing(false)}
         className={`${cardClass} space-y-6`}
       >
         <Fieldset title="Booth">
@@ -433,8 +433,9 @@ export function BoothForm({
           costCenters={costCenters}
           defaultFunctionId={group ? undefined : defaultFunctionId}
         />
+        <ActionFormError />
         <Buttons isEdit={isEdit} saveLabel="Create Booth" cancelHref={cancelHref} onCancel={() => setEditing(false)} />
-      </form>
+      </ActionForm>
     </Shell>
   );
 }
@@ -461,11 +462,9 @@ export function BoothGroupForm({
       canWrite={canWrite}
       view={group ? <View groups={SharedRows(timezone, functions, group)} /> : null}
     >
-      <form
-        action={async (formData) => {
-          await action(formData);
-          if (isEdit) setEditing(false);
-        }}
+      <ActionForm
+        action={action}
+        onDone={() => isEdit && setEditing(false)}
         className={`${cardClass} space-y-6`}
       >
         <Fieldset title="Group">
@@ -482,8 +481,9 @@ export function BoothGroupForm({
           costCenters={costCenters}
           defaultFunctionId={defaultFunctionId}
         />
+        <ActionFormError />
         <Buttons isEdit={isEdit} saveLabel="Create Group" cancelHref={cancelHref} onCancel={() => setEditing(false)} />
-      </form>
+      </ActionForm>
     </Shell>
   );
 }

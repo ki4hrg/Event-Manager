@@ -22,7 +22,7 @@ import {
   type BoothSharedArgs,
   type BoothWriteArgs,
 } from "./core";
-import { formEnum, formId, formInt, formName, formNote, formValue } from "@/lib/validation";
+import { formDateTimeKey, formEnum, formId, formInt, formName, formNote, formValue } from "@/lib/validation";
 
 const equipmentItemsInclude = {
   include: { providerVendor: true, providerContact: true, operatorVendor: true, operatorContact: true, equipment: true },
@@ -89,8 +89,9 @@ async function eventTimezone(eventId: string) {
 
 function readShared(formData: FormData, timezone: string): BoothSharedArgs {
   const str = (k: string) => formNote(formData, k);
+  const DATETIME_LABELS: Record<string, string> = { startAt: "Start", endAt: "End", setupBy: "Set up by", teardownBy: "Tear down by" };
   const dt = (k: string) => {
-    const v = formNote(formData, k, 40);
+    const v = formDateTimeKey(formData, k, DATETIME_LABELS[k]);
     return v ? parseDateTimeInTimezone(v, timezone) : null;
   };
   const bool = (k: string) => (formData.get(k) === "true" ? true : formData.get(k) === "false" ? false : null);
@@ -139,26 +140,30 @@ function readBooth(formData: FormData, timezone: string): BoothWriteArgs {
 
 export async function createBoothGroup(eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const group = await createBoothGroupCore(
-    eventId,
-    { ...readShared(formData, await eventTimezone(eventId)), name: formName(formData, "name") },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/exhibits`);
-  redirect(`/events/${eventId}/exhibits/groups/${group.id}?success=Group created`);
+  return withUserErrors(async () => {
+    const group = await createBoothGroupCore(
+      eventId,
+      { ...readShared(formData, await eventTimezone(eventId)), name: formName(formData, "name") },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/exhibits`);
+    redirect(`/events/${eventId}/exhibits/groups/${group.id}?success=Group created`);
+  });
 }
 
 export async function updateBoothGroup(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await updateBoothGroupCore(
-    id,
-    eventId,
-    { ...readShared(formData, await eventTimezone(eventId)), name: formName(formData, "name") },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/exhibits`);
-  revalidatePath(`/events/${eventId}/exhibits/groups/${id}`);
-  redirect(`/events/${eventId}/exhibits/groups/${id}?success=Group updated`);
+  return withUserErrors(async () => {
+    await updateBoothGroupCore(
+      id,
+      eventId,
+      { ...readShared(formData, await eventTimezone(eventId)), name: formName(formData, "name") },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/exhibits`);
+    revalidatePath(`/events/${eventId}/exhibits/groups/${id}`);
+    redirect(`/events/${eventId}/exhibits/groups/${id}?success=Group updated`);
+  });
 }
 
 export async function deleteBoothGroup(id: string, eventId: string) {
@@ -170,17 +175,21 @@ export async function deleteBoothGroup(id: string, eventId: string) {
 
 export async function createExhibitBooth(eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const booth = await createExhibitBoothCore(eventId, readBooth(formData, await eventTimezone(eventId)), session.user.id);
-  revalidatePath(`/events/${eventId}/exhibits`);
-  redirect(`/events/${eventId}/exhibits/${booth.id}?success=Booth created`);
+  return withUserErrors(async () => {
+    const booth = await createExhibitBoothCore(eventId, readBooth(formData, await eventTimezone(eventId)), session.user.id);
+    revalidatePath(`/events/${eventId}/exhibits`);
+    redirect(`/events/${eventId}/exhibits/${booth.id}?success=Booth created`);
+  });
 }
 
 export async function updateExhibitBooth(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await updateExhibitBoothCore(id, eventId, readBooth(formData, await eventTimezone(eventId)), session.user.id);
-  revalidatePath(`/events/${eventId}/exhibits`);
-  revalidatePath(`/events/${eventId}/exhibits/${id}`);
-  redirect(`/events/${eventId}/exhibits/${id}?success=Booth updated`);
+  return withUserErrors(async () => {
+    await updateExhibitBoothCore(id, eventId, readBooth(formData, await eventTimezone(eventId)), session.user.id);
+    revalidatePath(`/events/${eventId}/exhibits`);
+    revalidatePath(`/events/${eventId}/exhibits/${id}`);
+    redirect(`/events/${eventId}/exhibits/${id}?success=Booth updated`);
+  });
 }
 
 export async function deleteExhibitBooth(id: string, eventId: string) {
