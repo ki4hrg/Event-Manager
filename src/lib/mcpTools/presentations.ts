@@ -24,6 +24,7 @@ import {
 } from "@/app/events/presentations/core";
 import type { McpToolDefinition } from "./types";
 import { requireString, optionalString, optionalStringArray } from "./types";
+import { ENTITY_STATUSES } from "./types";
 
 function optionalBoolean(args: Record<string, unknown>, key: string): boolean {
   return args[key] === true;
@@ -385,7 +386,7 @@ export const presentationTools: McpToolDefinition[] = [
         eventId: { type: "string" },
         status: {
           type: "string",
-          enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"],
+          enum: ENTITY_STATUSES,
         },
         substatus: { type: "string" },
         trackId: { type: "string", description: "Empty string clears." },

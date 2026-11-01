@@ -153,7 +153,7 @@ import {
 } from "@/app/events/av-orders/core";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import type { McpToolDefinition } from "./types";
-import { requireString, optionalString, optionalStringArray, partialString } from "./types";
+import { ENTITY_STATUSES, requireString, optionalString, optionalStringArray, partialString } from "./types";
 
 function optionalInt(args: Record<string, unknown>, key: string): number | null {
   const v = args[key];
@@ -1013,7 +1013,7 @@ export const orderTools: McpToolDefinition[] = [
         eventId: { type: "string" },
         status: {
           type: "string",
-          enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"],
+          enum: ENTITY_STATUSES,
         },
         substatus: { type: "string" },
         packingStatus: { type: "string", enum: ["NEEDED", "IN_TRANSIT", "DELIVERED"] },
@@ -1378,7 +1378,7 @@ export const orderTools: McpToolDefinition[] = [
       properties: {
         ids: { type: "array", items: { type: "string" } },
         eventId: { type: "string" },
-        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"] },
+        status: { type: "string", enum: ENTITY_STATUSES },
         substatus: { type: "string" },
         functionId: { type: "string" },
         presentationId: { type: "string" },
@@ -1723,7 +1723,7 @@ export const orderTools: McpToolDefinition[] = [
       properties: {
         ids: { type: "array", items: { type: "string" } },
         eventId: { type: "string" },
-        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"] },
+        status: { type: "string", enum: ENTITY_STATUSES },
         substatus: { type: "string" },
         vendorId: { type: "string" },
       },
@@ -2214,7 +2214,7 @@ export const orderTools: McpToolDefinition[] = [
       properties: {
         ids: { type: "array", items: { type: "string" } },
         eventId: { type: "string" },
-        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"] },
+        status: { type: "string", enum: ENTITY_STATUSES },
         substatus: { type: "string" },
         vendorId: { type: "string" },
       },
@@ -2913,7 +2913,7 @@ export const orderTools: McpToolDefinition[] = [
       properties: {
         ids: { type: "array", items: { type: "string" } },
         eventId: { type: "string" },
-        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"] },
+        status: { type: "string", enum: ENTITY_STATUSES },
         substatus: { type: "string" },
         vendorId: { type: "string" },
       },

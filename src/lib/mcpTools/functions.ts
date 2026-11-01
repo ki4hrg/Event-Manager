@@ -29,6 +29,7 @@ import {
 import type { McpToolDefinition } from "./types";
 import { requireString, optionalString, optionalStringArray, partialBoolean, partialInt, partialString } from "./types";
 import type { EntityStatus } from "@prisma/client";
+import { ENTITY_STATUSES } from "./types";
 
 function optionalBoolean(args: Record<string, unknown>, key: string): boolean {
   return args[key] === true;
@@ -331,7 +332,7 @@ export const functionTools: McpToolDefinition[] = [
         eventId: { type: "string" },
         status: {
           type: "string",
-          enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"],
+          enum: ENTITY_STATUSES,
         },
         substatus: { type: "string", description: "Pass empty string to clear." },
         type: { type: "string" },

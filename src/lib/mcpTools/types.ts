@@ -1,3 +1,4 @@
+import { EntityStatus } from "@prisma/client";
 // Shared shape for every MCP tool. The dispatcher in /mcp/route.ts loads
 // the registry (see ./index.ts), advertises tools on tools/list, and runs the
 // matching handler on tools/call. Before the handler runs, the dispatcher
@@ -5,6 +6,11 @@
 // enums and sizes, with undeclared keys dropped. So the schema must name every
 // key the handler reads; `null` and `""` still arrive as "clear". Handlers
 // check what the values mean (ids, dates, permissions).
+// The statuses a record can hold, as the status tools advertise them. From the
+// Prisma enum, so a tool can't offer a value the database refuses (the gate in
+// ./argGate.ts enforces exactly this list).
+export const ENTITY_STATUSES = Object.values(EntityStatus);
+
 export type McpToolHandler = (args: Record<string, unknown>, ctx: McpToolContext) => Promise<unknown>;
 
 export type McpToolContext = {
