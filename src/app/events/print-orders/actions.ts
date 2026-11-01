@@ -4,7 +4,7 @@ import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { AcquisitionState, PackingStatus } from "@prisma/client";
+import { AcquisitionState, PackingStatus } from "@prisma/client";
 import {
   createPrintOrderCore,
   updatePrintOrderCore,
@@ -25,6 +25,7 @@ import {
   type PrintItemWriteArgs,
   type BulkPrintOrderUpdates,
 } from "./core";
+import { formEnum, formId, formInt, formNote, formValue } from "@/lib/validation";
 
 export async function getPrintOrders(eventId: string) {
   await requirePermission("PRINT_ORDERS", "VIEW", eventId);
@@ -85,13 +86,13 @@ export async function createPrintOrder(eventId: string, formData: FormData) {
   const printOrder = await createPrintOrderCore(
     eventId,
     {
-      name: (formData.get("name") as string)?.trim(),
-      notes: (formData.get("notes") as string) || null,
-      roomId: (formData.get("roomId") as string) || null,
-      specificLocation: (formData.get("specificLocation") as string) || null,
-      functionId: (formData.get("functionId") as string) || null,
-      presentationId: (formData.get("presentationId") as string) || null,
-      vendorId: (formData.get("vendorId") as string) || null,
+      name: formValue(formData, "name")?.trim(),
+      notes: formNote(formData, "notes"),
+      roomId: formId(formData, "roomId"),
+      specificLocation: formNote(formData, "specificLocation"),
+      functionId: formId(formData, "functionId"),
+      presentationId: formId(formData, "presentationId"),
+      vendorId: formId(formData, "vendorId"),
     },
     session.user.id,
   );
@@ -105,10 +106,10 @@ export async function updatePrintOrder(id: string, eventId: string, formData: Fo
     id,
     eventId,
     {
-      name: (formData.get("name") as string)?.trim(),
-      notes: (formData.get("notes") as string) || null,
-      roomId: (formData.get("roomId") as string) || null,
-      specificLocation: (formData.get("specificLocation") as string) || null,
+      name: formValue(formData, "name")?.trim(),
+      notes: formNote(formData, "notes"),
+      roomId: formId(formData, "roomId"),
+      specificLocation: formNote(formData, "specificLocation"),
     },
     session.user.id,
   );
@@ -222,20 +223,20 @@ export async function unlinkPrintOrderFromPresentationPage(presentationId: strin
 
 function parsePrintItemData(formData: FormData): PrintItemWriteArgs {
   return {
-    description: (formData.get("description") as string)?.trim(),
-    quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-    acquisitionState: ((formData.get("acquisitionState") as string) || "TO_PROCURE") as AcquisitionState,
-    packingStatus: ((formData.get("packingStatus") as string) || "NEEDED") as PackingStatus,
+    description: formValue(formData, "description"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
+    acquisitionState: formEnum(formData, "acquisitionState", AcquisitionState, "TO_PROCURE"),
+    packingStatus: formEnum(formData, "packingStatus", PackingStatus, "NEEDED"),
     // Absent when the status has no sub-states: kept only while the status stays put.
-    packingSubstatus: formData.has("packingSubstatus") ? (formData.get("packingSubstatus") as string) || null : undefined,
-    distributionMethod: (formData.get("distributionMethod") as string) || null,
-    distributionNotes: (formData.get("distributionNotes") as string) || null,
-    designerVendorId: (formData.get("designerVendorId") as string) || null,
-    designerContactId: (formData.get("designerContactId") as string) || null,
-    printerVendorId: (formData.get("printerVendorId") as string) || null,
-    printerContactId: (formData.get("printerContactId") as string) || null,
-    notes: (formData.get("notes") as string) || null,
-    sourceLocationId: (formData.get("sourceLocationId") as string) || null,
+    packingSubstatus: formData.has("packingSubstatus") ? formNote(formData, "packingSubstatus") : undefined,
+    distributionMethod: formNote(formData, "distributionMethod"),
+    distributionNotes: formNote(formData, "distributionNotes"),
+    designerVendorId: formId(formData, "designerVendorId"),
+    designerContactId: formId(formData, "designerContactId"),
+    printerVendorId: formId(formData, "printerVendorId"),
+    printerContactId: formId(formData, "printerContactId"),
+    notes: formNote(formData, "notes"),
+    sourceLocationId: formId(formData, "sourceLocationId"),
   };
 }
 

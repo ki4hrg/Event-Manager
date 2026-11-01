@@ -42,6 +42,7 @@ import {
   type AVEquipmentItemWriteArgs,
   type BulkAVOrderUpdates,
 } from "./core";
+import { formId, formInt, formNote, formValue } from "@/lib/validation";
 
 export async function getAVOrders(eventId: string) {
   await requirePermission("AV_ORDERS", "VIEW", eventId);
@@ -145,11 +146,11 @@ export async function createAVOrder(eventId: string, formData: FormData) {
   const avOrder = await createAVOrderCore(
     eventId,
     {
-      name: formData.get("name") as string,
-      notes: (formData.get("notes") as string) || null,
-      functionId: (formData.get("functionId") as string) || null,
-      presentationId: (formData.get("presentationId") as string) || null,
-      vendorId: (formData.get("vendorId") as string) || null,
+      name: formValue(formData, "name"),
+      notes: formNote(formData, "notes"),
+      functionId: formId(formData, "functionId"),
+      presentationId: formId(formData, "presentationId"),
+      vendorId: formId(formData, "vendorId"),
     },
     session.user.id,
   );
@@ -163,8 +164,8 @@ export async function updateAVOrder(id: string, eventId: string, formData: FormD
     id,
     eventId,
     {
-      name: formData.get("name") as string,
-      notes: (formData.get("notes") as string) || null,
+      name: formValue(formData, "name"),
+      notes: formNote(formData, "notes"),
     },
     session.user.id,
   );
@@ -275,7 +276,7 @@ export async function unlinkAVOrderFromPresentationPage(avOrderId: string, prese
 
 export async function updateAudioSection(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateAudioSectionCore(id, avOrderId, eventId, (formData.get("notes") as string) || null, session.user.id);
+  await updateAudioSectionCore(id, avOrderId, eventId, formNote(formData, "notes"), session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
@@ -290,8 +291,8 @@ export async function createInputGroup(audioSectionId: string, avOrderId: string
     avOrderId,
     eventId,
     {
-      name: (formData.get("name") as string) || "Default",
-      notes: (formData.get("notes") as string) || null,
+      name: formValue(formData, "name") || "Default",
+      notes: formNote(formData, "notes"),
     },
     session.user.id,
   );
@@ -305,12 +306,12 @@ export async function updateInputGroup(id: string, avOrderId: string, eventId: s
     avOrderId,
     eventId,
     {
-      name: formData.get("name") as string,
-      providerVendorId: (formData.get("providerVendorId") as string) || null,
-      providerContactId: (formData.get("providerContactId") as string) || null,
-      operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-      operatorContactId: (formData.get("operatorContactId") as string) || null,
-      notes: (formData.get("notes") as string) || null,
+      name: formValue(formData, "name"),
+      providerVendorId: formId(formData, "providerVendorId"),
+      providerContactId: formId(formData, "providerContactId"),
+      operatorVendorId: formId(formData, "operatorVendorId"),
+      operatorContactId: formId(formData, "operatorContactId"),
+      notes: formNote(formData, "notes"),
     },
     session.user.id,
   );
@@ -329,14 +330,14 @@ export async function deleteInputGroup(id: string, avOrderId: string, eventId: s
 
 function parseInputItemData(formData: FormData): InputItemWriteArgs {
   return {
-    description: formData.get("description") as string,
-    quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : 1,
-    equipmentId: (formData.get("equipmentId") as string) || null,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
-    providerContactId: (formData.get("providerContactId") as string) || null,
-    operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-    operatorContactId: (formData.get("operatorContactId") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    description: formValue(formData, "description"),
+    quantity: formInt(formData, "quantity", { min: 0 }) ?? 1,
+    equipmentId: formId(formData, "equipmentId"),
+    providerVendorId: formId(formData, "providerVendorId"),
+    providerContactId: formId(formData, "providerContactId"),
+    operatorVendorId: formId(formData, "operatorVendorId"),
+    operatorContactId: formId(formData, "operatorContactId"),
+    notes: formNote(formData, "notes"),
   };
 }
 
@@ -364,13 +365,13 @@ export async function deleteInputItem(id: string, avOrderId: string, eventId: st
 
 function parseMonitorMixData(formData: FormData): MonitorMixWriteArgs {
   return {
-    description: formData.get("description") as string,
-    equipmentId: (formData.get("equipmentId") as string) || null,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
-    providerContactId: (formData.get("providerContactId") as string) || null,
-    operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-    operatorContactId: (formData.get("operatorContactId") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    description: formValue(formData, "description"),
+    equipmentId: formId(formData, "equipmentId"),
+    providerVendorId: formId(formData, "providerVendorId"),
+    providerContactId: formId(formData, "providerContactId"),
+    operatorVendorId: formId(formData, "operatorVendorId"),
+    operatorContactId: formId(formData, "operatorContactId"),
+    notes: formNote(formData, "notes"),
   };
 }
 
@@ -393,15 +394,14 @@ export async function deleteMonitorMix(id: string, avOrderId: string, eventId: s
 }
 
 function parseMonitorOutputData(formData: FormData): MonitorOutputWriteArgs {
-  const quantityRaw = formData.get("quantity") as string;
   return {
-    equipmentId: (formData.get("equipmentId") as string) || null,
-    quantity: quantityRaw ? parseInt(quantityRaw) : 1,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
-    providerContactId: (formData.get("providerContactId") as string) || null,
-    operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-    operatorContactId: (formData.get("operatorContactId") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    equipmentId: formId(formData, "equipmentId"),
+    quantity: formInt(formData, "quantity", { min: 0 }) ?? 1,
+    providerVendorId: formId(formData, "providerVendorId"),
+    providerContactId: formId(formData, "providerContactId"),
+    operatorVendorId: formId(formData, "operatorVendorId"),
+    operatorContactId: formId(formData, "operatorContactId"),
+    notes: formNote(formData, "notes"),
   };
 }
 
@@ -429,20 +429,20 @@ export async function deleteMonitorOutput(id: string, avOrderId: string, eventId
 
 export async function updateVideoSection(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateVideoSectionCore(id, avOrderId, eventId, (formData.get("notes") as string) || null, session.user.id);
+  await updateVideoSectionCore(id, avOrderId, eventId, formNote(formData, "notes"), session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 function parseAVEquipmentItemData(formData: FormData): AVEquipmentItemWriteArgs {
   return {
-    equipmentId: (formData.get("equipmentId") as string) || null,
-    item: (formData.get("item") as string) || "",
-    quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
-    providerContactId: (formData.get("providerContactId") as string) || null,
-    operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-    operatorContactId: (formData.get("operatorContactId") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    equipmentId: formId(formData, "equipmentId"),
+    item: formValue(formData, "item"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
+    providerVendorId: formId(formData, "providerVendorId"),
+    providerContactId: formId(formData, "providerContactId"),
+    operatorVendorId: formId(formData, "operatorVendorId"),
+    operatorContactId: formId(formData, "operatorContactId"),
+    notes: formNote(formData, "notes"),
   };
 }
 

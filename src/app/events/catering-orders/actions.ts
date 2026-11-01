@@ -41,6 +41,8 @@ import {
   type ServiceLocationWriteArgs,
   type BulkCateringOrderUpdates,
 } from "./core";
+import { formId, formInt, formNote, formNumber, formRequiredId, formValue, parseWhole } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
 
 export async function getCateringOrders(eventId: string) {
   await requirePermission("CATERING_ORDERS", "VIEW", eventId);
@@ -112,23 +114,23 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
   const cateringOrder = await createCateringOrderCore(
     eventId,
     {
-      name: formData.get("name") as string,
-      functionId: (formData.get("functionId") as string) || null,
-      serviceStyle: (formData.get("serviceStyle") as string) || null,
-      mealType: (formData.get("mealType") as string) || null,
-      expectedCount: formData.get("expectedCount") ? parseInt(formData.get("expectedCount") as string) : null,
-      confirmedCount: formData.get("confirmedCount") ? parseInt(formData.get("confirmedCount") as string) : null,
-      guaranteeCount: formData.get("guaranteeCount") ? parseInt(formData.get("guaranteeCount") as string) : null,
-      staffingNotes: (formData.get("staffingNotes") as string) || null,
-      rentalMinimum: (formData.get("rentalMinimum") as string) ? parseFloat(formData.get("rentalMinimum") as string) : null,
-      fbMinimum: (formData.get("fbMinimum") as string) ? parseFloat(formData.get("fbMinimum") as string) : null,
-      depositDeadline: parseDateField(formData.get("depositDeadline") as string),
-      guaranteeDeadline: parseDateField(formData.get("guaranteeDeadline") as string),
-      paymentDeadline: parseDateField(formData.get("paymentDeadline") as string),
-      cancellationTerms: (formData.get("cancellationTerms") as string) || null,
-      dietaryNotes: (formData.get("dietaryNotes") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-      vendorId: (formData.get("vendorId") as string) || null,
+      name: formValue(formData, "name"),
+      functionId: formId(formData, "functionId"),
+      serviceStyle: formNote(formData, "serviceStyle"),
+      mealType: formNote(formData, "mealType"),
+      expectedCount: formInt(formData, "expectedCount", { min: 0 }),
+      confirmedCount: formInt(formData, "confirmedCount", { min: 0 }),
+      guaranteeCount: formInt(formData, "guaranteeCount", { min: 0 }),
+      staffingNotes: formNote(formData, "staffingNotes"),
+      rentalMinimum: formNumber(formData, "rentalMinimum"),
+      fbMinimum: formNumber(formData, "fbMinimum"),
+      depositDeadline: parseDateField(formValue(formData, "depositDeadline")),
+      guaranteeDeadline: parseDateField(formValue(formData, "guaranteeDeadline")),
+      paymentDeadline: parseDateField(formValue(formData, "paymentDeadline")),
+      cancellationTerms: formNote(formData, "cancellationTerms"),
+      dietaryNotes: formNote(formData, "dietaryNotes"),
+      notes: formNote(formData, "notes"),
+      vendorId: formId(formData, "vendorId"),
     },
     session.user.id,
   );
@@ -143,10 +145,10 @@ export async function updateCateringOrderDetails(id: string, eventId: string, fo
     id,
     eventId,
     {
-      name: formData.get("name") as string,
-      serviceStyle: (formData.get("serviceStyle") as string) || null,
-      mealType: (formData.get("mealType") as string) || null,
-      notes: (formData.get("notes") as string) || null,
+      name: formValue(formData, "name"),
+      serviceStyle: formNote(formData, "serviceStyle"),
+      mealType: formNote(formData, "mealType"),
+      notes: formNote(formData, "notes"),
     },
     session.user.id,
   );
@@ -160,10 +162,10 @@ export async function updateCateringOrderGuestCounts(id: string, eventId: string
     id,
     eventId,
     {
-      expectedCount: formData.get("expectedCount") ? parseInt(formData.get("expectedCount") as string) : null,
-      confirmedCount: formData.get("confirmedCount") ? parseInt(formData.get("confirmedCount") as string) : null,
-      guaranteeCount: formData.get("guaranteeCount") ? parseInt(formData.get("guaranteeCount") as string) : null,
-      actualCount: formData.get("actualCount") ? parseInt(formData.get("actualCount") as string) : null,
+      expectedCount: formInt(formData, "expectedCount", { min: 0 }),
+      confirmedCount: formInt(formData, "confirmedCount", { min: 0 }),
+      guaranteeCount: formInt(formData, "guaranteeCount", { min: 0 }),
+      actualCount: formInt(formData, "actualCount", { min: 0 }),
     },
     session.user.id,
   );
@@ -173,8 +175,14 @@ export async function updateCateringOrderGuestCounts(id: string, eventId: string
 
 // Parallel dietaryLabel / dietaryCount inputs, one pair per dietary need.
 function readDietaryCounts(formData: FormData) {
-  const counts = formData.getAll("dietaryCount") as string[];
-  return (formData.getAll("dietaryLabel") as string[]).map((label, i) => ({ label, count: counts[i] ? parseInt(counts[i]) : 0 }));
+  const text = (v: FormDataEntryValue) => (typeof v === "string" ? v : "");
+  const counts = formData.getAll("dietaryCount").map(text);
+  const labels = formData.getAll("dietaryLabel").map(text);
+  if (labels.length > 200 || labels.some((l) => l.length > 1_000)) throw new UserFacingError("Too many or too long dietary labels");
+  return labels.map((label, i) => {
+    const raw = counts[i]?.trim();
+    return { label, count: raw ? parseWhole(raw, "Dietary count", { min: 0, max: 1_000_000 }) : 0 };
+  });
 }
 
 export async function updateCateringOrderService(id: string, eventId: string, formData: FormData) {
@@ -183,8 +191,8 @@ export async function updateCateringOrderService(id: string, eventId: string, fo
     id,
     eventId,
     {
-      dietaryNotes: (formData.get("dietaryNotes") as string) || null,
-      staffingNotes: (formData.get("staffingNotes") as string) || null,
+      dietaryNotes: formNote(formData, "dietaryNotes"),
+      staffingNotes: formNote(formData, "staffingNotes"),
       dietaryCounts: readDietaryCounts(formData),
     },
     session.user.id,
@@ -199,13 +207,13 @@ export async function updateCateringOrderContract(id: string, eventId: string, f
     id,
     eventId,
     {
-      depositDeadline: parseDateField(formData.get("depositDeadline") as string),
-      guaranteeDeadline: parseDateField(formData.get("guaranteeDeadline") as string),
-      paymentDeadline: parseDateField(formData.get("paymentDeadline") as string),
-      rentalMinimum: (formData.get("rentalMinimum") as string) ? parseFloat(formData.get("rentalMinimum") as string) : null,
-      fbMinimum: (formData.get("fbMinimum") as string) ? parseFloat(formData.get("fbMinimum") as string) : null,
-      cancellationTerms: (formData.get("cancellationTerms") as string) || null,
-      notes: (formData.get("notes") as string) || null,
+      depositDeadline: parseDateField(formValue(formData, "depositDeadline")),
+      guaranteeDeadline: parseDateField(formValue(formData, "guaranteeDeadline")),
+      paymentDeadline: parseDateField(formValue(formData, "paymentDeadline")),
+      rentalMinimum: formNumber(formData, "rentalMinimum"),
+      fbMinimum: formNumber(formData, "fbMinimum"),
+      cancellationTerms: formNote(formData, "cancellationTerms"),
+      notes: formNote(formData, "notes"),
     },
     session.user.id,
   );
@@ -262,10 +270,10 @@ export async function unlinkCateringOrderFromFunctionPage(functionId: string, ev
 
 function parseTimelineItemData(formData: FormData): TimelineItemWriteArgs {
   return {
-    label: formData.get("label") as string,
-    startTime: formData.get("startTime") as string,
-    endTime: (formData.get("endTime") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    label: formValue(formData, "label"),
+    startTime: formValue(formData, "startTime"),
+    endTime: formNote(formData, "endTime"),
+    notes: formNote(formData, "notes"),
   };
 }
 
@@ -289,14 +297,14 @@ export async function deleteTimelineItem(id: string, cateringOrderId: string, ev
 
 function parseEquipmentItemData(formData: FormData): CateringEquipmentItemWriteArgs {
   return {
-    equipmentId: (formData.get("equipmentId") as string) || null,
-    item: (formData.get("item") as string) || "",
-    quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
-    providerContactId: (formData.get("providerContactId") as string) || null,
-    operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-    operatorContactId: (formData.get("operatorContactId") as string) || null,
-    notes: (formData.get("notes") as string) || null,
+    equipmentId: formId(formData, "equipmentId"),
+    item: formValue(formData, "item"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
+    providerVendorId: formId(formData, "providerVendorId"),
+    providerContactId: formId(formData, "providerContactId"),
+    operatorVendorId: formId(formData, "operatorVendorId"),
+    operatorContactId: formId(formData, "operatorContactId"),
+    notes: formNote(formData, "notes"),
   };
 }
 
@@ -320,11 +328,11 @@ export async function deleteEquipmentItem(id: string, cateringOrderId: string, e
 
 function parseLineItemData(formData: FormData): LineItemWriteArgs {
   return {
-    description: formData.get("description") as string,
-    unitType: (formData.get("unitType") as string) || null,
-    unitPrice: (formData.get("unitPrice") as string) ? parseFloat(formData.get("unitPrice") as string) : null,
-    quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-    notes: (formData.get("notes") as string) || null,
+    description: formValue(formData, "description"),
+    unitType: formNote(formData, "unitType"),
+    unitPrice: formNumber(formData, "unitPrice"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
+    notes: formNote(formData, "notes"),
   };
 }
 
@@ -348,9 +356,9 @@ export async function deleteCateringOrderLineItem(id: string, cateringOrderId: s
 
 function parseMenuSectionData(formData: FormData): MenuSectionWriteArgs {
   return {
-    responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
-    menuContent: formData.get("menuContent") as string,
-    notes: (formData.get("notes") as string) || null,
+    responsiblePartyVendorId: formId(formData, "responsiblePartyVendorId"),
+    menuContent: formValue(formData, "menuContent"),
+    notes: formNote(formData, "notes"),
   };
 }
 
@@ -373,13 +381,11 @@ export async function deleteCateringOrderMenuSection(id: string, cateringOrderId
 }
 
 function parseServiceLocationData(formData: FormData): ServiceLocationWriteArgs {
-  const rawFunctionId = formData.get("functionId") as string | null;
-  const rawExpectedCount = formData.get("expectedCount") as string | null;
   return {
-    name: ((formData.get("name") as string) || "").trim() || null,
-    functionId: rawFunctionId && rawFunctionId !== "__blank__" ? rawFunctionId : null,
-    expectedCount: rawExpectedCount ? parseInt(rawExpectedCount) : null,
-    notes: (formData.get("notes") as string) || null,
+    name: formNote(formData, "name"),
+    functionId: formId(formData, "functionId"),
+    expectedCount: formInt(formData, "expectedCount", { min: 0 }),
+    notes: formNote(formData, "notes"),
   };
 }
 
@@ -448,8 +454,8 @@ export async function addCateringOrderContact(cateringOrderId: string, eventId: 
   await addCateringOrderContactCore(
     cateringOrderId,
     eventId,
-    formData.get("contactId") as string,
-    (formData.get("role") as string) || null,
+    formRequiredId(formData, "contactId", "contact"),
+    formNote(formData, "role"),
     session.user.id,
   );
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
@@ -461,7 +467,7 @@ export async function updateCateringOrderContact(id: string, cateringOrderId: st
     id,
     cateringOrderId,
     eventId,
-    (formData.get("role") as string) || null,
+    formNote(formData, "role"),
     session.user.id,
   );
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
@@ -479,11 +485,11 @@ export async function createAndAddCateringOrderContact(cateringOrderId: string, 
     {
       cateringOrderId,
       eventId,
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      email: (formData.get("email") as string) || null,
-      organization: (formData.get("organization") as string) || null,
-      role: (formData.get("role") as string) || null,
+      firstName: formValue(formData, "firstName"),
+      lastName: formValue(formData, "lastName"),
+      email: formNote(formData, "email"),
+      organization: formNote(formData, "organization"),
+      role: formNote(formData, "role"),
     },
     session.user.id,
   );

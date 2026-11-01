@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
 import { PermissionError } from "@/lib/permissions";
-import { assertIds, looseCount, looseNumber, looseText, parseArgs, readJsonList } from "./validation";
+import { assertIds, formEnum, formId, formIds, formInt, formNumber, formValue, looseCount, looseNumber, looseText, parseArgs, readJsonList } from "./validation";
 
 const Row = z.object({ name: z.string(), n: z.number().nullable() });
 
@@ -60,5 +60,35 @@ describe("assertIds", () => {
     for (const bad of [{ not: "" }, { in: ["a"] }, ["a"], "", null, undefined, 7]) {
       expect(() => assertIds("a1", bad)).toThrow(PermissionError);
     }
+  });
+});
+
+describe("form readers", () => {
+  const fd = (fields: Record<string, string | string[]>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(fields)) for (const x of [v].flat()) f.append(k, x);
+    return f;
+  };
+
+  it("reads blanks as none and well-formed values as themselves", () => {
+    const f = fd({ count: " 12 ", price: "4.5", vendorId: "v1", none: "", sentinel: "__blank__", status: "", ids: ["a", "", "b"], name: "  Lunch " });
+    expect(formInt(f, "count")).toBe(12);
+    expect(formInt(f, "none")).toBeNull();
+    expect(formNumber(f, "price")).toBe(4.5);
+    expect(formId(f, "vendorId")).toBe("v1");
+    expect(formId(f, "sentinel")).toBeNull();
+    expect(formEnum(f, "status", ["NEEDED", "PACKED"], "NEEDED")).toBe("NEEDED");
+    expect(formIds(f, "ids")).toEqual(["a", "b"]);
+    expect(formValue(f, "name")).toBe("Lunch");
+    expect(formValue(f, "missing")).toBe("");
+  });
+
+  it("refuses what the old parseInt and parseFloat let through as NaN or a guess", () => {
+    const f = fd({ count: "abc", frac: "2.5", price: "cheap", status: "LOST" });
+    expect(() => formInt(f, "count")).toThrow("Count must be a whole number");
+    expect(() => formInt(f, "frac")).toThrow(UserFacingError);
+    expect(() => formInt(fd({ n: "-1" }), "n", { min: 0 })).toThrow("N must be between 0");
+    expect(() => formNumber(f, "price")).toThrow("Price must be a number");
+    expect(() => formEnum(f, "status", ["NEEDED", "PACKED"], "NEEDED")).toThrow("Pick a status from the list");
   });
 });

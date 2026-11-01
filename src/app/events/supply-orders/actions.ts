@@ -4,7 +4,7 @@ import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { AcquisitionState, PackingStatus } from "@prisma/client";
+import { AcquisitionState, PackingStatus } from "@prisma/client";
 import {
   createSupplyOrderCore,
   updateSupplyOrderCore,
@@ -25,6 +25,7 @@ import {
   type SupplyItemWriteArgs,
   type BulkSupplyOrderUpdates,
 } from "./core";
+import { formEnum, formId, formInt, formNote, formValue } from "@/lib/validation";
 
 export async function getSupplyOrders(eventId: string) {
   await requirePermission("SUPPLY_ORDERS", "VIEW", eventId);
@@ -95,17 +96,17 @@ export async function getSupplyOrder(id: string) {
 
 export async function createSupplyOrder(eventId: string, formData: FormData) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  const functionId = (formData.get("functionId") as string) || null;
-  const presentationId = (formData.get("presentationId") as string) || null;
+  const functionId = formId(formData, "functionId");
+  const presentationId = formId(formData, "presentationId");
   const supplyOrder = await createSupplyOrderCore(
     eventId,
     {
-      name: (formData.get("name") as string)?.trim(),
-      roomId: (formData.get("roomId") as string) || null,
-      specificLocation: (formData.get("specificLocation") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-      providerVendorId: (formData.get("providerVendorId") as string) || null,
-      providerContactId: (formData.get("providerContactId") as string) || null,
+      name: formValue(formData, "name")?.trim(),
+      roomId: formId(formData, "roomId"),
+      specificLocation: formNote(formData, "specificLocation"),
+      notes: formNote(formData, "notes"),
+      providerVendorId: formId(formData, "providerVendorId"),
+      providerContactId: formId(formData, "providerContactId"),
       functionId,
       presentationId,
     },
@@ -124,12 +125,12 @@ export async function updateSupplyOrder(id: string, eventId: string, formData: F
     id,
     eventId,
     {
-      name: (formData.get("name") as string)?.trim(),
-      roomId: (formData.get("roomId") as string) || null,
-      specificLocation: (formData.get("specificLocation") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-      providerVendorId: (formData.get("providerVendorId") as string) || null,
-      providerContactId: (formData.get("providerContactId") as string) || null,
+      name: formValue(formData, "name")?.trim(),
+      roomId: formId(formData, "roomId"),
+      specificLocation: formNote(formData, "specificLocation"),
+      notes: formNote(formData, "notes"),
+      providerVendorId: formId(formData, "providerVendorId"),
+      providerContactId: formId(formData, "providerContactId"),
     },
     session.user.id,
   );
@@ -274,18 +275,18 @@ export async function getAvailableSupplyOrdersForPresentation(eventId: string, p
 
 function parseSupplyItemData(formData: FormData): SupplyItemWriteArgs {
   return {
-    description: (formData.get("description") as string)?.trim() || null,
-    equipmentId: (formData.get("equipmentId") as string) || null,
-    quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-    acquisitionState: ((formData.get("acquisitionState") as string) || "ON_HAND") as AcquisitionState,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
-    providerContactId: (formData.get("providerContactId") as string) || null,
-    packingStatus: ((formData.get("packingStatus") as string) || "NEEDED") as PackingStatus,
+    description: formNote(formData, "description"),
+    equipmentId: formId(formData, "equipmentId"),
+    quantity: formInt(formData, "quantity", { min: 0 }),
+    acquisitionState: formEnum(formData, "acquisitionState", AcquisitionState, "ON_HAND"),
+    providerVendorId: formId(formData, "providerVendorId"),
+    providerContactId: formId(formData, "providerContactId"),
+    packingStatus: formEnum(formData, "packingStatus", PackingStatus, "NEEDED"),
     // Absent when the status has no sub-states: kept only while the status stays put.
-    packingSubstatus: formData.has("packingSubstatus") ? (formData.get("packingSubstatus") as string) || null : undefined,
-    notes: (formData.get("notes") as string) || null,
-    sourceLocationId: (formData.get("sourceLocationId") as string) || null,
-    containerLocationId: (formData.get("containerLocationId") as string) || null,
+    packingSubstatus: formData.has("packingSubstatus") ? formNote(formData, "packingSubstatus") : undefined,
+    notes: formNote(formData, "notes"),
+    sourceLocationId: formId(formData, "sourceLocationId"),
+    containerLocationId: formId(formData, "containerLocationId"),
     // Not a form field: provenance is written by the location-side bridge and by
     // a post-event repack, never typed. Editing a line by hand clears it, which
     // is right — the description no longer necessarily describes that inventory.
