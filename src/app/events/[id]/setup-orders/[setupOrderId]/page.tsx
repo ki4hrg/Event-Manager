@@ -211,12 +211,12 @@ export default async function SetupOrderPage({
 
   const createTableAction = async (formData: FormData) => {
     "use server";
-    await createSetupTable(setupOrderId, eventId, formData);
+    return createSetupTable(setupOrderId, eventId, formData);
   };
 
   const updateTableAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateSetupTable(id, setupOrderId, eventId, formData);
+    return updateSetupTable(id, setupOrderId, eventId, formData);
   };
 
   const deleteTableAction = async (id: string) => {
@@ -241,12 +241,12 @@ export default async function SetupOrderPage({
 
   const createDetailAction = async (formData: FormData) => {
     "use server";
-    await createSetupOrderDetail(setupOrderId, eventId, formData);
+    return createSetupOrderDetail(setupOrderId, eventId, formData);
   };
 
   const updateDetailAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateSetupOrderDetail(id, setupOrderId, eventId, formData);
+    return updateSetupOrderDetail(id, setupOrderId, eventId, formData);
   };
 
   const deleteDetailAction = async (id: string) => {

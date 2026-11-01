@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import type {
   AcquisitionState,
   Equipment,
@@ -63,8 +64,8 @@ type SupplyOrderItemPanelProps = {
   canManageLocations: boolean;
   pool: ResponsiblePartyPool;
   orderProvider: OrderProvider;
-  createItem: (formData: FormData) => Promise<void>;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  createItem: (formData: FormData) => Promise<void | UserError>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteItem: (id: string) => Promise<void>;
   packingSubstatusOptions: PackingSubstatusOption[];
   updateItemPackingStatus: (id: string, packingStatus: PackingStatus, packingSubstatus?: string | null) => Promise<void>;
@@ -200,6 +201,7 @@ function ItemForm({
   pool,
   packingSubstatusOptions,
   onSubmit,
+  onDone,
   onCancel,
   submitLabel,
 }: {
@@ -212,7 +214,8 @@ function ItemForm({
   createContainer: (name: string, parentId: string | null, type: string | null) => Promise<string | UserError>;
   pool: ResponsiblePartyPool;
   packingSubstatusOptions: PackingSubstatusOption[];
-  onSubmit: (formData: FormData) => Promise<void>;
+  onSubmit: (formData: FormData) => Promise<void | UserError>;
+  onDone: () => void;
   onCancel: () => void;
   submitLabel: string;
 }) {
@@ -228,7 +231,7 @@ function ItemForm({
   const [packingStatus, setPackingStatus] = useState<PackingStatus>(item?.packingStatus ?? "NEEDED");
 
   return (
-    <form action={onSubmit} className="space-y-3">
+    <ActionForm action={onSubmit} onDone={onDone} className="space-y-3">
       <div className="space-y-3">
         <FormSection title="Item">
           <div className="md:col-span-2">
@@ -376,13 +379,14 @@ function ItemForm({
           </div>
         </FormSection>
       </div>
+      <ActionFormError />
       <div className="flex gap-2">
         <SubmitButton label={submitLabel} />
         <button type="button" onClick={onCancel} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">
           Cancel
         </button>
       </div>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -615,16 +619,6 @@ export function SupplyOrderItemPanel({
     packingSubstatusOptions,
   };
 
-  const handleCreate = async (formData: FormData) => {
-    await createItem(formData);
-    setShowAddForm(false);
-  };
-
-  const handleUpdate = async (id: string, formData: FormData) => {
-    await updateItem(id, formData);
-    setEditingId(null);
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -667,7 +661,8 @@ export function SupplyOrderItemPanel({
         <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <ItemForm
             {...formProps}
-            onSubmit={handleCreate}
+            onSubmit={createItem}
+            onDone={() => setShowAddForm(false)}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Add"
           />
@@ -688,7 +683,8 @@ export function SupplyOrderItemPanel({
                     <ItemForm
                       item={item}
                       {...formProps}
-                      onSubmit={(fd) => handleUpdate(item.id, fd)}
+                      onSubmit={(fd) => updateItem(item.id, fd)}
+                      onDone={() => setEditingId(null)}
                       onCancel={() => setEditingId(null)}
                       submitLabel="Save"
                     />
@@ -788,7 +784,8 @@ export function SupplyOrderItemPanel({
                     <ItemForm
                       item={item}
                       {...formProps}
-                      onSubmit={(fd) => handleUpdate(item.id, fd)}
+                      onSubmit={(fd) => updateItem(item.id, fd)}
+                      onDone={() => setEditingId(null)}
                       onCancel={() => setEditingId(null)}
                       submitLabel="Save"
                     />

@@ -301,14 +301,18 @@ function parseSupplyItemData(formData: FormData): SupplyItemWriteArgs {
 
 export async function createSupplyOrderItem(supplyOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await createSupplyOrderItemCore(supplyOrderId, eventId, parseSupplyItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+  return withUserErrors(async () => {
+    await createSupplyOrderItemCore(supplyOrderId, eventId, parseSupplyItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+  });
 }
 
 export async function updateSupplyOrderItem(id: string, supplyOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await updateSupplyOrderItemCore(id, supplyOrderId, eventId, parseSupplyItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+  return withUserErrors(async () => {
+    await updateSupplyOrderItemCore(id, supplyOrderId, eventId, parseSupplyItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+  });
 }
 
 export async function deleteSupplyOrderItem(id: string, supplyOrderId: string, eventId: string) {

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type {
   AudioSection,
   InputGroup,
@@ -71,18 +73,18 @@ type AudioSectionPanelProps = {
   audioOutputOptions: Equipment[];
   vendorGroups: ResponsiblePartyOptions;
   contactOptions: ContactOptions;
-  updateSection: (formData: FormData) => Promise<void>;
-  createInputGroup: (formData: FormData) => Promise<void>;
-  updateInputGroup: (id: string, formData: FormData) => Promise<void>;
+  updateSection: (formData: FormData) => Promise<void | UserError>;
+  createInputGroup: (formData: FormData) => Promise<void | UserError>;
+  updateInputGroup: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteInputGroup: (id: string) => Promise<void>;
-  createInputItem: (inputGroupId: string, formData: FormData) => Promise<void>;
-  updateInputItem: (id: string, formData: FormData) => Promise<void>;
+  createInputItem: (inputGroupId: string, formData: FormData) => Promise<void | UserError>;
+  updateInputItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteInputItem: (id: string) => Promise<void>;
-  createMonitorMix: (formData: FormData) => Promise<void>;
-  updateMonitorMix: (id: string, formData: FormData) => Promise<void>;
+  createMonitorMix: (formData: FormData) => Promise<void | UserError>;
+  updateMonitorMix: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteMonitorMix: (id: string) => Promise<void>;
-  createMonitorOutput: (monitorMixId: string, formData: FormData) => Promise<void>;
-  updateMonitorOutput: (id: string, formData: FormData) => Promise<void>;
+  createMonitorOutput: (monitorMixId: string, formData: FormData) => Promise<void | UserError>;
+  updateMonitorOutput: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteMonitorOutput: (id: string) => Promise<void>;
 };
 
@@ -120,7 +122,7 @@ function InputItemRow({
   audioInputOptions: Equipment[];
   vendorGroups: ResponsiblePartyOptions;
   contacts: ContactOptions;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteItem: (id: string) => Promise<void>;
 }) {
   const canWrite = useCanWrite("AV_ORDERS");
@@ -138,11 +140,9 @@ function InputItemRow({
   return (
     <div className="ml-4 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded">
       {editing ? (
-        <form
-          action={async (fd) => {
-            await updateItem(item.id, fd);
-            setEditing(false);
-          }}
+        <ActionForm
+          action={(fd) => updateItem(item.id, fd)}
+          onDone={() => setEditing(false)}
           className="space-y-2"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -190,11 +190,12 @@ function InputItemRow({
               className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
             />
           </div>
+          <ActionFormError />
           <div className="flex gap-2">
             <SubmitButton label="Save" />
             <button type="button" onClick={() => setEditing(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
           </div>
-        </form>
+        </ActionForm>
       ) : (
         <div className="flex items-start justify-between gap-2">
           <div className="text-sm space-y-0.5 min-w-0 break-words">
@@ -250,10 +251,10 @@ function InputGroupCard({
   audioInputOptions: Equipment[];
   vendorGroups: ResponsiblePartyOptions;
   contacts: ContactOptions;
-  updateGroup: (id: string, formData: FormData) => Promise<void>;
+  updateGroup: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteGroup: (id: string) => Promise<void>;
-  createItem: (inputGroupId: string, formData: FormData) => Promise<void>;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  createItem: (inputGroupId: string, formData: FormData) => Promise<void | UserError>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteItem: (id: string) => Promise<void>;
 }) {
   const canWrite = useCanWrite("AV_ORDERS");
@@ -273,11 +274,9 @@ function InputGroupCard({
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       {/* Group header */}
       {editingGroup ? (
-        <form
-          action={async (fd) => {
-            await updateGroup(group.id, fd);
-            setEditingGroup(false);
-          }}
+        <ActionForm
+          action={(fd) => updateGroup(group.id, fd)}
+          onDone={() => setEditingGroup(false)}
           className="p-3 bg-gray-50 dark:bg-gray-900 space-y-2"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -309,11 +308,12 @@ function InputGroupCard({
               className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
             />
           </div>
+          <ActionFormError />
           <div className="flex gap-2">
             <SubmitButton label="Save" />
             <button type="button" onClick={() => setEditingGroup(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
           </div>
-        </form>
+        </ActionForm>
       ) : (
         <div className="flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-900">
           <div className="min-w-0 break-words">
@@ -354,11 +354,9 @@ function InputGroupCard({
         ))}
 
         {showAddItem ? (
-          <form
-            action={async (fd) => {
-              await createItem(group.id, fd);
-              setShowAddItem(false);
-            }}
+          <ActionForm
+            action={(fd) => createItem(group.id, fd)}
+            onDone={() => setShowAddItem(false)}
             className="ml-4 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded space-y-2"
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -405,11 +403,12 @@ function InputGroupCard({
                 className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
               />
             </div>
+            <ActionFormError />
             <div className="flex gap-2">
               <SubmitButton label="Add Input" />
               <button type="button" onClick={() => setShowAddItem(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
             </div>
-          </form>
+          </ActionForm>
         ) : canWrite ? (
           <button
             onClick={() => setShowAddItem(true)}
@@ -439,7 +438,7 @@ function MonitorOutputRow({
   audioOutputOptions: Equipment[];
   vendorGroups: ResponsiblePartyOptions;
   contacts: ContactOptions;
-  updateOutput: (id: string, formData: FormData) => Promise<void>;
+  updateOutput: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteOutput: (id: string) => Promise<void>;
 }) {
   const canWrite = useCanWrite("AV_ORDERS");
@@ -457,11 +456,9 @@ function MonitorOutputRow({
   return (
     <div className="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
       {editing ? (
-        <form
-          action={async (fd) => {
-            await updateOutput(output.id, fd);
-            setEditing(false);
-          }}
+        <ActionForm
+          action={(fd) => updateOutput(output.id, fd)}
+          onDone={() => setEditing(false)}
           className="space-y-2"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
@@ -497,11 +494,12 @@ function MonitorOutputRow({
               className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
             />
           </div>
+          <ActionFormError />
           <div className="flex gap-2">
             <SubmitButton label="Save" />
             <button type="button" onClick={() => setEditing(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
           </div>
-        </form>
+        </ActionForm>
       ) : (
         <div className="flex items-center justify-between gap-2 text-sm">
           <div className="min-w-0 break-words text-gray-900 dark:text-white">
@@ -549,10 +547,10 @@ function MonitorMixGroupCard({
   audioOutputOptions: Equipment[];
   vendorGroups: ResponsiblePartyOptions;
   contacts: ContactOptions;
-  updateMix: (id: string, formData: FormData) => Promise<void>;
+  updateMix: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteMix: (id: string) => Promise<void>;
-  createOutput: (monitorMixId: string, formData: FormData) => Promise<void>;
-  updateOutput: (id: string, formData: FormData) => Promise<void>;
+  createOutput: (monitorMixId: string, formData: FormData) => Promise<void | UserError>;
+  updateOutput: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteOutput: (id: string) => Promise<void>;
 }) {
   const canWrite = useCanWrite("AV_ORDERS");
@@ -564,11 +562,9 @@ function MonitorMixGroupCard({
     <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2">
       {/* Group header */}
       {editingGroup ? (
-        <form
-          action={async (fd) => {
-            await updateMix(mix.id, fd);
-            setEditingGroup(false);
-          }}
+        <ActionForm
+          action={(fd) => updateMix(mix.id, fd)}
+          onDone={() => setEditingGroup(false)}
           className="space-y-2"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -592,11 +588,12 @@ function MonitorMixGroupCard({
               />
             </div>
           </div>
+          <ActionFormError />
           <div className="flex gap-2">
             <SubmitButton label="Save" />
             <button type="button" onClick={() => setEditingGroup(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
           </div>
-        </form>
+        </ActionForm>
       ) : (
         <div className="flex items-center justify-between gap-2">
           <span className="min-w-0 break-words font-medium text-sm text-gray-900 dark:text-white">
@@ -625,11 +622,9 @@ function MonitorMixGroupCard({
 
       {/* Add output form */}
       {showAddOutput && (
-        <form
-          action={async (fd) => {
-            await createOutput(mix.id, fd);
-            setShowAddOutput(false);
-          }}
+        <ActionForm
+          action={(fd) => createOutput(mix.id, fd)}
+          onDone={() => setShowAddOutput(false)}
           className="ml-4 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 space-y-2"
         >
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
@@ -664,11 +659,12 @@ function MonitorMixGroupCard({
                 className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
               />
             </div>
+            <ActionFormError />
             <div className="flex gap-2">
               <SubmitButton label="Add Output" />
               <button type="button" onClick={() => setShowAddOutput(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
             </div>
-        </form>
+        </ActionForm>
       )}
 
       {/* Output rows */}
@@ -725,11 +721,6 @@ export function AudioSectionPanel({
   const [showAddGroup, setShowAddGroup] = useState(false);
   const [showAddMix, setShowAddMix] = useState(false);
 
-  const handleUpdateNotes = async (formData: FormData) => {
-    await updateSection(formData);
-    setEditingNotes(false);
-  };
-
   return (
     <div className="space-y-6">
       {/* Notes */}
@@ -741,7 +732,7 @@ export function AudioSectionPanel({
           )}
         </div>
         {editingNotes && canWrite ? (
-          <form action={handleUpdateNotes} className="space-y-3">
+          <ActionForm action={updateSection} onDone={() => setEditingNotes(false)} className="space-y-3">
             <textarea
               name="notes"
               rows={4}
@@ -749,11 +740,12 @@ export function AudioSectionPanel({
               placeholder="Audio section notes..."
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <ActionFormError />
             <div className="flex gap-2">
               <SubmitButton label="Save" />
               <button type="button" onClick={() => setEditingNotes(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
             </div>
-          </form>
+          </ActionForm>
         ) : (
           <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
             {audioSection.notes || <span className="text-gray-400 dark:text-gray-500 italic">None</span>}
@@ -776,11 +768,9 @@ export function AudioSectionPanel({
         </div>
 
         {showAddGroup && (
-          <form
-            action={async (fd) => {
-              await createInputGroup(fd);
-              setShowAddGroup(false);
-            }}
+          <ActionForm
+            action={createInputGroup}
+            onDone={() => setShowAddGroup(false)}
             className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2"
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -811,11 +801,12 @@ export function AudioSectionPanel({
                 className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
               />
             </div>
+            <ActionFormError />
             <div className="flex gap-2">
               <SubmitButton label="Add Group" />
               <button type="button" onClick={() => setShowAddGroup(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
             </div>
-          </form>
+          </ActionForm>
         )}
 
         {audioSection.inputGroups.length === 0 && !showAddGroup ? (
@@ -855,11 +846,9 @@ export function AudioSectionPanel({
         </div>
 
         {showAddMix && (
-          <form
-            action={async (fd) => {
-              await createMonitorMix(fd);
-              setShowAddMix(false);
-            }}
+          <ActionForm
+            action={createMonitorMix}
+            onDone={() => setShowAddMix(false)}
             className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -882,11 +871,12 @@ export function AudioSectionPanel({
                 />
               </div>
             </div>
+            <ActionFormError />
             <div className="flex gap-2">
               <SubmitButton label="Add Mix" />
               <button type="button" onClick={() => setShowAddMix(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
             </div>
-          </form>
+          </ActionForm>
         )}
 
         {audioSection.monitorMixes.length === 0 && !showAddMix ? (

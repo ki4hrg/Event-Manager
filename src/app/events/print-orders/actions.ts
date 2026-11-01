@@ -248,14 +248,18 @@ function parsePrintItemData(formData: FormData): PrintItemWriteArgs {
 // PrintItem CRUD
 export async function createPrintItem(printOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  await createPrintItemCore(printOrderId, eventId, parsePrintItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+  return withUserErrors(async () => {
+    await createPrintItemCore(printOrderId, eventId, parsePrintItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+  });
 }
 
 export async function updatePrintItem(id: string, printOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  await updatePrintItemCore(id, printOrderId, eventId, parsePrintItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+  return withUserErrors(async () => {
+    await updatePrintItemCore(id, printOrderId, eventId, parsePrintItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+  });
 }
 
 export async function deletePrintItem(id: string, printOrderId: string, eventId: string) {

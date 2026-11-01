@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type { SetupOrderDetail } from "@prisma/client";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
@@ -17,8 +19,8 @@ type DetailWithVendor = SetupOrderDetail & {
 type SetupOrderDetailTableProps = {
   details: DetailWithVendor[];
   responsiblePartyVendors: ResponsiblePartyOptions;
-  createDetail: (formData: FormData) => Promise<void>;
-  updateDetail: (id: string, formData: FormData) => Promise<void>;
+  createDetail: (formData: FormData) => Promise<void | UserError>;
+  updateDetail: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteDetail: (id: string) => Promise<void>;
 };
 
@@ -48,14 +50,11 @@ export function SetupOrderDetailTable({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState(false);
 
-  const handleCreate = async (formData: FormData) => {
-    await createDetail(formData);
+  const closeAdd = () => {
     setShowAddForm(false);
     setDescriptionError(false);
   };
-
-  const handleUpdate = async (id: string, formData: FormData) => {
-    await updateDetail(id, formData);
+  const closeEdit = () => {
     setEditingId(null);
     setDescriptionError(false);
   };
@@ -75,8 +74,9 @@ export function SetupOrderDetailTable({
       </div>
 
       {showAddForm && (
-        <form
-          action={handleCreate}
+        <ActionForm
+          action={createDetail}
+          onDone={closeAdd}
           onSubmit={(e) => {
             if (isRichTextEmpty(e.currentTarget, "description")) {
               e.preventDefault();
@@ -105,6 +105,7 @@ export function SetupOrderDetailTable({
             <RichTextEditor name="description" placeholder="Describe the setup..." />
             {descriptionError && <p className="text-xs text-red-600 mt-1">Description is required.</p>}
           </div>
+          <ActionFormError />
           <div className="flex gap-2">
             <SubmitButton label="Add" />
             <button
@@ -118,7 +119,7 @@ export function SetupOrderDetailTable({
               Cancel
             </button>
           </div>
-        </form>
+        </ActionForm>
       )}
 
       {details.length === 0 ? (
@@ -128,8 +129,9 @@ export function SetupOrderDetailTable({
           {details.map((detail) => (
             <div key={detail.id} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === detail.id ? (
-                <form
-                  action={(fd) => handleUpdate(detail.id, fd)}
+                <ActionForm
+                  action={(fd) => updateDetail(detail.id, fd)}
+                  onDone={closeEdit}
                   onSubmit={(e) => {
                     if (isRichTextEmpty(e.currentTarget, "description")) {
                       e.preventDefault();
@@ -158,6 +160,7 @@ export function SetupOrderDetailTable({
                     <RichTextEditor name="description" defaultValue={detail.description} />
                     {descriptionError && <p className="text-xs text-red-600 mt-1">Description is required.</p>}
                   </div>
+                  <ActionFormError />
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
                     <button
@@ -171,7 +174,7 @@ export function SetupOrderDetailTable({
                       Cancel
                     </button>
                   </div>
-                </form>
+                </ActionForm>
               ) : (
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2">

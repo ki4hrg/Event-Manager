@@ -281,8 +281,10 @@ export async function unlinkAVOrderFromPresentationPage(avOrderId: string, prese
 
 export async function updateAudioSection(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateAudioSectionCore(id, avOrderId, eventId, formNote(formData, "notes"), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await updateAudioSectionCore(id, avOrderId, eventId, formNote(formData, "notes"), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 // ============================================================================
@@ -291,36 +293,40 @@ export async function updateAudioSection(id: string, avOrderId: string, eventId:
 
 export async function createInputGroup(audioSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await createInputGroupCore(
-    audioSectionId,
-    avOrderId,
-    eventId,
-    {
-      name: formName(formData, "name") || "Default",
-      notes: formNote(formData, "notes"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await createInputGroupCore(
+      audioSectionId,
+      avOrderId,
+      eventId,
+      {
+        name: formName(formData, "name") || "Default",
+        notes: formNote(formData, "notes"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function updateInputGroup(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateInputGroupCore(
-    id,
-    avOrderId,
-    eventId,
-    {
-      name: formName(formData, "name"),
-      providerVendorId: formId(formData, "providerVendorId"),
-      providerContactId: formId(formData, "providerContactId"),
-      operatorVendorId: formId(formData, "operatorVendorId"),
-      operatorContactId: formId(formData, "operatorContactId"),
-      notes: formNote(formData, "notes"),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await updateInputGroupCore(
+      id,
+      avOrderId,
+      eventId,
+      {
+        name: formName(formData, "name"),
+        providerVendorId: formId(formData, "providerVendorId"),
+        providerContactId: formId(formData, "providerContactId"),
+        operatorVendorId: formId(formData, "operatorVendorId"),
+        operatorContactId: formId(formData, "operatorContactId"),
+        notes: formNote(formData, "notes"),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function deleteInputGroup(id: string, avOrderId: string, eventId: string) {
@@ -348,14 +354,18 @@ function parseInputItemData(formData: FormData): InputItemWriteArgs {
 
 export async function createInputItem(inputGroupId: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await createInputItemCore(inputGroupId, avOrderId, eventId, parseInputItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await createInputItemCore(inputGroupId, avOrderId, eventId, parseInputItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function updateInputItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateInputItemCore(id, avOrderId, eventId, parseInputItemData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await updateInputItemCore(id, avOrderId, eventId, parseInputItemData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function deleteInputItem(id: string, avOrderId: string, eventId: string) {
@@ -382,14 +392,18 @@ function parseMonitorMixData(formData: FormData): MonitorMixWriteArgs {
 
 export async function createMonitorMix(audioSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await createMonitorMixCore(audioSectionId, avOrderId, eventId, parseMonitorMixData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await createMonitorMixCore(audioSectionId, avOrderId, eventId, parseMonitorMixData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function updateMonitorMix(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateMonitorMixCore(id, avOrderId, eventId, parseMonitorMixData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await updateMonitorMixCore(id, avOrderId, eventId, parseMonitorMixData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function deleteMonitorMix(id: string, avOrderId: string, eventId: string) {
@@ -412,14 +426,18 @@ function parseMonitorOutputData(formData: FormData): MonitorOutputWriteArgs {
 
 export async function createMonitorOutput(monitorMixId: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await createMonitorOutputCore(monitorMixId, avOrderId, eventId, parseMonitorOutputData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await createMonitorOutputCore(monitorMixId, avOrderId, eventId, parseMonitorOutputData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function updateMonitorOutput(id: string, avOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
-  await updateMonitorOutputCore(id, avOrderId, eventId, parseMonitorOutputData(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  return withUserErrors(async () => {
+    await updateMonitorOutputCore(id, avOrderId, eventId, parseMonitorOutputData(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+  });
 }
 
 export async function deleteMonitorOutput(id: string, avOrderId: string, eventId: string) {

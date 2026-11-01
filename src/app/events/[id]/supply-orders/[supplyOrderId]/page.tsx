@@ -227,7 +227,7 @@ export default async function SupplyOrderPage({
 
   const createItemAction = async (formData: FormData) => {
     "use server";
-    await createSupplyOrderItem(supplyOrderId, eventId, formData);
+    return createSupplyOrderItem(supplyOrderId, eventId, formData);
   };
 
   const createContainerAction = async (
@@ -254,7 +254,7 @@ export default async function SupplyOrderPage({
 
   const updateItemAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateSupplyOrderItem(id, supplyOrderId, eventId, formData);
+    return updateSupplyOrderItem(id, supplyOrderId, eventId, formData);
   };
 
   const deleteItemAction = async (id: string) => {

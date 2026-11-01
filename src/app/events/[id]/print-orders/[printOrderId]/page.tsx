@@ -195,12 +195,12 @@ export default async function PrintOrderPage({
 
   const createItemAction = async (formData: FormData) => {
     "use server";
-    await createPrintItem(printOrderId, eventId, formData);
+    return createPrintItem(printOrderId, eventId, formData);
   };
 
   const updateItemAction = async (id: string, formData: FormData) => {
     "use server";
-    await updatePrintItem(id, printOrderId, eventId, formData);
+    return updatePrintItem(id, printOrderId, eventId, formData);
   };
 
   const deleteItemAction = async (id: string) => {

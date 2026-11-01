@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type { AcquisitionState, PackingStatus, PrintItem } from "@prisma/client";
 import { PartyField, parsePartyValue, type PartyOptions, type ContactOptions } from "@/app/events/av-orders/party-field";
 import { FormSection } from "@/components/ui/FormSection";
@@ -33,8 +35,8 @@ type PrintItemPanelProps = {
   packingSubstatusOptions: PackingSubstatusOption[];
   vendors: PartyOptions;
   contacts: ContactOptions;
-  createItem: (formData: FormData) => Promise<void>;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  createItem: (formData: FormData) => Promise<void | UserError>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   deleteItem: (id: string) => Promise<void>;
   updateItemAcquisitionState: (id: string, acquisitionState: AcquisitionState) => Promise<void>;
 };
@@ -72,6 +74,7 @@ function ItemForm({
   vendors,
   contacts,
   onSubmit,
+  onDone,
   onCancel,
   submitLabel,
 }: {
@@ -93,13 +96,14 @@ function ItemForm({
   packingSubstatusOptions: PackingSubstatusOption[];
   vendors: PartyOptions;
   contacts: ContactOptions;
-  onSubmit: (formData: FormData) => Promise<void>;
+  onSubmit: (formData: FormData) => Promise<void | UserError>;
+  onDone: () => void;
   onCancel: () => void;
   submitLabel: string;
 }) {
   const [packingStatus, setPackingStatus] = useState<PackingStatus>(defaultPackingStatus);
   return (
-    <form action={onSubmit} className="space-y-3">
+    <ActionForm action={onSubmit} onDone={onDone} className="space-y-3">
       <div className="space-y-3">
         <FormSection title="Item">
           <div className="md:col-span-2">
@@ -235,6 +239,7 @@ function ItemForm({
           </div>
         </FormSection>
       </div>
+      <ActionFormError />
       <div className="flex gap-2">
         <SubmitButton label={submitLabel} />
         <button
@@ -245,7 +250,7 @@ function ItemForm({
           Cancel
         </button>
       </div>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -275,16 +280,6 @@ export function PrintItemPanel({
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleCreate = async (formData: FormData) => {
-    await createItem(formData);
-    setShowAddForm(false);
-  };
-
-  const handleUpdate = async (id: string, formData: FormData) => {
-    await updateItem(id, formData);
-    setEditingId(null);
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -307,7 +302,8 @@ export function PrintItemPanel({
             packingSubstatusOptions={packingSubstatusOptions}
             vendors={vendors}
             contacts={contacts}
-            onSubmit={handleCreate}
+            onSubmit={createItem}
+            onDone={() => setShowAddForm(false)}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Add"
           />
@@ -340,7 +336,8 @@ export function PrintItemPanel({
                   packingSubstatusOptions={packingSubstatusOptions}
                   vendors={vendors}
                   contacts={contacts}
-                  onSubmit={(fd) => handleUpdate(item.id, fd)}
+                  onSubmit={(fd) => updateItem(item.id, fd)}
+                  onDone={() => setEditingId(null)}
                   onCancel={() => setEditingId(null)}
                   submitLabel="Save"
                 />
