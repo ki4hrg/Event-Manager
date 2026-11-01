@@ -48,3 +48,25 @@ describe("readProposal: the lists a proposal form posts", () => {
     expect(() => readProposal(form({ leadSource: "x".repeat(101) }))).toThrow(PermissionError);
   });
 });
+
+describe("updateHotelBlock: the autosaving card gets refusals back as { error }", () => {
+  it("returns the field's message instead of throwing it away", async () => {
+    const { vi } = await import("vitest");
+    vi.doMock("next/cache", () => ({ revalidatePath: vi.fn() }));
+    const { PermissionLevel, PermissionResource, PermissionScope } = await import("@prisma/client");
+    const { auth } = await import("@/lib/auth");
+    const { prisma } = await import("@/lib/prisma");
+    const { makeMember, makeTenant } = await import("../../../../test/fixtures");
+    const { updateHotelBlock } = await import("./actions");
+    const tenant = await makeTenant();
+    const user = await makeMember(tenant.id, { [PermissionResource.HOTELS]: PermissionLevel.WRITE }, PermissionScope.UNASSIGNED);
+    const ev = await prisma.event.create({ data: { tenantId: tenant.id, name: "E", startDate: new Date("2026-11-01"), endDate: new Date("2026-11-03") } });
+    const venue = await prisma.venue.create({ data: { tenantId: tenant.id, name: "H" } });
+    const proposal = await prisma.hotelProposal.create({ data: { eventId: ev.id, venueId: venue.id, status: "Pending" } });
+    const block = await prisma.hotelBlock.create({ data: { proposalId: proposal.id } });
+    vi.mocked(auth).mockResolvedValue({ user: { id: user.id }, expires: "" } as never);
+    const fd = new FormData();
+    fd.set("driveMinutes", "12.5");
+    await expect(updateHotelBlock(block.id, ev.id, fd)).resolves.toEqual({ error: "Drive minutes must be a whole number" });
+  });
+});

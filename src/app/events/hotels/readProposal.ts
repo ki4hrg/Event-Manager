@@ -5,7 +5,7 @@
 import { HotelChargeScope } from "@prisma/client";
 import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
-import { formId, formInt, formNote, formNumber, formRequiredId, formValue, readJsonList } from "@/lib/validation";
+import { formDateKey, formId, formInt, formNote, formNumber, formRawNote, formRequiredId, formValue, readJsonList } from "@/lib/validation";
 import {
   ProposalAmenitySchema,
   ProposalChargeSchema,
@@ -43,16 +43,16 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     leadSourceContactId: formId(formData, "leadSourceContactId"),
     contractType: str("contractType"),
     guestType: str("guestType"),
-    submittedOn: str("submittedOn"),
-    checkIn: str("checkIn"),
-    checkOut: str("checkOut"),
-    declinedReason: str("declinedReason"),
-    notes: str("notes"),
+    submittedOn: formDateKey(formData, "submittedOn"),
+    checkIn: formDateKey(formData, "checkIn"),
+    checkOut: formDateKey(formData, "checkOut"),
+    declinedReason: formRawNote(formData, "declinedReason"),
+    notes: formRawNote(formData, "notes"),
     revision: formInt(formData, "revision", { min: 1 }) ?? 1,
-    revisionSummary: str("revisionSummary"),
+    revisionSummary: formRawNote(formData, "revisionSummary"),
     allowedAttrition: num("allowedAttrition"),
     guaranteedRevenue: num("guaranteedRevenue"),
-    validUntil: str("validUntil"),
+    validUntil: formDateKey(formData, "validUntil"),
     // "true" / "false"; blank = not stated.
     taxIncluded: formData.get("taxIncluded") === "true" ? true : formData.get("taxIncluded") === "false" ? false : null,
     amenities: readJsonList(formData, "amenities", ProposalAmenitySchema),
@@ -62,7 +62,7 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     spaces: optional("spaces", (k) => readJsonList(formData, k, ProposalSpaceSchema)),
     fbMinimum: optional("fbMinimum", num),
     fbMinimumScope: optional("fbMinimumScope", (k) => scopeOrNull(formData.get(k))),
-    fbMinimumNote: optional("fbMinimumNote", str),
+    fbMinimumNote: optional("fbMinimumNote", (k) => formRawNote(formData, k)),
     fbTaxRate: optional("fbTaxRate", num),
     fbServiceCharge: optional("fbServiceCharge", num),
     meals: optional("meals", (k) => readJsonList(formData, k, ProposalMealSchema)),

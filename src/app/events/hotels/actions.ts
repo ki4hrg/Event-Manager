@@ -22,7 +22,7 @@ import {
 } from "./core";
 import { readNewHotel } from "./proposalArgs";
 import { readProposal } from "./readProposal";
-import { formInt, formNote, formNumber, idSchema, parseArgs, readJsonList } from "@/lib/validation";
+import { formDateKey, formInt, formNote, formNumber, formRawNote, idSchema, parseArgs, readJsonList } from "@/lib/validation";
 import { z } from "zod";
 import {
   clearFinalGuestListCore,
@@ -219,9 +219,12 @@ export async function createHotelProposal(eventId: string, formData: FormData) {
 // The proposal card autosaves through this: no redirect.
 export async function updateHotelProposal(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  await updateHotelProposalCore(id, eventId, readProposal(formData), session.user.id);
-  revalidatePath(`/events/${eventId}/hotels`);
-  revalidatePath(`/events/${eventId}/hotels/proposals/${id}`);
+  // The proposal form autosaves: a refusal comes back as { error } for it to show.
+  return withUserErrors(async () => {
+    await updateHotelProposalCore(id, eventId, readProposal(formData), session.user.id);
+    revalidatePath(`/events/${eventId}/hotels`);
+    revalidatePath(`/events/${eventId}/hotels/proposals/${id}`);
+  });
 }
 
 // Called from an RFP's recipients card; the client refreshes.
@@ -386,44 +389,47 @@ export async function createHotelBlock(proposalId: string, eventId: string, form
 // The block card autosaves through this: no redirect.
 export async function updateHotelBlock(blockId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const str = (k: string) => formNote(formData, k);
-  const num = (k: string) => formNumber(formData, k);
-  const int = (k: string) => formInt(formData, k, { min: 0 });
-  await updateHotelBlockCore(
-    blockId,
-    eventId,
-    {
-      contractType: str("contractType"),
-      guestType: str("guestType"),
-      isHq: formData.get("isHq") === "true",
-      checkIn: str("checkIn"),
-      checkOut: str("checkOut"),
-      reservationMethod: str("reservationMethod"),
-      groupCode: str("groupCode"),
-      bookingLink: str("bookingLink"),
-      bookingPhone: str("bookingPhone"),
-      cutoffDate: str("cutoffDate"),
-      contractedOn: str("contractedOn"),
-      cutoffExercised: formData.get("cutoffExercised") === "true" ? true : formData.get("cutoffExercised") === "false" ? false : null,
-      allowedAttrition: num("allowedAttrition"),
-      guaranteedRevenue: num("guaranteedRevenue"),
-      distanceMiles: num("distanceMiles"),
-      driveMinutes: int("driveMinutes"),
-      compRooms: int("compRooms"),
-      attritionBasis: isAttritionBasis(formData.get("attritionBasis")) ? (formData.get("attritionBasis") as HotelAttritionBasis) : null,
-      compRatio: int("compRatio"),
-      staffRooms: int("staffRooms"),
-      notes: str("notes"),
-      nights: readJsonList(formData, "nights", BlockNightSchema),
-      charges: readJsonList(formData, "charges", ProposalChargeSchema),
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/hotels`);
-  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
-  // The saved nights' ids, so the card's next save updates rows it just added.
-  const nights = await prisma.hotelBlockNight.findMany({ where: { blockId }, select: { id: true, night: true, roomType: true } });
-  return nights.map((n) => ({ id: n.id, night: dateKey(n.night), roomType: n.roomType }));
+  // The block card autosaves: a refusal comes back as { error } for it to show.
+  return withUserErrors(async () => {
+    const str = (k: string) => formNote(formData, k);
+    const num = (k: string) => formNumber(formData, k);
+    const int = (k: string) => formInt(formData, k, { min: 0 });
+    await updateHotelBlockCore(
+      blockId,
+      eventId,
+      {
+        contractType: str("contractType"),
+        guestType: str("guestType"),
+        isHq: formData.get("isHq") === "true",
+        checkIn: formDateKey(formData, "checkIn"),
+        checkOut: formDateKey(formData, "checkOut"),
+        reservationMethod: str("reservationMethod"),
+        groupCode: str("groupCode"),
+        bookingLink: str("bookingLink"),
+        bookingPhone: str("bookingPhone"),
+        cutoffDate: formDateKey(formData, "cutoffDate"),
+        contractedOn: formDateKey(formData, "contractedOn"),
+        cutoffExercised: formData.get("cutoffExercised") === "true" ? true : formData.get("cutoffExercised") === "false" ? false : null,
+        allowedAttrition: num("allowedAttrition"),
+        guaranteedRevenue: num("guaranteedRevenue"),
+        distanceMiles: num("distanceMiles"),
+        driveMinutes: int("driveMinutes"),
+        compRooms: int("compRooms"),
+        attritionBasis: isAttritionBasis(formData.get("attritionBasis")) ? (formData.get("attritionBasis") as HotelAttritionBasis) : null,
+        compRatio: formInt(formData, "compRatio", { min: 1 }),
+        staffRooms: int("staffRooms"),
+        notes: formRawNote(formData, "notes"),
+        nights: readJsonList(formData, "nights", BlockNightSchema),
+        charges: readJsonList(formData, "charges", ProposalChargeSchema),
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/hotels`);
+    revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+    // The saved nights' ids, so the card's next save updates rows it just added.
+    const nights = await prisma.hotelBlockNight.findMany({ where: { blockId }, select: { id: true, night: true, roomType: true } });
+    return nights.map((n) => ({ id: n.id, night: dateKey(n.night), roomType: n.roomType }));
+  });
 }
 
 export async function deleteHotelBlock(blockId: string, eventId: string) {

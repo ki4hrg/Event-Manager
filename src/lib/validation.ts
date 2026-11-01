@@ -16,7 +16,14 @@ export const text = (max = 10_000) => z.string().max(max);
 export const nullableNumber = z.number().finite().nullable();
 
 /** A YYYY-MM-DD date key, as the date inputs post them. */
-export const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a YYYY-MM-DD date");
+export const dateKeySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a YYYY-MM-DD date")
+  // A real calendar day: 2026-13-45 has the shape but no date.
+  .refine((s) => {
+    const d = new Date(`${s}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+  }, "Use a real date");
 
 // Lists a form posts as one hidden JSON field are written by the page's own
 // script, so a refusal means a stale or tampered page, not a typing mistake.
@@ -206,4 +213,21 @@ export function formTexts(formData: FormData, key: string, opts: { max?: number;
     throw new UserFacingError(`${fieldLabel(key)} must be a list of short text`);
   }
   return values;
+}
+
+/** An optional YYYY-MM-DD date from a date input, as the key; blank is null, anything else is refused. */
+export function formDateKey(formData: FormData, key: string): string | null {
+  const raw = formString(formData, key);
+  if (!raw) return null;
+  if (!dateKeySchema.safeParse(raw).success) throw new UserFacingError(`${fieldLabel(key)} must be a date`);
+  return raw;
+}
+
+/** Free text kept exactly as typed (notes resent by an autosave), bounded; blank is null. */
+export function formRawNote(formData: FormData, key: string, max = 100_000): string | null {
+  const raw = formData.get(key);
+  const value = typeof raw === "string" ? raw : "";
+  if (!value.trim()) return null;
+  if (value.length > max) throw new UserFacingError(`${fieldLabel(key)} must be at most ${max} characters`);
+  return value;
 }

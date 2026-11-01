@@ -41,6 +41,7 @@ import type { HotelWaiverType } from "@prisma/client";
 import { ConcessionOptions } from "../rfps/RfpConcessionsEditor";
 import { AmenityEditor, type ProposalAmenity } from "./ProposalAmenities";
 import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState, type StoredNight } from "./RoomGridEditor";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 export type ProposalValues = {
   venueId: string;
@@ -527,7 +528,7 @@ export function ProposalForm({
   defaultCheckIn?: string | null;
   defaultCheckOut?: string | null;
   defaultVenueId?: string;
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   cancelHref: string;
 }) {
   const isEdit = !!proposal;
@@ -652,7 +653,9 @@ export function ProposalForm({
     async () => {
       const data = payload.current;
       if (!data) return;
-      await action(data);
+      const result = await action(data);
+      // Thrown here, on the client, so useAutosave shows the server's message.
+      if (isUserError(result)) throw new Error(result.error);
       setFloor(parseInt(data.get("revision") as string) || 1);
     },
     { invalid: gridOver ? "Typed rooms exceed a night's total" : null },
@@ -661,7 +664,7 @@ export function ProposalForm({
   return (
     <form
       ref={formRef}
-      action={autosaving ? undefined : action}
+      action={autosaving ? undefined : async (fd: FormData) => void (await action(fd))}
       onChange={autosaving ? () => setFormVersion((v) => v + 1) : undefined}
       onSubmit={autosaving ? (e) => e.preventDefault() : undefined}
       className={`${cardClass} space-y-6`}

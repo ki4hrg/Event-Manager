@@ -181,7 +181,7 @@ export async function getPickupPattern(filters: PatternFilters) {
   const session = await requirePermission("HOTELS", "VIEW");
   const clean: PatternFilters = {
     seriesId: seriesFilter(filters?.seriesId),
-    city: typeof filters?.city === "string" ? filters.city.slice(0, 200) : undefined,
+    city: typeof filters?.city === "string" && filters.city.length <= 200 ? filters.city : undefined,
     contractTypes: texts(filters?.contractTypes),
     guestTypes: texts(filters?.guestTypes),
     from: dateFilter(filters?.from),

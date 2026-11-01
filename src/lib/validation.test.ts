@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { UserFacingError } from "@/lib/userErrors";
 import { PermissionError } from "@/lib/permissions";
-import { assertIds, formEnum, formId, formIds, formInt, formNumber, formValue, looseCount, looseNumber, looseText, parseArgs, readJsonList } from "./validation";
+import { assertIds, dateKeySchema, formDateKey, formEnum, formId, formIds, formInt, formNumber, formValue, looseCount, looseNumber, looseText, parseArgs, readJsonList } from "./validation";
 
 const Row = z.object({ name: z.string(), n: z.number().nullable() });
 
@@ -90,5 +90,21 @@ describe("form readers", () => {
     expect(() => formInt(fd({ n: "-1" }), "n", { min: 0 })).toThrow("N must be between 0");
     expect(() => formNumber(f, "price")).toThrow("Price must be a number");
     expect(() => formEnum(f, "status", ["NEEDED", "PACKED"], "NEEDED")).toThrow("Pick a status from the list");
+  });
+});
+
+describe("dates", () => {
+  it("accepts real calendar days only", () => {
+    expect(dateKeySchema.safeParse("2026-02-28").success).toBe(true);
+    for (const bad of ["2026-13-45", "2026-02-30", "26-1-1", "soon"]) expect(dateKeySchema.safeParse(bad).success).toBe(false);
+  });
+
+  it("reads a date input's key, blank as none", () => {
+    const f = new FormData();
+    f.set("checkIn", "2026-11-01");
+    f.set("bad", "2026-02-30");
+    expect(formDateKey(f, "checkIn")).toBe("2026-11-01");
+    expect(formDateKey(f, "missing")).toBeNull();
+    expect(() => formDateKey(f, "bad")).toThrow("Bad must be a date");
   });
 });
