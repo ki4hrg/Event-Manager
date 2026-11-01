@@ -45,7 +45,7 @@ export default async function NewCateringOrderPage({
 
   const createCateringOrderAction = async (formData: FormData) => {
     "use server";
-    await createCateringOrder(eventId, formData);
+    return createCateringOrder(eventId, formData);
   };
 
   return (

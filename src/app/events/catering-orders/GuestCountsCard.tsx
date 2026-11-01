@@ -5,6 +5,9 @@ import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { FormError, useActionError } from "@/components/FormError";
+import { keepFormValues } from "@/lib/keepFormValues";
+import type { UserError } from "@/lib/userErrors";
 
 type GuestCountsCardProps = {
   expectedCount: number | null;
@@ -12,7 +15,7 @@ type GuestCountsCardProps = {
   guaranteeCount: number | null;
   // Covers actually served — the Post-Event Report's "# fed".
   actualCount: number | null;
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
 };
 
 function SaveButton() {
@@ -37,6 +40,7 @@ export function GuestCountsCard({
 }: GuestCountsCardProps) {
   const canWrite = useCanWrite("CATERING_ORDERS");
   const [editing, setEditing] = useState(false);
+  const { error, run } = useActionError();
 
   const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6";
 
@@ -69,9 +73,9 @@ export function GuestCountsCard({
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Guest Counts</h2>
       <form
         action={async (formData) => {
-          await action(formData);
-          setEditing(false);
+          if (await run(() => action(formData))) setEditing(false);
         }}
+        onReset={keepFormValues}
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div>
@@ -131,6 +135,7 @@ export function GuestCountsCard({
             />
           </div>
         </div>
+        <FormError error={error} className="mb-4" />
         <div className="flex gap-3">
           <SaveButton />
           <button
