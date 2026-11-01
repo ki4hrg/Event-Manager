@@ -9,6 +9,8 @@ import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { UNCAPPED } from "@/lib/accessLevels";
 import { eventScopeWhere } from "@/app/events/core";
 import { assertIds } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
+import { isSuperAdminUser } from "@/lib/tenant";
 
 // A cap of NONE would leave someone on the staff list — and therefore in their
 // own events list — while denying them the event entirely. Removing the staff
@@ -21,6 +23,13 @@ export function parseAccessCap(value: unknown): AccessCap | null {
   throw new Error(
     `Invalid access level: ${JSON.stringify(value)}. Use VIEW, WRITE, DELETE, or null for uncapped. Remove the staff assignment to revoke access.`,
   );
+}
+
+// A staff member's cap narrows their access to the event; lifting your own
+// would widen your access past what an admin set. Platform admins are exempt.
+async function refuseOwnCapChange(actorUserId: string) {
+  if (await isSuperAdminUser(actorUserId)) return;
+  throw new UserFacingError("You can't change your own access to an event; ask an admin");
 }
 
 /**
@@ -54,6 +63,14 @@ export async function addEventStaffCore(
     select: { id: true },
   });
   if (!member) throw new PermissionError("NOT_FOUND", "User is not a member of this tenant");
+  // Re-adding yourself with a different cap would lift your own cap.
+  if (args.userId === actorUserId && args.accessLevel !== undefined) {
+    const own = await prisma.eventStaff.findUnique({
+      where: { userId_eventId: { userId: args.userId, eventId: args.eventId } },
+      select: { accessLevel: true },
+    });
+    if (own && own.accessLevel !== args.accessLevel) await refuseOwnCapChange(actorUserId);
+  }
 
   return prisma.eventStaff.upsert({
     where: { userId_eventId: { userId: args.userId, eventId: args.eventId } },
@@ -81,9 +98,10 @@ export async function setEventStaffLevelCore(
 
   const existing = await prisma.eventStaff.findFirst({
     where: { id: args.staffId, eventId: args.eventId },
-    select: { id: true },
+    select: { id: true, userId: true },
   });
   if (!existing) throw new PermissionError("NOT_FOUND");
+  if (existing.userId === actorUserId) await refuseOwnCapChange(actorUserId);
 
   return prisma.eventStaff.update({
     where: { id: existing.id },

@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { UserFacingError } from "@/lib/userErrors";
 import { roleWithinCeiling } from "@/lib/permissions";
 import { makeMember, makeRole, makeTenant } from "../../../../test/fixtures";
-import { createUser, removeUserFromTenant } from "./actions";
+import { createUser, removeUserFromTenant, resendPasswordResetEmail, updateUser } from "./actions";
+import { setEventStaffLevelCore } from "@/app/events/[id]/staff/core";
+import { PermissionScope } from "@prisma/client";
 
 // revalidatePath needs Next's request store; the invite email isn't under test.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -61,5 +63,33 @@ describe("role ceiling (#284): USERS WRITE can't hand out more than the caller h
     const grant = (resource: PermissionResource, level: PermissionLevel) => ({ resource, scope: "GLOBAL" as const, level });
     expect(await roleWithinCeiling(managerId, tenantId, [grant(USERS, WRITE)])).toBe(true);
     expect(await roleWithinCeiling(managerId, tenantId, [grant(EVENTS, WRITE)])).toBe(false);
+  });
+
+  it("refuses editing an Admin's email, or sending them a reset link: that would take over the account", async () => {
+    const { tenantId, admin } = await userManager();
+    const target = await prisma.user.create({ data: { email: `boss-${admin.id}@example.test` } });
+    await prisma.tenantMembership.create({ data: { tenantId, userId: target.id, roleId: admin.id } });
+    await expect(updateUser(target.id, form({ email: "attacker@example.test", roleId: admin.id }))).rejects.toBeInstanceOf(UserFacingError);
+    await expect(resendPasswordResetEmail(target.id)).rejects.toBeInstanceOf(UserFacingError);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: target.id } })).email).toBe(`boss-${admin.id}@example.test`);
+  });
+
+  it("refuses moving a member from a lower role to one above the caller's", async () => {
+    const { tenantId, admin, viewer } = await userManager();
+    const target = await prisma.user.create({ data: { email: `v-${viewer.id}@example.test` } });
+    await prisma.tenantMembership.create({ data: { tenantId, userId: target.id, roleId: viewer.id } });
+    await expect(updateUser(target.id, form({ email: target.email!, roleId: admin.id }))).rejects.toBeInstanceOf(UserFacingError);
+    expect((await prisma.tenantMembership.findFirstOrThrow({ where: { tenantId, userId: target.id } })).roleId).toBe(viewer.id);
+  });
+});
+
+describe("event staff caps: nobody lifts their own", () => {
+  it("refuses a capped staff member clearing their own cap", async () => {
+    const tenant = await makeTenant();
+    const user = await makeMember(tenant.id, { [EVENTS]: DELETE }, PermissionScope.ASSIGNED);
+    const event = await prisma.event.create({ data: { tenantId: tenant.id, name: "E", startDate: new Date("2026-11-01"), endDate: new Date("2026-11-02") } });
+    const staff = await prisma.eventStaff.create({ data: { eventId: event.id, userId: user.id, accessLevel: "WRITE" } });
+    await expect(setEventStaffLevelCore({ staffId: staff.id, eventId: event.id, accessLevel: null }, user.id)).rejects.toBeInstanceOf(UserFacingError);
+    expect((await prisma.eventStaff.findUniqueOrThrow({ where: { id: staff.id } })).accessLevel).toBe("WRITE");
   });
 });

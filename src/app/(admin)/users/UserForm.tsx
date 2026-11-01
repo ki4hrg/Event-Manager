@@ -59,6 +59,9 @@ export function UserForm({
   const [editing, setEditing] = useState(isCreate);
   const [error, setError] = useState<string | null>(null);
   const isSelf = !!user && !!currentUserId && user.id === currentUserId;
+  // A member whose role is above the signed-in admin's ceiling (#284): the
+  // server refuses edits and removal, so they aren't offered.
+  const outOfReach = !!user && !isSelf && roles.find((r) => r.id === user.roleId)?.assignable === false;
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -120,7 +123,12 @@ export function UserForm({
               </div>
             )}
           </dl>
-          <div className="mt-6 flex flex-wrap gap-3">
+          {outOfReach && (
+            <p className="mt-6 text-sm text-gray-600 dark:text-gray-400">
+              This member&rsquo;s role has access you don&rsquo;t have, so only someone with at least that access can change them.
+            </p>
+          )}
+          <div className={`mt-6 flex flex-wrap gap-3 ${outOfReach ? "hidden" : ""}`}>
             <button
               onClick={() => setEditing(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
