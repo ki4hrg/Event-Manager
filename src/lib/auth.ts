@@ -1,3 +1,4 @@
+import { envValue } from "./envValue";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -134,11 +135,11 @@ export function getOAuthSigningSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-// The secret for sessions and MCP tokens. A blank or whitespace-only
-// AUTH_SECRET is unset, as the startup check reads it (#275): before, " " was
-// truthy here and became the signing key. A non-blank value is used as
-// written, so existing sessions and tokens stay valid.
+// The secret for sessions and MCP tokens. A value the startup check reads as
+// blank (spaces, or only quotes like "") is unset here too (#275): before, " "
+// was truthy and became the signing key. A non-blank value is used as written,
+// so existing sessions and tokens stay valid.
 function authSecret(): string | undefined {
-  const usable = (v: string | undefined) => (v && v.trim() ? v : undefined);
+  const usable = (v: string | undefined) => (envValue(v) !== undefined ? v : undefined);
   return usable(process.env.AUTH_SECRET) ?? usable(process.env.NEXTAUTH_SECRET);
 }
