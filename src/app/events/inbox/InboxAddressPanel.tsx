@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { btnOutlinedSm, btnPrimary, btnSecondary } from "@/lib/buttonStyles";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 
 // The event's inbox address, `<org>.<name>@<domain>`. Only the name part is
 // editable; the org part is the organization's slug.
@@ -44,7 +44,7 @@ export function InboxAddressPanel({
         setEditing(false);
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't save");
+        setError(actionErrorMessage(e, "Couldn't save"));
       }
     });
 

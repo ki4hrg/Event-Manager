@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { roleBadgeClass } from "@/lib/roleStyles";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 // One editor for both directions of the user <-> tenant relationship: the
 // tenant page lists its members, the user page lists their organizations.
@@ -103,7 +104,7 @@ export function MembershipEditor({
         await fn();
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "An error occurred");
+        setError(actionErrorMessage(e, "An error occurred"));
       }
     });
   }

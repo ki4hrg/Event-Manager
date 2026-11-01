@@ -11,6 +11,7 @@ import {
 } from "@/components/AccessLevelSelect";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 type Assignment = {
   id: string;
@@ -70,7 +71,7 @@ export function EventAccessPanel({
         await fn();
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        setError(actionErrorMessage(err, "Something went wrong"));
       }
     });
   }
@@ -138,7 +139,7 @@ export function EventAccessPanel({
                   setSeriesId("");
                   router.refresh();
                 } catch (err) {
-                  setError(err instanceof Error ? err.message : "Could not grant access");
+                  setError(actionErrorMessage(err, "Could not grant access"));
                 }
               });
             }}

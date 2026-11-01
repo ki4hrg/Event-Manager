@@ -25,7 +25,7 @@ import {
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 
 type ItemWithExtras = SupplyOrderItem & {
   equipment: Equipment | null;
@@ -166,7 +166,7 @@ function InlineContainerCreate({
                 setOpen(false);
                 setName("");
               } catch (e) {
-                setError(e instanceof Error ? e.message : "Couldn't create that container.");
+                setError(actionErrorMessage(e, "Couldn't create that container."));
               }
             })
           }
@@ -466,7 +466,7 @@ function ContainerContentsAction({
       try {
         setCounts(await preview(containerLocationId));
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't read this container's contents.");
+        setError(actionErrorMessage(e, "Couldn't read this container's contents."));
       }
     });
   };
@@ -529,7 +529,7 @@ function ContainerContentsAction({
                       ].toLowerCase()}.`,
                     );
                   } catch (e) {
-                    setError(e instanceof Error ? e.message : "Couldn't update the contents.");
+                    setError(actionErrorMessage(e, "Couldn't update the contents."));
                   }
                 })
               }

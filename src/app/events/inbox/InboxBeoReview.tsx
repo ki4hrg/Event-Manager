@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 
 const selectClass =
   "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm";
@@ -104,7 +104,7 @@ export function InboxBeoReview({ review, apply, cancelHref }: { review: BeoRevie
                 const result = await apply(orderId, Array.from(picked));
                 if (isUserError(result)) setError(result.error);
               } catch (e) {
-                setError(e instanceof Error ? e.message : "Couldn't apply");
+                setError(actionErrorMessage(e, "Couldn't apply"));
               }
             })
           }

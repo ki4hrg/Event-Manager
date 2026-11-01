@@ -16,7 +16,7 @@ import { LocationSelect, type LocationOption } from "@/components/ui/LocationSel
 import { PackingSubstatusSelect, type PackingSubstatusOption } from "@/components/ui/PackingSubstatusSelect";
 import type { PackableItem, PackingListPayload } from "../../packing/actions";
 import type { ReturnToLocationResult } from "../../packing/core";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 
 // An omitted sub-state is cleared when the status changes.
 type ToggleSupply = (itemId: string, supplyOrderId: string, status: PackingStatus, substatus?: string | null) => Promise<void>;
@@ -325,7 +325,7 @@ export function PackingListClient({
         clearSelection();
         router.refresh();
       } catch (e) {
-        setReturnError(e instanceof Error ? e.message : "Couldn't file those items.");
+        setReturnError(actionErrorMessage(e, "Couldn't file those items."));
       }
     });
   }

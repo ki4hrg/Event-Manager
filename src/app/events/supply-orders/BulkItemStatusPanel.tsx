@@ -10,6 +10,7 @@ import {
   PACKING_STATUS_OPTIONS,
   packingStatusText,
 } from "@/lib/statusConstants";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 type Props = {
   itemCount: number;
@@ -52,7 +53,7 @@ export function BulkItemStatusPanel({ itemCount, packingSubstatusOptions, bulkSe
         await bulkSetPacking(pendingPacking.status, pendingPacking.substatus);
         setPendingPacking(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update packing status");
+        setError(actionErrorMessage(err, "Failed to update packing status"));
       }
     });
   };
@@ -65,7 +66,7 @@ export function BulkItemStatusPanel({ itemCount, packingSubstatusOptions, bulkSe
         await bulkSetAcquisition(pendingAcquisition);
         setPendingAcquisition(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update acquisition state");
+        setError(actionErrorMessage(err, "Failed to update acquisition state"));
       }
     });
   };

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { btnPrimary, btnOutlinedSm } from "@/lib/buttonStyles";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 import { keepFormValues } from "@/lib/keepFormValues";
 
 type SeriesEvent = { id: string; name: string; year: string };
@@ -58,7 +58,7 @@ export function SeriesList({
       setAdding(false);
       startTransition(() => router.refresh());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create series");
+      setError(actionErrorMessage(err, "Could not create series"));
     }
   }
 
@@ -73,7 +73,7 @@ export function SeriesList({
       setEditingId(null);
       startTransition(() => router.refresh());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not rename series");
+      setError(actionErrorMessage(err, "Could not rename series"));
     }
   }
 
@@ -87,7 +87,7 @@ export function SeriesList({
       }
       startTransition(() => router.refresh());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete series");
+      setError(actionErrorMessage(err, "Could not delete series"));
     }
   }
 

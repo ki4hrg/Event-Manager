@@ -9,7 +9,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 import type { SupplyOrderTarget } from "../../actions";
 import type { AddInventoryResult } from "@/app/events/supply-orders/core";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 import { keepFormValues } from "@/lib/keepFormValues";
 
 type ItemWithEquipment = InventoryItem & {
@@ -147,7 +147,7 @@ function InlineEquipmentCreate({
                 setOpen(false);
                 setName("");
               } catch (e) {
-                setError(e instanceof Error ? e.message : "Couldn't create that equipment.");
+                setError(actionErrorMessage(e, "Couldn't create that equipment."));
               }
             })
           }
@@ -332,7 +332,7 @@ function AddItemForm({
           router.refresh();
         } catch (e) {
           refused.current = true;
-          setError(e instanceof Error ? e.message : "Couldn't add that item.");
+          setError(actionErrorMessage(e, "Couldn't add that item."));
         }
       }}
       className="space-y-2"
@@ -372,7 +372,7 @@ function EditItemForm({
           const result = await onSubmit(formData);
           if (isUserError(result)) setError(result.error);
         } catch (e) {
-          setError(e instanceof Error ? e.message : "Couldn't save that item.");
+          setError(actionErrorMessage(e, "Couldn't save that item."));
         }
       }}
       className="space-y-2"
@@ -537,7 +537,7 @@ export function LocationContents({
         clearSelection();
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "That didn't work.");
+        setError(actionErrorMessage(e, "That didn't work."));
       }
     });
   };
@@ -701,7 +701,7 @@ export function LocationContents({
                       clearSelection();
                       router.refresh();
                     } catch (e) {
-                      setError(e instanceof Error ? e.message : "Couldn't add those items.");
+                      setError(actionErrorMessage(e, "Couldn't add those items."));
                     }
                   })
                 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 const AUTOSAVE_MS = 800;
 
@@ -30,7 +31,7 @@ export function useAutosave<T>(value: T, save: (value: T) => Promise<void>, { in
         setSavedOnce(true);
         setError(null);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't save");
+        setError(actionErrorMessage(e, "Couldn't save"));
       } finally {
         setSaving(false);
       }

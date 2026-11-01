@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 import { keepFormValues } from "@/lib/keepFormValues";
 
 type Props = {
@@ -27,7 +27,7 @@ export function SendTestEmailForm({ action, defaultTo, disabled }: Props) {
       } catch (e) {
         setStatus({
           kind: "error",
-          message: e instanceof Error ? e.message : "Send failed.",
+          message: actionErrorMessage(e, "Send failed."),
         });
       }
     });

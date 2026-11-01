@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCanWrite } from "@/components/PermissionsProvider";
-import { isUserError, type UserError } from "@/lib/userErrors";
+import { isUserError, type UserError, actionErrorMessage } from "@/lib/userErrors";
 
 export function CopyFormLink({ token }: { token: string }) {
   const [copied, setCopied] = useState(false);
@@ -89,7 +89,7 @@ export function DeleteFormLink({ deleteLink }: { deleteLink: () => Promise<void 
               setConfirming(false);
               router.refresh();
             } catch (e) {
-              setError(e instanceof Error ? e.message : "Couldn't delete the link");
+              setError(actionErrorMessage(e, "Couldn't delete the link"));
             }
           })
         }

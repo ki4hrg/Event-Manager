@@ -7,6 +7,7 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { roleBadgeClass } from "@/lib/roleStyles";
 import { DEFAULT_ROLE_NAME } from "@/app/(admin)/users/roles/resources";
 import { keepFormValues } from "@/lib/keepFormValues";
+import { actionErrorMessage } from "@/lib/userErrors";
 
 function SubmitButton({ isCreate }: { isCreate: boolean }) {
   const { pending } = useFormStatus();
@@ -68,7 +69,7 @@ export function UserForm({
     try {
       await saveAction(formData);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "An error occurred");
+      setError(actionErrorMessage(e, "An error occurred"));
     }
   }
 
