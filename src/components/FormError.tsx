@@ -13,14 +13,12 @@ import {
 import { keepFormValues } from "@/lib/keepFormValues";
 import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 
-// Runs a form's Server Action and keeps the refusal to show (#252): a
-// `{ error }` from withUserErrors shows its sentence, a throw shows
-// `fallback`. `run` resolves true when the action went through, so the
-// caller closes its editor only then. A form that closes or navigates on
-// success pairs with `onReset={keepFormValues}`; one that stays on screen
-// uses `onReset={keepOnRefusal}`, so a refusal keeps what was typed but a
-// save lets React reset the fields to the values the server stored.
-export function useActionError(fallback = "Couldn't save. Try again.") {
+// Runs a form's Server Action for ActionForm (#252): a `{ error }` from
+// withUserErrors shows its sentence, a throw shows `fallback` (a redirect or
+// notFound is rethrown by actionErrorMessage). `run` resolves true when the
+// action went through. `keepOnRefusal` cancels React's post-action reset only
+// after a refusal.
+function useActionError(fallback = "Couldn't save. Try again.") {
   const [error, setError] = useState<string | null>(null);
   const refused = useRef(false);
   const run = useCallback(
@@ -51,7 +49,7 @@ export function useActionError(fallback = "Couldn't save. Try again.") {
   return { error, setError, run, keepOnRefusal };
 }
 
-export function FormError({ error, className = "" }: { error: string | null; className?: string }) {
+function FormError({ error, className = "" }: { error: string | null; className?: string }) {
   if (!error) return null;
   return (
     <p
@@ -94,7 +92,17 @@ export function ActionForm({
   return (
     <form
       action={async (formData) => {
-        if (await run(() => action(formData))) onDone?.();
+        let saved: boolean;
+        try {
+          saved = await run(() => action(formData));
+        } catch (navigation) {
+          // run only lets Next's redirect / notFound through: the action went
+          // through and navigated (often to this same page with ?success=,
+          // where this component keeps its state), so close the editor too.
+          onDone?.();
+          throw navigation;
+        }
+        if (saved) onDone?.();
       }}
       onReset={keepValues === "always" ? keepFormValues : keepOnRefusal}
       onSubmit={onSubmit}

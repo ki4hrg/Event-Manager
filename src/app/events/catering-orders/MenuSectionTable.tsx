@@ -56,7 +56,7 @@ export function MenuSectionTable({
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Menu</h2>
         {canWrite && (
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => { setMenuError(false); setShowAddForm(true); }}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
           >
             Add Section
@@ -67,7 +67,7 @@ export function MenuSectionTable({
       {showAddForm && (
         <ActionForm
           action={createSection}
-          onDone={() => setShowAddForm(false)}
+          onDone={() => { setMenuError(false); setShowAddForm(false); }}
           onSubmit={(e) => {
             if (isRichTextEmpty(e.currentTarget, "menuContent")) {
               e.preventDefault();
@@ -100,7 +100,7 @@ export function MenuSectionTable({
             <SubmitButton label="Add" />
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
+              onClick={() => { setMenuError(false); setShowAddForm(false); }}
               className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
             >
               Cancel
@@ -118,7 +118,7 @@ export function MenuSectionTable({
               {editingId === section.id ? (
                 <ActionForm
                   action={(fd) => updateSection(section.id, fd)}
-                  onDone={() => setEditingId(null)}
+                  onDone={() => { setMenuError(false); setEditingId(null); }}
                   onSubmit={(e) => {
                     if (isRichTextEmpty(e.currentTarget, "menuContent")) {
                       e.preventDefault();
@@ -152,7 +152,7 @@ export function MenuSectionTable({
                     <SubmitButton label="Save" />
                     <button
                       type="button"
-                      onClick={() => setEditingId(null)}
+                      onClick={() => { setMenuError(false); setEditingId(null); }}
                       className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
                     >
                       Cancel
@@ -167,7 +167,7 @@ export function MenuSectionTable({
                     </span>
                     <div className="flex gap-2 ml-2 shrink-0">
                       {canWrite && (
-                        <button onClick={() => setEditingId(section.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
+                        <button onClick={() => { setMenuError(false); setEditingId(section.id); }} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                       )}
                       {canDelete && (
                         <InlineConfirmButton
