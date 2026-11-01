@@ -25,7 +25,7 @@ import {
   type SupplyItemWriteArgs,
   type BulkSupplyOrderUpdates,
 } from "./core";
-import { formEnum, formId, formInt, formNote, formValue } from "@/lib/validation";
+import { formEnum, formId, formInt, formName, formNote } from "@/lib/validation";
 
 export async function getSupplyOrders(eventId: string) {
   await requirePermission("SUPPLY_ORDERS", "VIEW", eventId);
@@ -101,7 +101,7 @@ export async function createSupplyOrder(eventId: string, formData: FormData) {
   const supplyOrder = await createSupplyOrderCore(
     eventId,
     {
-      name: formValue(formData, "name")?.trim(),
+      name: formName(formData, "name")?.trim(),
       roomId: formId(formData, "roomId"),
       specificLocation: formNote(formData, "specificLocation"),
       notes: formNote(formData, "notes"),
@@ -125,7 +125,7 @@ export async function updateSupplyOrder(id: string, eventId: string, formData: F
     id,
     eventId,
     {
-      name: formValue(formData, "name")?.trim(),
+      name: formName(formData, "name")?.trim(),
       roomId: formId(formData, "roomId"),
       specificLocation: formNote(formData, "specificLocation"),
       notes: formNote(formData, "notes"),

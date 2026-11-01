@@ -42,7 +42,7 @@ import {
   type AVEquipmentItemWriteArgs,
   type BulkAVOrderUpdates,
 } from "./core";
-import { formId, formInt, formNote, formValue } from "@/lib/validation";
+import { formId, formInt, formName, formNote, formValue } from "@/lib/validation";
 
 export async function getAVOrders(eventId: string) {
   await requirePermission("AV_ORDERS", "VIEW", eventId);
@@ -146,7 +146,7 @@ export async function createAVOrder(eventId: string, formData: FormData) {
   const avOrder = await createAVOrderCore(
     eventId,
     {
-      name: formValue(formData, "name"),
+      name: formName(formData, "name"),
       notes: formNote(formData, "notes"),
       functionId: formId(formData, "functionId"),
       presentationId: formId(formData, "presentationId"),
@@ -164,7 +164,7 @@ export async function updateAVOrder(id: string, eventId: string, formData: FormD
     id,
     eventId,
     {
-      name: formValue(formData, "name"),
+      name: formName(formData, "name"),
       notes: formNote(formData, "notes"),
     },
     session.user.id,
@@ -291,7 +291,7 @@ export async function createInputGroup(audioSectionId: string, avOrderId: string
     avOrderId,
     eventId,
     {
-      name: formValue(formData, "name") || "Default",
+      name: formName(formData, "name") || "Default",
       notes: formNote(formData, "notes"),
     },
     session.user.id,
@@ -306,7 +306,7 @@ export async function updateInputGroup(id: string, avOrderId: string, eventId: s
     avOrderId,
     eventId,
     {
-      name: formValue(formData, "name"),
+      name: formName(formData, "name"),
       providerVendorId: formId(formData, "providerVendorId"),
       providerContactId: formId(formData, "providerContactId"),
       operatorVendorId: formId(formData, "operatorVendorId"),

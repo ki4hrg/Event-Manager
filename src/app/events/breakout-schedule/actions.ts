@@ -8,7 +8,7 @@ import { redirect, notFound } from "next/navigation";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { defaultScheduleType } from "@/lib/scheduleTypes";
 import { assertEventRefs } from "@/lib/eventRefs";
-import { assertIds, formInt, formValue } from "@/lib/validation";
+import { assertIds, formInt, formName, formValue } from "@/lib/validation";
 
 async function assertBreakoutGroupInEvent(groupId: string, eventId: string) {
   assertIds(groupId);
@@ -124,7 +124,7 @@ export async function getUngroupedBlocks(eventId: string) {
 
 export async function createBreakoutGroup(eventId: string, formData: FormData) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const name = formValue(formData, "name");
+  const name = formName(formData, "name");
 
   const maxOrder = await prisma.breakoutGroup.findFirst({
     where: { eventId },
@@ -149,7 +149,7 @@ export async function updateBreakoutGroup(
   formData: FormData
 ) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const name = formValue(formData, "name");
+  const name = formName(formData, "name");
 
   await prisma.breakoutGroup.update({
     where: { id: groupId, eventId },
@@ -258,7 +258,7 @@ export async function createSessionInGroup(
 ) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertBreakoutGroupInEvent(groupId, eventId);
-  const name = formValue(formData, "name");
+  const name = formName(formData, "name");
   const startTime = formValue(formData, "startTime");
   const endTime = formValue(formData, "endTime");
 

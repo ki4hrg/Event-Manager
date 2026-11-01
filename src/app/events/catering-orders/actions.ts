@@ -41,7 +41,7 @@ import {
   type ServiceLocationWriteArgs,
   type BulkCateringOrderUpdates,
 } from "./core";
-import { formId, formInt, formNote, formNumber, formRequiredId, formValue, parseWhole } from "@/lib/validation";
+import { formId, formInt, formName, formNote, formNumber, formRequiredId, formValue, parseWhole } from "@/lib/validation";
 import { UserFacingError } from "@/lib/userErrors";
 
 export async function getCateringOrders(eventId: string) {
@@ -114,7 +114,7 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
   const cateringOrder = await createCateringOrderCore(
     eventId,
     {
-      name: formValue(formData, "name"),
+      name: formName(formData, "name"),
       functionId: formId(formData, "functionId"),
       serviceStyle: formNote(formData, "serviceStyle"),
       mealType: formNote(formData, "mealType"),
@@ -145,7 +145,7 @@ export async function updateCateringOrderDetails(id: string, eventId: string, fo
     id,
     eventId,
     {
-      name: formValue(formData, "name"),
+      name: formName(formData, "name"),
       serviceStyle: formNote(formData, "serviceStyle"),
       mealType: formNote(formData, "mealType"),
       notes: formNote(formData, "notes"),

@@ -27,7 +27,7 @@ import {
   renumberFunctionsCore,
   type BulkFunctionUpdates,
 } from "./core";
-import { formId, formIds, formInt, formNote, formRequiredId, formValue, idList, parseArgs } from "@/lib/validation";
+import { formId, formIds, formInt, formName, formNote, formRequiredId, formValue, idList, parseArgs } from "@/lib/validation";
 
 export async function getFunctions(eventId: string) {
   await requirePermission("FUNCTIONS", "VIEW", eventId);
@@ -167,11 +167,11 @@ export async function createFunction(eventId: string, formData: FormData) {
   const fn = await createFunctionCore(
     eventId,
     {
-      name: formValue(formData, "name"),
+      name: formName(formData, "name"),
       description: formNote(formData, "description"),
-      type: type || "",
+      type,
       notes: formNote(formData, "notes"),
-      offSiteLocation: (formValue(formData, "offSiteLocation"))?.trim() || null,
+      offSiteLocation: formNote(formData, "offSiteLocation"),
       roomIds: formIds(formData, "roomIds"),
       breakoutGroupId: formId(formData, "breakoutGroupId"),
       startTime: formNote(formData, "startTime"),
@@ -195,11 +195,11 @@ export async function updateFunction(id: string, eventId: string, formData: Form
     id,
     eventId,
     {
-      name: formValue(formData, "name"),
+      name: formName(formData, "name"),
       description: formNote(formData, "description"),
-      type: (formValue(formData, "type")) || "",
+      type: formValue(formData, "type"),
       notes: formNote(formData, "notes"),
-      offSiteLocation: (formValue(formData, "offSiteLocation"))?.trim() || null,
+      offSiteLocation: formNote(formData, "offSiteLocation"),
       roomIds: formIds(formData, "roomIds"),
       breakoutGroupId: formId(formData, "breakoutGroupId"),
     },
@@ -215,7 +215,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
 export async function updateFunctionEsg(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   const post = formValue(formData, "postToReaderBoard");
-  const intOrNull = (field: string) => formInt(formData, field, { min: 0 });
+  const intOrNull = (field: string) => formInt(formData, field, { min: 0 }); // ESG counts
   await updateFunctionEsgCore(
     id,
     eventId,

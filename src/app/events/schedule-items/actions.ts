@@ -58,7 +58,7 @@ export async function bulkUpdateScheduleItems(
 ) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
   ids = parseArgs(idList(5_000), ids);
-  updates = parseArgs(z.strictObject({ type: z.string().max(500).optional(), isPublic: z.boolean().optional() }), updates);
+  updates = parseArgs(z.strictObject({ type: z.string().max(1_000).optional(), isPublic: z.boolean().optional() }), updates);
   const data: { type?: string; isPublic?: boolean } = {};
   if (updates.type !== undefined) data.type = updates.type;
   if (updates.isPublic !== undefined) data.isPublic = updates.isPublic;

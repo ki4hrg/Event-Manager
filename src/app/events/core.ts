@@ -1,6 +1,8 @@
 // Pure cores for event + event key staff mutations. NOT a "use server" file.
 // See src/app/contacts/core.ts for the security rationale.
 
+import { UserFacingError } from "@/lib/userErrors";
+import { MODEL_TYPES } from "@/app/vendors/model-types";
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -86,6 +88,18 @@ function attendanceData(args: EventWriteArgs) {
   };
 }
 
+// A timezone every schedule write on the event will format with: an unknown
+// one would make each of them throw. Blank is the default.
+function checkedTimezone(tz: string | null | undefined): string {
+  if (!tz) return "America/Chicago";
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+  } catch {
+    throw new UserFacingError("Pick a time zone from the list");
+  }
+  return tz;
+}
+
 export async function createEventCore(input: EventWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", { tenantId });
   const args = { ...input, venueIds: Array.from(new Set(input.venueIds)) };
@@ -100,7 +114,7 @@ export async function createEventCore(input: EventWriteArgs, userId: string, ten
       description: args.description,
       startDate: args.startDate,
       endDate: args.endDate,
-      timezone: args.timezone || "America/Chicago",
+      timezone: checkedTimezone(args.timezone),
       seriesId: args.seriesId,
       ...attendanceData(args),
       venues: { create: eventVenueRows(args.venueIds) },
@@ -124,7 +138,7 @@ export async function updateEventCore(id: string, input: EventWriteArgs, userId:
       description: args.description,
       startDate: args.startDate,
       endDate: args.endDate,
-      timezone: args.timezone || "America/Chicago",
+      timezone: checkedTimezone(args.timezone),
       seriesId: args.seriesId,
       ...attendanceData(args),
       venues: { deleteMany: {}, create: eventVenueRows(args.venueIds) },
@@ -167,6 +181,16 @@ export type AddEventKeyStaffArgs = KeyStaffEsgArgs & {
   models: string[];
 };
 
+// The order types a key staff member covers, as the form and the MCP tools
+// send them: each must be one of MODEL_TYPES.
+function checkedModels(models: unknown): string[] {
+  const known = new Set<string>(MODEL_TYPES.map((t) => t.value));
+  if (!Array.isArray(models) || !models.every((m): m is string => typeof m === "string" && known.has(m))) {
+    throw new UserFacingError("Pick order types from the list");
+  }
+  return Array.from(new Set(models));
+}
+
 export async function addEventKeyStaffCore(args: AddEventKeyStaffArgs, userId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", args.eventId);
   await assertEventRefs(args.eventId, { contactIds: [args.contactId] });
@@ -175,7 +199,7 @@ export async function addEventKeyStaffCore(args: AddEventKeyStaffArgs, userId: s
       eventId: args.eventId,
       contactId: args.contactId,
       title: args.title,
-      models: args.models,
+      models: checkedModels(args.models),
       ...keyStaffEsgData(args),
     },
   });
@@ -194,7 +218,7 @@ export async function updateEventKeyStaffCore(args: UpdateEventKeyStaffArgs, use
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", args.eventId);
   const row = await prisma.eventKeyStaff.update({
     where: { id: args.keyStaffId, eventId: args.eventId },
-    data: { title: args.title, models: args.models, ...keyStaffEsgData(args) },
+    data: { title: args.title, models: checkedModels(args.models), ...keyStaffEsgData(args) },
   });
   await prisma.event.update({ where: { id: args.eventId }, data: { updatedById: userId } });
   return row;
@@ -242,7 +266,7 @@ export async function createContactAndAddKeyStaffCore(
         eventId: args.eventId,
         contactId: contact.id,
         title: args.title,
-        models: args.models,
+        models: checkedModels(args.models),
         ...keyStaffEsgData(args),
       },
     });

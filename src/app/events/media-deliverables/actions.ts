@@ -11,7 +11,7 @@ import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { getResponsibleParties, type ResponsiblePartyPool } from "@/lib/responsibleParties";
 import { createMediaDeliverableCore } from "./core";
 import { assertEventRefs } from "@/lib/eventRefs";
-import { assertIds, formId, formIds, formNote, formRequiredId, formValue } from "@/lib/validation";
+import { assertIds, formId, formIds, formName, formNote, formRequiredId, formValue } from "@/lib/validation";
 
 async function assertMediaDeliverableInEvent(mediaDeliverableId: string, eventId: string) {
   assertIds(mediaDeliverableId);
@@ -114,7 +114,7 @@ export async function createMediaDeliverable(eventId: string, formData: FormData
   const deliverable = await createMediaDeliverableCore(
     eventId,
     {
-      name: formValue(formData, "name"),
+      name: formName(formData, "name"),
       ...parseDeliverableData(formData),
       functionIds,
       presentationIds,
@@ -130,7 +130,7 @@ export async function createMediaDeliverable(eventId: string, formData: FormData
 
 export async function updateMediaDeliverable(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  const name = formValue(formData, "name")?.trim();
+  const name = formName(formData, "name")?.trim();
   const data = parseDeliverableData(formData);
   await assertEventRefs(eventId, { vendorIds: [data.providerVendorId], contactIds: [data.providerContactId] });
 

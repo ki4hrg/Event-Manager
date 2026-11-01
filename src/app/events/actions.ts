@@ -3,7 +3,6 @@
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
-import { MODEL_TYPES } from "@/app/vendors/model-types";
 import { requirePermission } from "@/lib/permissions";
 import { eventVenuesInclude } from "@/lib/eventVenues";
 import { revalidatePath } from "next/cache";
@@ -19,8 +18,7 @@ import {
   createContactAndAddKeyStaffCore,
   type EventWriteArgs,
 } from "./core";
-import { formId, formIds, formInt, formNote, formRequiredId, formValue, parseArgs } from "@/lib/validation";
-import { UserFacingError } from "@/lib/userErrors";
+import { formDate, formId, formIds, formInt, formName, formNote, formRequiredId, formValue, parseArgs } from "@/lib/validation";
 
 // `series`: undefined/"" = all, "__blank__" = events with no series, otherwise a series id.
 export async function getEvents(series?: string) {
@@ -47,23 +45,21 @@ export async function getEventSeriesOptions() {
 
 function readEventArgs(formData: FormData): EventWriteArgs {
   return {
-    name: formValue(formData, "name"),
+    name: formName(formData, "name"),
     description: formNote(formData, "description"),
-    startDate: new Date(formValue(formData, "startDate")),
-    endDate: new Date(formValue(formData, "endDate")),
-    timezone: (formValue(formData, "timezone")) || "America/Chicago",
+    startDate: formDate(formData, "startDate"),
+    endDate: formDate(formData, "endDate"),
+    timezone: formValue(formData, "timezone", 100),
     venueIds: formIds(formData, "venueIds"),
     seriesId: formId(formData, "seriesId"),
     isMembershipBased: formData.get("isMembershipBased") === "true",
-    membershipCount: intOrNull(formData, "membershipCount"),
-    expectedAttendance: intOrNull(formData, "expectedAttendance"),
-    actualAttendance: intOrNull(formData, "actualAttendance"),
+    // No floor: the form resends a stored count, which may predate these checks.
+    membershipCount: formInt(formData, "membershipCount"),
+    expectedAttendance: formInt(formData, "expectedAttendance"),
+    actualAttendance: formInt(formData, "actualAttendance"),
   };
 }
 
-function intOrNull(formData: FormData, field: string) {
-  return formInt(formData, field, { min: 0 });
-}
 
 export async function createEvent(formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
@@ -105,14 +101,6 @@ export async function searchContactsForKeyStaff(query: string) {
   });
 }
 
-// The order types a key staff member covers, from the checkboxes.
-function keyStaffModels(formData: FormData): string[] {
-  const known = new Set<string>(MODEL_TYPES.map((t) => t.value));
-  const values = formData.getAll("models");
-  if (!values.every((v): v is string => typeof v === "string" && known.has(v))) throw new UserFacingError("Pick order types from the list");
-  return Array.from(new Set(values));
-}
-
 export async function addEventKeyStaff(eventId: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
   await addEventKeyStaffCore(
@@ -120,7 +108,7 @@ export async function addEventKeyStaff(eventId: string, formData: FormData) {
       eventId,
       contactId: formRequiredId(formData, "contactId", "contact"),
       title: formNote(formData, "title"),
-      models: keyStaffModels(formData),
+      models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
       ...keyStaffEsgFromForm(formData),
     },
     session.user.id,
@@ -139,7 +127,7 @@ export async function updateEventKeyStaff(
       keyStaffId,
       eventId,
       title: formNote(formData, "title"),
-      models: keyStaffModels(formData),
+      models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
       ...keyStaffEsgFromForm(formData),
     },
     session.user.id,
@@ -177,7 +165,7 @@ export async function createContactAndAddKeyStaff(eventId: string, formData: For
       email: formNote(formData, "email"),
       organization: formNote(formData, "organization"),
       title: formNote(formData, "title"),
-      models: keyStaffModels(formData),
+      models: formData.getAll("models").filter((v): v is string => typeof v === "string"),
       ...keyStaffEsgFromForm(formData),
     },
     session.user.id,
@@ -189,7 +177,7 @@ export async function createContactAndAddKeyStaff(eventId: string, formData: For
 // single areas (an RFP may set its own).
 export async function updateEventAreas(id: string, scope: { regions: string[]; areas: string[] }) {
   const session = await requirePermission("EVENTS", "WRITE", id);
-  const list = z.array(z.string().max(200)).max(1_000);
+  const list = z.array(z.string().max(1_000)).max(1_000);
   scope = parseArgs(z.object({ regions: list, areas: list }), scope);
   const clean = (list: string[]) => Array.from(new Set(list.filter(Boolean)));
   await prisma.event.update({ where: { id, tenantId: session.tenantId }, data: { regions: clean(scope.regions), areas: clean(scope.areas), updatedById: session.user.id } });
