@@ -7,6 +7,7 @@ import { requireActiveTenantId } from "@/lib/tenant";
 import { carryEquipmentRename } from "@/lib/equipment-utils";
 import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
+import { formName } from "@/lib/validation";
 
 // getEquipment is auth-only (not EQUIPMENT-gated) because order forms across the
 // app need to read the equipment list to render pickers — gating it on EQUIPMENT
@@ -22,8 +23,8 @@ export async function getEquipment() {
 
 export async function createEquipment(formData: FormData) {
   const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
-  const name = formData.get("name") as string;
-  const category = formData.get("category") as string;
+  const name = formName(formData, "name");
+  const category = formName(formData, "category");
 
   const { _max } = await prisma.equipment.aggregate({
     where: { tenantId, category },
@@ -84,9 +85,10 @@ export async function updateEquipment(id: string, formData: FormData) {
   const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
   const current = await prisma.equipment.findFirst({ where: { id, tenantId }, select: { name: true } });
   if (!current) throw new Error("Equipment not found.");
-  const name = formData.get("name") as string;
+  const name = formName(formData, "name");
+  const category = formName(formData, "category");
   await prisma.$transaction(async (tx) => {
-    await tx.equipment.update({ where: { id, tenantId }, data: { name, category: formData.get("category") as string } });
+    await tx.equipment.update({ where: { id, tenantId }, data: { name, category } });
     await carryEquipmentRename(tx, id, current.name, name);
   });
   revalidatePath("/equipment");

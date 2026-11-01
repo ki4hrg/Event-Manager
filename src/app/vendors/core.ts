@@ -10,6 +10,8 @@ import { refreshWorkflowStatus } from "@/app/events/workflows/core";
 import { requirePermissionForUser, requireEventTenantId, PermissionError } from "@/lib/permissions";
 import { assertEventRefs } from "@/lib/eventRefs";
 import { assertIds } from "@/lib/validation";
+import { MODEL_LABELS } from "./model-types";
+import { UserFacingError } from "@/lib/userErrors";
 
 // Vendor-scoped cores assert the vendor is the tenant's own before touching its
 // contacts; a foreign id reads as not-found.
@@ -37,13 +39,22 @@ export type VendorWriteArgs = {
   notes: string | null;
 };
 
+// A vendor's order types and roles, from the form or an MCP tool: each must
+// be a key of MODEL_LABELS (the order types plus vendor roles).
+function checkedVendorModels(models: unknown): string[] {
+  if (!Array.isArray(models) || !models.every((m): m is string => typeof m === "string" && Object.hasOwn(MODEL_LABELS, m))) {
+    throw new UserFacingError("Pick order types from the list");
+  }
+  return Array.from(new Set(models));
+}
+
 export async function createVendorCore(args: VendorWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
   return prisma.vendor.create({
     data: {
       tenantId,
       name: args.name.trim(),
-      models: args.models,
+      models: checkedVendorModels(args.models),
       notes: args.notes,
       updatedById: userId,
     },
@@ -61,7 +72,7 @@ export async function updateVendorCore(
     where: { id, tenantId },
     data: {
       name: args.name.trim(),
-      models: args.models,
+      models: checkedVendorModels(args.models),
       notes: args.notes,
       updatedById: userId,
     },

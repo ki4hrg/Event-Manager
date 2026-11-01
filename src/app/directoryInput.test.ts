@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../test/fixtures";
 import { createVendor } from "./vendors/actions";
 import { createRoom } from "./venues/actions";
+import { createContactCore } from "./contacts/core";
+import { createVendorCore } from "./vendors/core";
 
 // revalidatePath needs Next's request store, which tests don't have.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -40,5 +42,16 @@ describe("directory forms: checked, not cast", () => {
       createRoom(venue.id, form({ name: "A", capacitySetup: ["Theater"], capacityCount: ["many"] })),
     ).rejects.toThrow("Capacity must be a whole number");
     expect(await prisma.room.count({ where: { venueId: venue.id } })).toBe(0);
+  });
+
+  it("holds the cores (and so MCP) to vendor order types and a contact name", async () => {
+    const { tenantId } = await member({ [PermissionResource.VENDORS]: PermissionLevel.WRITE, [PermissionResource.CONTACTS]: PermissionLevel.WRITE });
+    const user = (await prisma.tenantMembership.findFirstOrThrow({ where: { tenantId } })).userId;
+    await expect(createVendorCore({ name: "Acme", models: ["PAYROLL"], notes: null } as never, user, tenantId)).rejects.toThrow(
+      "Pick order types from the list",
+    );
+    await expect(
+      createContactCore({ firstName: " ", lastName: "", email: null, phone: null, organization: null, notes: null, roles: [] }, user, tenantId),
+    ).rejects.toThrow("Enter a first or last name");
   });
 });

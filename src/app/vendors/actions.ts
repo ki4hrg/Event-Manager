@@ -32,9 +32,7 @@ import {
   removeVendorFromPrintOrderCore,
   type ModelType,
 } from "./core";
-import { formName, formNote, formRequiredId, formValue } from "@/lib/validation";
-import { UserFacingError } from "@/lib/userErrors";
-import { MODEL_TYPES, VENDOR_ROLES } from "./model-types";
+import { formName, formNote, formRequiredId, formTexts, formValue } from "@/lib/validation";
 
 // Re-exported so existing importers (`from "@/app/vendors/actions"`) keep working.
 // New callers should import from "@/app/vendors/core" directly.
@@ -120,20 +118,12 @@ export async function searchVendors(query: string) {
   });
 }
 
-// The order types and roles a vendor covers, from the checkboxes.
-function vendorModels(formData: FormData): string[] {
-  const known = new Set<string>([...MODEL_TYPES.map((t) => t.value), ...VENDOR_ROLES.map((r) => r.value)]);
-  const values = formData.getAll("models");
-  if (!values.every((v): v is string => typeof v === "string" && known.has(v))) throw new UserFacingError("Pick order types from the list");
-  return Array.from(new Set(values));
-}
-
 export async function createVendor(formData: FormData) {
   const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
   const vendor = await createVendorCore(
     {
       name: formName(formData, "name"),
-      models: vendorModels(formData),
+      models: formTexts(formData, "models"),
       notes: formNote(formData, "notes"),
     },
     session.user.id,
@@ -149,7 +139,7 @@ export async function updateVendor(id: string, formData: FormData) {
     id,
     {
       name: formName(formData, "name"),
-      models: vendorModels(formData),
+      models: formTexts(formData, "models"),
       notes: formNote(formData, "notes"),
     },
     session.user.id,

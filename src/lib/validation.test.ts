@@ -108,3 +108,18 @@ describe("dates", () => {
     expect(() => formDateKey(f, "bad")).toThrow("Bad must be a date");
   });
 });
+
+describe("number text", () => {
+  it("reads plain digits only, not hex or exponents", () => {
+    const f = new FormData();
+    f.set("hex", "0x10");
+    f.set("exp", "1e3");
+    f.set("ok", "-12");
+    f.set("dec", "4.50");
+    expect(() => formInt(f, "hex")).toThrow(UserFacingError);
+    expect(() => formInt(f, "exp")).toThrow(UserFacingError);
+    expect(() => formNumber(f, "exp")).toThrow(UserFacingError);
+    expect(formInt(f, "ok")).toBe(-12);
+    expect(formNumber(f, "dec")).toBe(4.5);
+  });
+});

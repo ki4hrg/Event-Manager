@@ -26,7 +26,7 @@ import {
   deleteInventoryItemsCore,
   type InventoryItemWriteArgs,
 } from "./inventory-core";
-import { formId, formName, formNote, formRequiredId, formValue } from "@/lib/validation";
+import { formId, formInt, formName, formNote } from "@/lib/validation";
 
 const LOCATION_TYPE_CATEGORY = "location_type";
 
@@ -138,18 +138,16 @@ export async function getLocationContents(locationId: string) {
 }
 
 function parseInventoryData(formData: FormData): InventoryItemWriteArgs {
-  const rawQuantity = formValue(formData, "quantity");
-  // Nullable int: don't blanket-apply `|| null`, it would turn "0" into null.
-  // A non-numeric entry reads as "no count" rather than sending NaN to Prisma,
-  // which would surface as an opaque error instead of a countless item.
-  const n = rawQuantity ? Number(rawQuantity) : null;
-  const quantity = n !== null && Number.isInteger(n) && n >= 0 && n <= 2_147_483_647 ? n : null;
+  // Blank is no count; anything else must be a whole number (refused with a
+  // message through the actions' withUserErrors, never silently cleared).
+  const quantity = formInt(formData, "quantity", { min: 0 });
 
   return {
     // Form field is `detail`, column is `name` — see the input in ItemFields for
     // why they differ.
     name: formNote(formData, "detail"),
-    equipmentId: formRequiredId(formData, "equipmentId", "equipment"),
+    // The core refuses a missing one with its own message.
+    equipmentId: formId(formData, "equipmentId") ?? "",
     quantity,
     notes: formNote(formData, "notes"),
     archived: formData.get("archived") === "true",

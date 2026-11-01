@@ -26,6 +26,7 @@ import {
   addVenueAmenityCore,
 } from "./core";
 import { formId, formInt, formName, formNote, formRequiredId, formTexts, formValue, parseWhole } from "@/lib/validation";
+import { UserFacingError } from "@/lib/userErrors";
 
 export async function getVenues() {
   const session = await requirePermission(PermissionResource.VENUES, "VIEW");
@@ -99,6 +100,7 @@ export async function deleteVenue(id: string) {
 function readRoomArgs(formData: FormData): RoomWriteArgs {
   const counts = formTexts(formData, "capacityCount", { max: 20 });
   const setups = formTexts(formData, "capacitySetup");
+  if (setups.length !== counts.length) throw new UserFacingError("Each set-up needs a capacity");
   return {
     name: formName(formData, "name"),
     capacity: formInt(formData, "capacity", { min: 0 }),
