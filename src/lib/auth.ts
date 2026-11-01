@@ -9,6 +9,8 @@ const useSecureCookies = process.env.NEXTAUTH_URL?.startsWith("https://");
 export const SECURE_COOKIES = Boolean(useSecureCookies);
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // Explicit, so next-auth signs with the same secret as the MCP tokens.
+  secret: authSecret(),
   trustHost: true,
   cookies: {
     sessionToken: {
@@ -127,7 +129,16 @@ export async function requireAuth() {
 // one. Funnelled through this module because env access is restricted to
 // lib/prisma, lib/auth, lib/uploads.
 export function getOAuthSigningSecret(): Uint8Array {
-  const raw = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
-  if (!raw) throw new Error("AUTH_SECRET (or NEXTAUTH_SECRET) is not set");
-  return new TextEncoder().encode(raw);
+  const secret = authSecret();
+  if (!secret) throw new Error("AUTH_SECRET (or NEXTAUTH_SECRET) is not set");
+  return new TextEncoder().encode(secret);
+}
+
+// The secret for sessions and MCP tokens. A blank or whitespace-only
+// AUTH_SECRET is unset, as the startup check reads it (#275): before, " " was
+// truthy here and became the signing key. A non-blank value is used as
+// written, so existing sessions and tokens stay valid.
+function authSecret(): string | undefined {
+  const usable = (v: string | undefined) => (v && v.trim() ? v : undefined);
+  return usable(process.env.AUTH_SECRET) ?? usable(process.env.NEXTAUTH_SECRET);
 }

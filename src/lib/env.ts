@@ -1,3 +1,4 @@
+import { envValue } from "./envValue";
 import { z } from "zod";
 
 // The environment, checked once at server start (src/instrumentation.ts) so a
@@ -54,11 +55,11 @@ function crossFieldProblems(e: Record<string, string | undefined>): string[] {
   return problems;
 }
 
-// Variables the app reads straight from process.env (lib/auth, lib/prisma,
-// lib/uploads), not through this module: a value this check would clean up
-// (quotes, padding) is used as written there and breaks, so refuse it here
-// rather than pass a value the app then reads differently (#275).
-const READ_RAW = ["NEXTAUTH_URL", "DATABASE_URL", "UPLOAD_DIR"] as const;
+// Variables a library reads straight from process.env (next-auth's
+// NEXTAUTH_URL, Prisma's DATABASE_URL), so the app can't clean them up: a value
+// this check would have changed is refused rather than passed (#275). The
+// app's own readers (lib/auth's secret, lib/uploads) use envValue instead.
+const READ_RAW = ["NEXTAUTH_URL", "DATABASE_URL"] as const;
 
 export function rawReadProblems(source: Record<string, string | undefined>): string[] {
   return READ_RAW.flatMap((key) => {
@@ -68,15 +69,8 @@ export function rawReadProblems(source: Record<string, string | undefined>): str
   });
 }
 
-// The same clean-up lib/email's readEnv applies: trim, and drop one pair of
-// surrounding quotes (an env file or panel that keeps them). Blank is absent.
-function normalize(raw: string): string | undefined {
-  let value = raw.trim();
-  if (value.length >= 2 && (value[0] === '"' || value[0] === "'") && value[value.length - 1] === value[0]) {
-    value = value.slice(1, -1).trim();
-  }
-  return value === "" ? undefined : value;
-}
+// The same clean-up every reader applies (src/lib/envValue.ts).
+const normalize = (raw: string) => envValue(raw);
 
 export type Env = z.infer<typeof schema>;
 

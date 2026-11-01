@@ -1,18 +1,9 @@
 import crypto from "crypto";
+import { envValue } from "./envValue";
 import { prisma } from "@/lib/prisma";
 
 function readEnv(key: string, fallback = ""): string {
-  const raw = process.env[key];
-  if (raw == null) return fallback;
-  let value = raw.trim();
-  if (value.length >= 2) {
-    const first = value[0];
-    const last = value[value.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      value = value.slice(1, -1).trim();
-    }
-  }
-  return value || fallback;
+  return envValue(process.env[key]) ?? fallback;
 }
 
 const MAILGUN_API_KEY = readEnv("MAILGUN_API_KEY");
