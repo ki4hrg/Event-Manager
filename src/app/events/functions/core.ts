@@ -120,6 +120,8 @@ export async function createFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
+  // The first schedule row needs both ends; one alone would silently drop it.
+  if (!args.startTime !== !args.endTime) throw new UserFacingError("Enter both a start and an end time, or neither");
   // Wall-clock comparison: the zone shifts both ends alike.
   if (args.startTime && args.endTime && parseDateTimeInTimezone(args.endTime, "UTC") <= parseDateTimeInTimezone(args.startTime, "UTC")) {
     throw new UserFacingError("End time must be after start time");

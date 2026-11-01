@@ -11,7 +11,7 @@ import { ConflictWarning } from "@/components/ConflictWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { syncRangeEnd } from "@/lib/dateRange";
-import { ActionForm, ActionFormError } from "@/components/FormError";
+import { ActionForm, ActionFormError, FormError } from "@/components/FormError";
 import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 
 type ScheduleListProps = {
@@ -32,6 +32,9 @@ type ScheduleListProps = {
 
 // Room conflicts to confirm, a refusal, or saved (undefined).
 type ScheduleResult = { conflicts: RoomConflict[] } | UserError | undefined;
+
+const hasConflicts = (result: ScheduleResult | undefined): result is { conflicts: RoomConflict[] } =>
+  !!result && "conflicts" in result && result.conflicts.length > 0;
 
 type ConflictFields = {
   type: string;
@@ -164,7 +167,7 @@ export function ScheduleList({
             ? await updateSchedule(pendingConflict.scheduleId, forcedFd)
             : undefined;
       if (isUserError(result)) return setForceError(result.error);
-      if (result?.conflicts?.length) return;
+      if (hasConflicts(result)) return;
       setPendingConflict(null);
       if (pendingConflict.mode === "create") setShowAddForm(false);
       else setEditingId(null);
@@ -211,14 +214,14 @@ export function ScheduleList({
             keepValues="always"
             action={async (formData) => {
               const result = await createSchedule(formData);
-              if (result && "conflicts" in result && result.conflicts.length) {
+              if (hasConflicts(result)) {
                 setForceError(null);
                 setPendingConflict({ conflicts: result.conflicts, fields: conflictFields(formData), mode: "create" });
               }
               return result;
             }}
             onDone={(result) => {
-              if (result && "conflicts" in result && result.conflicts.length) return;
+              if (hasConflicts(result)) return;
               setShowAddForm(false);
               setPendingConflict(null);
             }}
@@ -316,7 +319,7 @@ export function ScheduleList({
                 onCancel={() => setPendingConflict(null)}
                 onConfirm={handleForce}
               />
-              {forceError && <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-400">{forceError}</p>}
+              <FormError error={forceError} className="mt-2" />
             </div>
           )}
         </div>
@@ -340,14 +343,14 @@ export function ScheduleList({
                     keepValues="always"
                     action={async (formData) => {
                       const result = await updateSchedule(schedule.id, formData);
-                      if (result && "conflicts" in result && result.conflicts.length) {
+                      if (hasConflicts(result)) {
                         setForceError(null);
                         setPendingConflict({ conflicts: result.conflicts, fields: conflictFields(formData), mode: "update", scheduleId: schedule.id });
                       }
                       return result;
                     }}
                     onDone={(result) => {
-                      if (result && "conflicts" in result && result.conflicts.length) return;
+                      if (hasConflicts(result)) return;
                       setEditingId(null);
                       setPendingConflict(null);
                     }}
@@ -446,7 +449,7 @@ export function ScheduleList({
                         onCancel={() => setPendingConflict(null)}
                         onConfirm={handleForce}
                       />
-                      {forceError && <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-400">{forceError}</p>}
+                      <FormError error={forceError} className="mt-2" />
                     </div>
                   )}
                 </>

@@ -49,7 +49,8 @@ function useActionError(fallback = "Couldn't save. Try again.") {
   return { error, setError, run, keepOnRefusal };
 }
 
-function FormError({ error, className = "" }: { error: string | null; className?: string }) {
+// A refusal shown outside an ActionForm (e.g. a confirm step that saves on its own).
+export function FormError({ error, className = "" }: { error: string | null; className?: string }) {
   if (!error) return null;
   return (
     <p

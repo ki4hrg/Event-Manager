@@ -1,7 +1,7 @@
 "use server";
 
 
-import { UserFacingError, withUserErrors, type UserError } from "@/lib/userErrors";
+import { withUserErrors, type UserError } from "@/lib/userErrors";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
@@ -298,13 +298,6 @@ export async function duplicateFunction(id: string, eventId: string) {
 }
 
 // Schedule item actions
-// A schedule row needs both ends, each a real date and time.
-function requiredDateTime(formData: FormData, key: string, label: string): string {
-  const value = formDateTimeKey(formData, key, label);
-  if (!value) throw new UserFacingError(`${label} is required`);
-  return value;
-}
-
 export async function createSchedule(
   functionId: string,
   eventId: string,
@@ -317,8 +310,8 @@ export async function createSchedule(
       eventId,
       {
         type: formValue(formData, "type"),
-        startTime: requiredDateTime(formData, "startTime", "Start time"),
-        endTime: requiredDateTime(formData, "endTime", "End time"),
+        startTime: formDateTimeKey(formData, "startTime", "Start time", { required: true }),
+        endTime: formDateTimeKey(formData, "endTime", "End time", { required: true }),
         notes: formNote(formData, "notes"),
         isPublic: formData.get("isPublic") === "true",
         force: formData.get("force") === "true",
@@ -345,8 +338,8 @@ export async function updateSchedule(
       eventId,
       {
         type: formValue(formData, "type"),
-        startTime: requiredDateTime(formData, "startTime", "Start time"),
-        endTime: requiredDateTime(formData, "endTime", "End time"),
+        startTime: formDateTimeKey(formData, "startTime", "Start time", { required: true }),
+        endTime: formDateTimeKey(formData, "endTime", "End time", { required: true }),
         notes: formNote(formData, "notes"),
         isPublic: formData.get("isPublic") === "true",
         force: formData.get("force") === "true",

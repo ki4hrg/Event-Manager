@@ -61,7 +61,7 @@ export async function removeSpeakerHeadshot(eventId: string, presentationId: str
 export async function updateSpeakerProfile(eventId: string, presentationId: string, contactId: string, formData: FormData) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   return withUserErrors(async () => {
-    const event = await prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true } });
+    const event = await prisma.event.findFirst({ where: { id: eventId, tenantId: session.tenantId }, select: { timezone: true } });
     const timezone = event?.timezone || "America/Chicago";
     const when = (key: string, label: string) => {
       const v = formDateTimeKey(formData, key, label);

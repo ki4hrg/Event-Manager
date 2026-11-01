@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { makeMember, makeTenant } from "../../../test/fixtures";
 import { createFunction, createSchedule } from "./functions/actions";
 import { createTrack } from "./presentations/actions";
+import { updateSpeakerProfile } from "./speakers/actions";
 
 // revalidatePath needs Next's request store, which tests don't have.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -52,5 +53,22 @@ describe("program forms (#252): refusals come back as { error }", () => {
     ).resolves.toEqual({ error: "End time must be after start time" });
     expect(await prisma.function.count({ where: { eventId } })).toBe(0);
     await expect(createTrack(eventId, form({ name: " " }))).resolves.toHaveProperty("error");
+    await expect(createFunction(eventId, form({ name: "Lunch", startTime: "2026-11-01T12:00" }))).resolves.toEqual({
+      error: "Enter both a start and an end time, or neither",
+    });
+    await expect(createTrack(eventId, form({ name: "Main" }))).resolves.toBeUndefined();
+    await expect(createTrack(eventId, form({ name: "Main" }))).resolves.toEqual({ error: "There's already a track with that name" });
+  });
+
+  it("refuses a speaker leaving before arriving", async () => {
+    const { eventId } = await event({ [PermissionResource.PRESENTATIONS]: PermissionLevel.WRITE });
+    const tenantId = (await prisma.event.findUniqueOrThrow({ where: { id: eventId } })).tenantId;
+    const contact = await prisma.contact.create({ data: { tenantId, firstName: "Ada", lastName: "L" } });
+    const pres = await prisma.presentation.create({
+      data: { eventId, title: "Talk", speakers: { create: { contactId: contact.id } } } as never,
+    });
+    await expect(
+      updateSpeakerProfile(eventId, pres.id, contact.id, form({ arrivalAt: "2026-11-02T10:00", departureAt: "2026-11-01T10:00" })),
+    ).resolves.toEqual({ error: "Departure can't be before arrival" });
   });
 });

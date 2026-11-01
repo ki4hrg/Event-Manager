@@ -6,6 +6,7 @@ import { idSchema } from "@/lib/validation";
 import { UserFacingError } from "@/lib/userErrors";
 import { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { refuseDuplicate } from "@/lib/uniqueRefusal";
 import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
@@ -35,14 +36,17 @@ export async function createTrackCore(
     orderBy: { sortOrder: "desc" },
     select: { sortOrder: true },
   });
-  return prisma.presentationTrack.create({
-    data: {
-      name: args.name,
-      color: args.color,
-      eventId,
-      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-    },
-  });
+  return refuseDuplicate(
+    prisma.presentationTrack.create({
+      data: {
+        name: args.name,
+        color: args.color,
+        eventId,
+        sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+      },
+    }),
+    "There's already a track with that name",
+  );
 }
 
 export async function updateTrackCore(
@@ -52,10 +56,13 @@ export async function updateTrackCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRESENTATIONS", "WRITE", eventId);
-  return prisma.presentationTrack.update({
-    where: { id: trackId, eventId },
-    data: { name: args.name, color: args.color },
-  });
+  return refuseDuplicate(
+    prisma.presentationTrack.update({
+      where: { id: trackId, eventId },
+      data: { name: args.name, color: args.color },
+    }),
+    "There's already a track with that name",
+  );
 }
 
 export async function deleteTrackCore(trackId: string, eventId: string, userId: string) {
@@ -290,22 +297,25 @@ export async function addSpeakerCore(
     select: { sortOrder: true },
   });
 
-  if (isPrimary) {
-    await prisma.presentationContact.updateMany({
-      where: { presentationId },
-      data: { isPrimary: false },
-    });
-  }
-
-  const row = await prisma.presentationContact.create({
-    data: {
-      presentationId,
-      contactId,
-      role,
-      isPrimary,
-      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-    },
-  });
+  // Clearing the other primary and adding succeed or fail together, so a
+  // refused duplicate leaves the primary where it was.
+  const row = await refuseDuplicate(
+    prisma.$transaction(async (tx) => {
+      if (isPrimary) {
+        await tx.presentationContact.updateMany({ where: { presentationId }, data: { isPrimary: false } });
+      }
+      return tx.presentationContact.create({
+        data: {
+          presentationId,
+          contactId,
+          role,
+          isPrimary,
+          sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+        },
+      });
+    }),
+    "Already a speaker here",
+  );
   await prisma.presentation.update({ where: { id: presentationId, eventId }, data: { updatedById: userId } });
   return row;
 }
