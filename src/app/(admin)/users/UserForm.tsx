@@ -21,7 +21,8 @@ function SubmitButton({ isCreate }: { isCreate: boolean }) {
   );
 }
 
-type RoleOption = { id: string; name: string; isSystem: boolean };
+// assignable: within the signed-in admin's role ceiling (#284).
+type RoleOption = { id: string; name: string; isSystem: boolean; assignable?: boolean };
 
 interface UserFormProps {
   user?: {
@@ -58,6 +59,9 @@ export function UserForm({
   const [editing, setEditing] = useState(isCreate);
   const [error, setError] = useState<string | null>(null);
   const isSelf = !!user && !!currentUserId && user.id === currentUserId;
+  // A member whose role is above the signed-in admin's ceiling (#284): the
+  // server refuses edits and removal, so they aren't offered.
+  const outOfReach = !!user && !isSelf && roles.find((r) => r.id === user.roleId)?.assignable === false;
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -69,7 +73,10 @@ export function UserForm({
   }
 
   const defaultRoleId =
-    user?.roleId ?? roles.find((r) => r.name === DEFAULT_ROLE_NAME)?.id ?? roles[0]?.id ?? "";
+    user?.roleId ??
+    roles.find((r) => r.name === DEFAULT_ROLE_NAME && r.assignable !== false)?.id ??
+    roles.find((r) => r.assignable !== false)?.id ??
+    "";
 
   if (!editing && user) {
     return (
@@ -116,7 +123,12 @@ export function UserForm({
               </div>
             )}
           </dl>
-          <div className="mt-6 flex flex-wrap gap-3">
+          {outOfReach && (
+            <p className="mt-6 text-sm text-gray-600 dark:text-gray-400">
+              This member&rsquo;s role has access you don&rsquo;t have, so only someone with at least that access can change them.
+            </p>
+          )}
+          <div className={`mt-6 flex flex-wrap gap-3 ${outOfReach ? "hidden" : ""}`}>
             <button
               onClick={() => setEditing(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -182,8 +194,10 @@ export function UserForm({
             disabled={isSelf}
             className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
           >
+            {/* Roles the admin can't give stay listed (the member's current one must
+                show) but can't be picked. */}
             {roles.map((role) => (
-              <option key={role.id} value={role.id}>
+              <option key={role.id} value={role.id} disabled={role.assignable === false && role.id !== user?.roleId}>
                 {role.name}
                 {role.isSystem ? " (system)" : ""}
               </option>

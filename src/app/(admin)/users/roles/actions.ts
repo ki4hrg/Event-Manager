@@ -2,7 +2,7 @@
 
 import { PermissionLevel, PermissionResource, PermissionScope } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, roleWithinCeiling } from "@/lib/permissions";
 import { requireSuperAdmin } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -36,11 +36,17 @@ export async function getRole(id: string) {
 
 // Returns the minimal shape needed by `<select>` pickers (UserForm, etc.).
 export async function getRoleOptions() {
-  await requirePermission(PermissionResource.USERS, "VIEW");
-  return prisma.role.findMany({
-    select: { id: true, name: true, isSystem: true },
+  const session = await requirePermission(PermissionResource.USERS, "VIEW");
+  const roles = await prisma.role.findMany({
+    select: { id: true, name: true, isSystem: true, permissions: { select: { resource: true, scope: true, level: true } } },
     orderBy: [{ isSystem: "desc" }, { name: "asc" }],
   });
+  // assignable: within the caller's role ceiling (#284); the picker offers only those.
+  const out = [];
+  for (const { permissions, ...role } of roles) {
+    out.push({ ...role, assignable: await roleWithinCeiling(session.user.id, session.tenantId, permissions) });
+  }
+  return out;
 }
 
 type PermissionRow = {

@@ -4,6 +4,7 @@ import { PermissionLevel, PermissionResource, PermissionScope } from "@prisma/cl
 import type { Session } from "next-auth";
 import { auth } from "./auth";
 import { prisma } from "./prisma";
+import { UserFacingError } from "./userErrors";
 import { getEventTenantId, requireActiveTenantId, getActiveTenantId } from "./tenant";
 import type { PermissionMap } from "./eventPermissions";
 
@@ -264,4 +265,29 @@ export async function requireEventTenantId(eventId: string): Promise<string> {
   const tenantId = await getEventTenantId(eventId);
   if (!tenantId) throw new PermissionError("NOT_FOUND");
   return tenantId;
+}
+
+// The role ceiling (#284): a caller may give, change or take away only a role
+// whose every grant is at or below the caller's own level for that resource
+// and scope in the tenant, so USERS WRITE alone can't mint an Admin. Platform
+// admins are exempt.
+export async function roleWithinCeiling(
+  callerUserId: string,
+  tenantId: string,
+  grants: { resource: PermissionResource; scope: PermissionScope; level: PermissionLevel }[],
+): Promise<boolean> {
+  const { permissions, isSuperAdmin } = await loadPermissionsForUser(callerUserId, tenantId);
+  if (isSuperAdmin) return true;
+  const own = (resource: PermissionResource, scope: PermissionScope) =>
+    permissions.find((p) => p.resource === resource && p.scope === scope)?.level ?? PermissionLevel.NONE;
+  return grants.every((g) => LEVEL_ORDER[g.level] <= LEVEL_ORDER[own(g.resource, g.scope)]);
+}
+
+/** Refuses (as a UserFacingError) a role the caller may not give or take away. */
+export async function assertRoleWithinCeiling(callerUserId: string, tenantId: string, roleId: string): Promise<void> {
+  const role = await prisma.role.findUnique({ where: { id: roleId }, select: { name: true, permissions: true } });
+  if (!role) throw new UserFacingError("Selected role no longer exists");
+  if (!(await roleWithinCeiling(callerUserId, tenantId, role.permissions))) {
+    throw new UserFacingError(`Only someone with at least the ${role.name} role's access can give or change it`);
+  }
 }
