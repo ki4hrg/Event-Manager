@@ -168,7 +168,7 @@ export default async function PresentationPage({
 
   const updatePresentationAction = async (formData: FormData) => {
     "use server";
-    await updatePresentation(presentationId, eventId, formData);
+    return updatePresentation(presentationId, eventId, formData);
   };
 
   const deletePresentationAction = async () => {
@@ -183,12 +183,12 @@ export default async function PresentationPage({
 
   const addSpeakerAction = async (formData: FormData) => {
     "use server";
-    await addSpeaker(presentationId, eventId, formData);
+    return addSpeaker(presentationId, eventId, formData);
   };
 
   const updateSpeakerAction = async (speakerId: string, formData: FormData) => {
     "use server";
-    await updateSpeaker(speakerId, presentationId, eventId, formData);
+    return updateSpeaker(speakerId, presentationId, eventId, formData);
   };
 
   const removeSpeakerAction = async (speakerId: string) => {
@@ -203,7 +203,7 @@ export default async function PresentationPage({
 
   const createContactAction = async (formData: FormData) => {
     "use server";
-    await createAndAddPresentationSpeaker(presentationId, eventId, formData);
+    return createAndAddPresentationSpeaker(presentationId, eventId, formData);
   };
 
   const linkAVOrderAction = async (avOrderId: string) => {
@@ -300,11 +300,11 @@ export default async function PresentationPage({
   ]);
   const saveSpeakerContactAction = async (contactId: string, formData: FormData) => {
     "use server";
-    await updateSpeakerContactFields(eventId, presentationId, contactId, formData);
+    return updateSpeakerContactFields(eventId, presentationId, contactId, formData);
   };
   const saveSpeakerProfileAction = async (contactId: string, formData: FormData) => {
     "use server";
-    await updateSpeakerProfile(eventId, presentationId, contactId, formData);
+    return updateSpeakerProfile(eventId, presentationId, contactId, formData);
   };
   const removeSpeakerHeadshotAction = async (contactId: string) => {
     "use server";

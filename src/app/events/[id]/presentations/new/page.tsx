@@ -33,7 +33,7 @@ export default async function NewPresentationPage({
 
   const createPresentationAction = async (formData: FormData) => {
     "use server";
-    await createPresentation(eventId, formData);
+    return createPresentation(eventId, formData);
   };
 
   const searchContactsAction = async (query: string) => {

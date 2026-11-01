@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import { colorClasses, COLOR_OPTIONS } from "@/lib/colors";
 import type { PresentationTrack } from "@prisma/client";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
@@ -14,8 +16,8 @@ const cancelClass =
 
 type TrackPanelProps = {
   tracks: PresentationTrack[];
-  createTrack: (formData: FormData) => Promise<void>;
-  updateTrack: (trackId: string, formData: FormData) => Promise<void>;
+  createTrack: (formData: FormData) => Promise<void | UserError>;
+  updateTrack: (trackId: string, formData: FormData) => Promise<void | UserError>;
   deleteTrack: (trackId: string) => Promise<void>;
 };
 
@@ -65,7 +67,7 @@ function TrackRow({
   deleteTrack,
 }: {
   track: PresentationTrack;
-  updateTrack: (trackId: string, formData: FormData) => Promise<void>;
+  updateTrack: (trackId: string, formData: FormData) => Promise<void | UserError>;
   deleteTrack: (trackId: string) => Promise<void>;
 }) {
   const canWrite = useCanWrite("PRESENTATIONS");
@@ -74,11 +76,9 @@ function TrackRow({
 
   if (editing) {
     return (
-      <form
-        action={async (fd) => {
-          await updateTrack(track.id, fd);
-          setEditing(false);
-        }}
+      <ActionForm
+        action={(fd) => updateTrack(track.id, fd)}
+        onDone={() => setEditing(false)}
         className="flex flex-wrap items-center gap-2 py-1"
       >
         <input
@@ -93,7 +93,8 @@ function TrackRow({
         <button type="button" onClick={() => setEditing(false)} className={cancelClass}>
           Cancel
         </button>
-      </form>
+        <ActionFormError className="w-full" />
+      </ActionForm>
     );
   }
 
@@ -127,7 +128,7 @@ function TrackRow({
   );
 }
 
-function AddTrackForm({ createTrack }: { createTrack: (formData: FormData) => Promise<void> }) {
+function AddTrackForm({ createTrack }: { createTrack: (formData: FormData) => Promise<void | UserError> }) {
   const canWrite = useCanWrite("PRESENTATIONS");
   const [open, setOpen] = useState(false);
 
@@ -146,11 +147,9 @@ function AddTrackForm({ createTrack }: { createTrack: (formData: FormData) => Pr
   }
 
   return (
-    <form
-      action={async (fd) => {
-        await createTrack(fd);
-        setOpen(false);
-      }}
+    <ActionForm
+      action={createTrack}
+      onDone={() => setOpen(false)}
       className="mt-3 flex flex-wrap items-center gap-2"
     >
       <input
@@ -166,7 +165,8 @@ function AddTrackForm({ createTrack }: { createTrack: (formData: FormData) => Pr
       <button type="button" onClick={() => setOpen(false)} className={cancelClass}>
         Cancel
       </button>
-    </form>
+      <ActionFormError className="w-full" />
+    </ActionForm>
   );
 }
 

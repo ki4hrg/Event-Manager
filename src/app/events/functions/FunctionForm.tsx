@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import type { Function, Room, FunctionRoom, CustomOption, BreakoutGroup } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
@@ -26,7 +28,7 @@ type FunctionFormProps = {
   rooms: RoomWithGroup[];
   eventId: string;
   functionTypes: CustomOption[];
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   defaultType?: string;
   breakoutGroupId?: string;
   breakoutGroups?: BreakoutGroup[];
@@ -258,11 +260,9 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
   }
 
   return (
-    <form
-      action={async (formData) => {
-        await action(formData);
-        if (isEdit) setEditing(false);
-      }}
+    <ActionForm
+      action={action}
+      onDone={() => isEdit && setEditing(false)}
       className={noCard ? "space-y-0" : "space-y-6 max-w-2xl"}
     >
       {breakoutGroupId && !breakoutGroups && (
@@ -447,6 +447,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
       )}
 
       {/* Form Actions */}
+      <ActionFormError className={noCard ? "mt-4" : ""} />
       <div className={`flex gap-4${noCard ? " mt-4" : ""}`}>
         <SubmitButton isEdit={isEdit} />
         {isEdit ? (
@@ -466,6 +467,6 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
           </a>
         )}
       </div>
-    </form>
+    </ActionForm>
   );
 }

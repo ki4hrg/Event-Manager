@@ -5,6 +5,7 @@ import { useCanWrite } from "@/components/PermissionsProvider";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import { OptionSelect } from "@/components/ui/OptionSelect";
 import { useAutosave } from "@/lib/useAutosave";
+import type { UserError } from "@/lib/userErrors";
 
 // ESG Part II (Function Schedule) / Part IIIa (Function Set-up Order) fields
 // that have no home on the function's orders. Autosaves.
@@ -29,7 +30,7 @@ type FunctionEsgCardProps = {
   setupTypes: string[];
   costCenters: string[];
   // Must not redirect: the card autosaves through it.
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
 };
 
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
@@ -55,7 +56,7 @@ export function FunctionEsgCard({ fn: current, numbersLocked, setupTypes, costCe
     if (formRef.current) payload.current = new FormData(formRef.current);
   });
   const status = useAutosave(version, async () => {
-    if (payload.current) await action(payload.current);
+    if (payload.current) return action(payload.current);
   });
 
   return (

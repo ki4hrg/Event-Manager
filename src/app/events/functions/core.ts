@@ -122,7 +122,7 @@ export async function createFunctionCore(
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   // Wall-clock comparison: the zone shifts both ends alike.
   if (args.startTime && args.endTime && parseDateTimeInTimezone(args.endTime, "UTC") <= parseDateTimeInTimezone(args.startTime, "UTC")) {
-    throw new Error("End time must be after start time");
+    throw new UserFacingError("End time must be after start time");
   }
   await assertEventRefs(eventId, { roomIds: args.roomIds, breakoutGroupIds: [args.breakoutGroupId] });
   const defaults = await resolveCreateStatus(eventId, "FUNCTION");
@@ -349,7 +349,7 @@ export async function createScheduleCore(
   const timezone = event?.timezone || "America/Chicago";
   const parsedStart = parseDateTimeInTimezone(args.startTime, timezone);
   const parsedEnd = parseDateTimeInTimezone(args.endTime, timezone);
-  if (parsedEnd <= parsedStart) throw new Error("End time must be after start time");
+  if (parsedEnd <= parsedStart) throw new UserFacingError("End time must be after start time");
 
   if (!args.force && roomIds.length > 0) {
     const conflicts = await checkRoomConflicts(roomIds, parsedStart, parsedEnd, functionId);
@@ -401,7 +401,7 @@ export async function updateScheduleCore(
   const parsedEnd = parseDateTimeInTimezone(args.endTime, timezone);
   // A row stored reversed before this check existed still saves its other edits.
   if (parsedEnd <= parsedStart && rangeTouched({ start: stored.startTime, end: stored.endTime }, parsedStart, parsedEnd)) {
-    throw new Error("End time must be after start time");
+    throw new UserFacingError("End time must be after start time");
   }
 
   if (!args.force && roomIds.length > 0) {

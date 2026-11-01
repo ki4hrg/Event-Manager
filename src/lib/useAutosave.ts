@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { actionErrorMessage, isUserError, type UserError } from "@/lib/userErrors";
 
 const AUTOSAVE_MS = 800;
 
@@ -9,7 +9,8 @@ const AUTOSAVE_MS = 800;
 // out when the component unmounts, and the browser warns before unloading
 // with any pending. `invalid` holds saving and is shown as the reason.
 // The value is compared by identity: pass state that changes only on edits.
-export function useAutosave<T>(value: T, save: (value: T) => Promise<void>, { invalid = null }: { invalid?: string | null } = {}) {
+// `save` may return a withUserErrors `{ error }`: it shows as the reason, like a throw.
+export function useAutosave<T>(value: T, save: (value: T) => Promise<void | UserError>, { invalid = null }: { invalid?: string | null } = {}) {
   const [saved, setSaved] = useState(value);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +27,11 @@ export function useAutosave<T>(value: T, save: (value: T) => Promise<void>, { in
     chain.current = chain.current.then(async () => {
       setSaving(true);
       try {
-        await latest.current.save(v);
+        const result = await latest.current.save(v);
+        if (isUserError(result)) {
+          setError(result.error);
+          return;
+        }
         setSaved(v);
         setSavedOnce(true);
         setError(null);

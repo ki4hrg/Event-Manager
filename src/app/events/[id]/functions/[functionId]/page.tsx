@@ -147,12 +147,12 @@ export default async function FunctionPage({
 
   const updateFunctionAction = async (formData: FormData) => {
     "use server";
-    await updateFunction(functionId, eventId, formData);
+    return updateFunction(functionId, eventId, formData);
   };
 
   const updateFunctionEsgAction = async (formData: FormData) => {
     "use server";
-    await updateFunctionEsg(functionId, eventId, formData);
+    return updateFunctionEsg(functionId, eventId, formData);
   };
 
   const deleteFunctionAction = async () => {
