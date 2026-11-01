@@ -111,39 +111,43 @@ export async function getMediaDeliverable(id: string) {
 
 export async function createMediaDeliverable(eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  const functionIds = formIds(formData, "functionIds");
-  const presentationIds = formIds(formData, "presentationIds");
-  const deliverable = await createMediaDeliverableCore(
-    eventId,
-    {
-      name: formName(formData, "name"),
-      ...parseDeliverableData(formData),
-      functionIds,
-      presentationIds,
-    },
-    session.user.id,
-  );
+  return withUserErrors(async () => {
+    const functionIds = formIds(formData, "functionIds");
+    const presentationIds = formIds(formData, "presentationIds");
+    const deliverable = await createMediaDeliverableCore(
+      eventId,
+      {
+        name: formName(formData, "name"),
+        ...parseDeliverableData(formData),
+        functionIds,
+        presentationIds,
+      },
+      session.user.id,
+    );
 
-  for (const functionId of functionIds) revalidatePath(`/events/${eventId}/functions/${functionId}`);
-  for (const presentationId of presentationIds) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
-  revalidatePath(`/events/${eventId}/media-deliverables`);
-  redirect(`/events/${eventId}/media-deliverables/${deliverable.id}`);
+    for (const functionId of functionIds) revalidatePath(`/events/${eventId}/functions/${functionId}`);
+    for (const presentationId of presentationIds) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+    revalidatePath(`/events/${eventId}/media-deliverables`);
+    redirect(`/events/${eventId}/media-deliverables/${deliverable.id}`);
+  });
 }
 
 export async function updateMediaDeliverable(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  const name = formName(formData, "name")?.trim();
-  const data = parseDeliverableData(formData);
-  await assertEventRefs(eventId, { vendorIds: [data.providerVendorId], contactIds: [data.providerContactId] });
+  return withUserErrors(async () => {
+    const name = formName(formData, "name");
+    const data = parseDeliverableData(formData);
+    await assertEventRefs(eventId, { vendorIds: [data.providerVendorId], contactIds: [data.providerContactId] });
 
-  await prisma.mediaDeliverable.update({
-    where: { id, eventId },
-    data: { name, ...data, updatedById: session.user.id },
+    await prisma.mediaDeliverable.update({
+      where: { id, eventId },
+      data: { name, ...data, updatedById: session.user.id },
+    });
+    await refreshWorkflowStatus("media_deliverable", [id], eventId);
+    revalidatePath(`/events/${eventId}/media-deliverables`);
+    revalidatePath(`/events/${eventId}/media-deliverables/${id}`);
+    redirect(`/events/${eventId}/media-deliverables/${id}?success=Media Deliverable updated`);
   });
-  await refreshWorkflowStatus("media_deliverable", [id], eventId);
-  revalidatePath(`/events/${eventId}/media-deliverables`);
-  revalidatePath(`/events/${eventId}/media-deliverables/${id}`);
-  redirect(`/events/${eventId}/media-deliverables/${id}?success=Media Deliverable updated`);
 }
 
 export async function deleteMediaDeliverable(id: string, eventId: string) {

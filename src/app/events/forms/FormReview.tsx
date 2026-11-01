@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { btnDanger, btnPrimary } from "@/lib/buttonStyles";
@@ -151,12 +153,16 @@ export function FormReview({
   version: string | null;
   choices: ReviewChoice[];
   approvalMessage: string | null;
-  apply: (formData: FormData) => Promise<void>;
-  reject: (formData: FormData) => Promise<void>;
+  apply: (formData: FormData) => Promise<void | UserError>;
+  reject: (formData: FormData) => Promise<void | UserError>;
 }) {
   const [confirmReject, setConfirmReject] = useState(false);
   return (
-    <form action={apply} className="space-y-6">
+    <ActionForm
+      // Reject is the same form's second submit button, told apart by its value.
+      action={(formData) => (formData.get("intent") === "reject" ? reject(formData) : apply(formData))}
+      className="space-y-6"
+    >
       <input type="hidden" name="version" value={version ?? ""} />
       <FormDiff sections={sections} selectable choices={choices} />
 
@@ -171,12 +177,13 @@ export function FormReview({
       </div>
 
       {approvalMessage && <p className="text-sm text-amber-700 dark:text-amber-300">{approvalMessage}</p>}
+      <ActionFormError />
 
       <div className="flex flex-wrap items-center gap-3">
         <ApplyButton disabled={!!approvalMessage || !version} />
         {confirmReject ? (
           <>
-            <button type="submit" formAction={reject} className={btnDanger}>Confirm reject</button>
+            <button type="submit" name="intent" value="reject" className={btnDanger}>Confirm reject</button>
             <button type="button" onClick={() => setConfirmReject(false)} className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
               Cancel
             </button>
@@ -187,6 +194,6 @@ export function FormReview({
           </button>
         )}
       </div>
-    </form>
+    </ActionForm>
   );
 }

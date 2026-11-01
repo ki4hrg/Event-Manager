@@ -150,30 +150,34 @@ export async function getFormSubmissionReview(eventId: string, id: string) {
 
 export async function applyFormSubmission(eventId: string, id: string, formData: FormData) {
   const session = await requirePermission("FORMS", "WRITE", eventId);
-  const choices: Record<string, string> = {};
-  formData.forEach((value, key) => {
-    if (key.startsWith("choice_") && typeof value === "string") choices[key.slice("choice_".length)] = value;
+  return withUserErrors(async () => {
+    const choices: Record<string, string> = {};
+    formData.forEach((value, key) => {
+      if (key.startsWith("choice_") && typeof value === "string") choices[key.slice("choice_".length)] = value;
+    });
+    await applyFormSubmissionCore(
+      id,
+      eventId,
+      {
+        sections: formData.getAll("sections") as string[],
+        version: formData.get("version") as string,
+        choices,
+        notes: (formData.get("reviewNotes") as string) || null,
+      },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/forms`);
+    revalidatePath(`/events/${eventId}/forms/${id}`);
+    redirect(`/events/${eventId}/forms/${id}?success=Applied`);
   });
-  await applyFormSubmissionCore(
-    id,
-    eventId,
-    {
-      sections: formData.getAll("sections") as string[],
-      version: formData.get("version") as string,
-      choices,
-      notes: (formData.get("reviewNotes") as string) || null,
-    },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/forms`);
-  revalidatePath(`/events/${eventId}/forms/${id}`);
-  redirect(`/events/${eventId}/forms/${id}?success=Applied`);
 }
 
 export async function rejectFormSubmission(eventId: string, id: string, formData: FormData) {
   const session = await requirePermission("FORMS", "WRITE", eventId);
-  await rejectFormSubmissionCore(id, eventId, (formData.get("reviewNotes") as string) || null, session.user.id);
-  revalidatePath(`/events/${eventId}/forms`);
-  revalidatePath(`/events/${eventId}/forms/${id}`);
-  redirect(`/events/${eventId}/forms/${id}?success=Rejected`);
+  return withUserErrors(async () => {
+    await rejectFormSubmissionCore(id, eventId, (formData.get("reviewNotes") as string) || null, session.user.id);
+    revalidatePath(`/events/${eventId}/forms`);
+    revalidatePath(`/events/${eventId}/forms/${id}`);
+    redirect(`/events/${eventId}/forms/${id}?success=Rejected`);
+  });
 }

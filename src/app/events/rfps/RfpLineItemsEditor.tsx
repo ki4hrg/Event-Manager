@@ -10,6 +10,7 @@ import { formatNight } from "@/lib/hotels";
 import { formatClockRange } from "@/lib/rfp/space";
 import type { LineItemRow } from "@/lib/rfp/lineItems";
 import { useAutosave } from "@/lib/useAutosave";
+import { isUserError, type UserError } from "@/lib/userErrors";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { RfpLineItemArgs } from "./core";
 
@@ -187,7 +188,7 @@ export function RfpLineItemsEditor({
   // "AV orders", "catering orders"…; null when the kind has none to copy from.
   source: string | null;
   loadCandidates: () => Promise<LineItemRow[]>;
-  save: (rows: RfpLineItemArgs[]) => Promise<(string | null)[]>;
+  save: (rows: RfpLineItemArgs[]) => Promise<(string | null)[] | UserError>;
   // The tenant's unit list.
   units: string[];
 }) {
@@ -203,6 +204,7 @@ export function RfpLineItemsEditor({
   const ids = useRef(new Map(rows.flatMap((r) => (r.id ? [[r.key, r.id] as const] : []))));
   const status = useAutosave(rows, async (sent) => {
     const saved = await save(sent.map(({ key, ...r }) => ({ ...r, id: ids.current.get(key) ?? null })));
+    if (isUserError(saved)) return saved;
     sent.forEach((r, i) => {
       const id = saved[i];
       if (id) ids.current.set(r.key, id);

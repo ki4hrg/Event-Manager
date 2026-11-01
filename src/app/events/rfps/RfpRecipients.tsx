@@ -14,7 +14,7 @@ import type { OfferHotel } from "@/lib/inboundParse";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { NEW_HOTEL, NEW_HOTEL_FIELDS, readNewHotel } from "@/app/events/hotels/proposalArgs";
 import { keepFormValues } from "@/lib/keepFormValues";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { type UserError, actionErrorMessage, isUserError } from "@/lib/userErrors";
 
 export type RecipientRow = {
   id: string;
@@ -60,15 +60,15 @@ export function RfpRecipients({
   // The RFP's requested amenities: hotels need every one to be offered.
   requiredAmenities: string[];
   areaOptions: AreaOption[];
-  add: (venueIds: string[]) => Promise<void>;
+  add: (venueIds: string[]) => Promise<void | UserError>;
   // VENUES WRITE: "New hotel" creates one and adds it.
-  addNew?: (hotel: OfferHotel) => Promise<void>;
-  update: (recipientId: string, args: RfpRecipientArgs) => Promise<void>;
-  remove: (recipientId: string) => Promise<void>;
+  addNew?: (hotel: OfferHotel) => Promise<void | UserError>;
+  update: (recipientId: string, args: RfpRecipientArgs) => Promise<void | UserError>;
+  remove: (recipientId: string) => Promise<void | UserError>;
   // The event's proposals that answer no RFP, and linking one to a block: a
   // citywide RFP sent out by a CVB brings offers from hotels never listed.
   unlinked?: { id: string; label: string }[];
-  linkProposal?: (proposalId: string, blockId: string) => Promise<void>;
+  linkProposal?: (proposalId: string, blockId: string) => Promise<void | UserError>;
 }) {
   const router = useRouter();
   const canWrite = useCanWrite("HOTELS");
@@ -88,11 +88,12 @@ export function RfpRecipients({
   const filters = [...scopeLabels(scope), ...(requiredAmenities.length ? [`with ${requiredAmenities.join(", ")}`] : [])];
   const due = responseDue ? dateFromKey(responseDue) : null;
 
-  const run = (fn: () => Promise<void>) =>
+  const run = (fn: () => Promise<void | UserError>) =>
     startTransition(async () => {
       setError(null);
       try {
-        await fn();
+        const result = await fn();
+        if (isUserError(result)) return setError(result.error);
         router.refresh();
       } catch (e) {
         setError(actionErrorMessage(e, "Something went wrong"));

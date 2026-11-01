@@ -18,7 +18,7 @@ export default async function NewStandaloneQuotePage({ params }: { params: Promi
   if (!event) notFound();
   const createAction = async (formData: FormData) => {
     "use server";
-    await createVendorQuote(eventId, null, formData);
+    return createVendorQuote(eventId, null, formData);
   };
   return (
     <>

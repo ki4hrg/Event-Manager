@@ -9,6 +9,7 @@ import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatNight } from "@/lib/hotels";
 import { DAY_TBD, formatClockRange, sortSpaceRows, type SpaceRow } from "@/lib/rfp/space";
 import { useAutosave } from "@/lib/useAutosave";
+import { isUserError, type UserError } from "@/lib/userErrors";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { RfpSpaceArgs } from "./core";
 
@@ -166,7 +167,7 @@ export function RfpSpaceEditor({
   types: string[];
   setupTypes: string[];
   loadCandidates: () => Promise<SpaceRow[]>;
-  save: (rows: RfpSpaceArgs[]) => Promise<(string | null)[]>;
+  save: (rows: RfpSpaceArgs[]) => Promise<(string | null)[] | UserError>;
 }) {
   const canWrite = useCanWrite(resource);
   const copy = COPY[kind];
@@ -183,6 +184,7 @@ export function RfpSpaceEditor({
   const status = useAutosave(rows, async (sent) => {
     const sorted = sortSpaceRows(sent);
     const saved = await save(sorted.map(({ key, ...r }) => ({ ...r, id: ids.current.get(key) ?? null })));
+    if (isUserError(saved)) return saved;
     sorted.forEach((r, i) => {
       const id = saved[i];
       if (id) ids.current.set(r.key, id);

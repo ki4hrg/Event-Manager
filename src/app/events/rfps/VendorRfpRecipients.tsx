@@ -11,7 +11,7 @@ import { dateFromKey } from "@/lib/hotels";
 import { RECIPIENT_STATE_COLORS, recipientState } from "@/lib/rfp/recipients";
 import { QUOTE_STATUS_LABELS } from "@/lib/rfp/quotes";
 import type { RfpRecipientArgs } from "./core";
-import { actionErrorMessage } from "@/lib/userErrors";
+import { type UserError, actionErrorMessage, isUserError } from "@/lib/userErrors";
 
 export type VendorRecipientRow = {
   id: string;
@@ -49,9 +49,9 @@ export function VendorRfpRecipients({
   responseDue: string | null;
   today: string;
   vendors: { id: string; name: string; fits: boolean }[];
-  add: (vendorIds: string[]) => Promise<void>;
-  update: (recipientId: string, args: RfpRecipientArgs) => Promise<void>;
-  remove: (recipientId: string) => Promise<void>;
+  add: (vendorIds: string[]) => Promise<void | UserError>;
+  update: (recipientId: string, args: RfpRecipientArgs) => Promise<void | UserError>;
+  remove: (recipientId: string) => Promise<void | UserError>;
 }) {
   const router = useRouter();
   const canWrite = useCanWrite(resource);
@@ -61,11 +61,12 @@ export function VendorRfpRecipients({
   const unlisted = vendors.filter((v) => !listed.has(v.id));
   const due = responseDue ? dateFromKey(responseDue) : null;
 
-  const run = (fn: () => Promise<void>) =>
+  const run = (fn: () => Promise<void | UserError>) =>
     startTransition(async () => {
       setError(null);
       try {
-        await fn();
+        const result = await fn();
+        if (isUserError(result)) return setError(result.error);
         router.refresh();
       } catch (e) {
         setError(actionErrorMessage(e, "Something went wrong"));

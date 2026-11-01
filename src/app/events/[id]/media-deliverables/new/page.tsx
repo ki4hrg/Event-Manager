@@ -68,7 +68,7 @@ export default async function NewMediaDeliverablePage({
 
   const createAction = async (formData: FormData) => {
     "use server";
-    await createMediaDeliverable(eventId, formData);
+    return createMediaDeliverable(eventId, formData);
   };
 
   return (

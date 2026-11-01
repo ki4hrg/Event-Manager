@@ -380,10 +380,12 @@ export async function getBlockFormChoices(eventId: string) {
 // Another block from the accepted proposal, for the guest type picked.
 export async function createHotelBlock(proposalId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const block = await createHotelBlockCore(proposalId, eventId, session.user.id, { guestType: formNote(formData, "guestType") });
-  revalidatePath(`/events/${eventId}/hotels`);
-  revalidatePath(`/events/${eventId}/hotels/proposals/${proposalId}`);
-  redirect(`/events/${eventId}/hotels/blocks/${block.id}?success=Block created`);
+  return withUserErrors(async () => {
+    const block = await createHotelBlockCore(proposalId, eventId, session.user.id, { guestType: formNote(formData, "guestType") });
+    revalidatePath(`/events/${eventId}/hotels`);
+    revalidatePath(`/events/${eventId}/hotels/proposals/${proposalId}`);
+    redirect(`/events/${eventId}/hotels/blocks/${block.id}?success=Block created`);
+  });
 }
 
 // The block card autosaves through this: no redirect.
@@ -543,14 +545,16 @@ export async function clearFinalGuestList(blockId: string, eventId: string) {
 
 export async function saveBlockReview(blockId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const reopen = formData.get("reopen") === "true";
-  await saveBlockReviewCore(
-    blockId,
-    eventId,
-    { reviewedOn: reopen ? null : formNote(formData, "reviewedOn", 10), reviewNotes: formNote(formData, "reviewNotes") },
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/hotels`);
-  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}/review`);
-  redirect(`/events/${eventId}/hotels/blocks/${blockId}/review?success=${encodeURIComponent(reopen ? "Review reopened" : "Review saved")}`);
+  return withUserErrors(async () => {
+    const reopen = formData.get("reopen") === "true";
+    await saveBlockReviewCore(
+      blockId,
+      eventId,
+      { reviewedOn: reopen ? null : formNote(formData, "reviewedOn", 10), reviewNotes: formNote(formData, "reviewNotes") },
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/hotels`);
+    revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}/review`);
+    redirect(`/events/${eventId}/hotels/blocks/${blockId}/review?success=${encodeURIComponent(reopen ? "Review reopened" : "Review saved")}`);
+  });
 }

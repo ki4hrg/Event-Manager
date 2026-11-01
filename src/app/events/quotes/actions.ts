@@ -112,20 +112,24 @@ export async function createVendorQuote(eventId: string, rfpId: string | null, f
   const rfp = rfpId ? await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } }) : null;
   if (rfpId && !rfp) notFound();
   const session = await requirePermission(rfp ? resourceForKind(rfp.kind) : "EVENTS", "WRITE", eventId);
-  const quote = await createVendorQuoteCore(eventId, rfpId, readQuote(formData), session.user.id);
-  if (rfpId) revalidatePath(rfpPath(eventId, rfpId));
-  revalidatePath(`/events/${eventId}/rfps`);
-  redirect(`${quotePath(eventId, quote.id)}?success=Quote recorded`);
+  return withUserErrors(async () => {
+    const quote = await createVendorQuoteCore(eventId, rfpId, readQuote(formData), session.user.id);
+    if (rfpId) revalidatePath(rfpPath(eventId, rfpId));
+    revalidatePath(`/events/${eventId}/rfps`);
+    redirect(`${quotePath(eventId, quote.id)}?success=Quote recorded`);
+  });
 }
 
 // The quote page autosaves: no redirect. Returns each posted line's saved id.
 export async function saveVendorQuote(id: string, eventId: string, formData: FormData) {
   const quote = await quoteRfp(id, eventId);
   const session = await requirePermission(quoteResource(quote.rfp), "WRITE", eventId);
-  const { lineIds } = await updateVendorQuoteCore(id, eventId, readQuote(formData), session.user.id);
-  revalidatePath(quotePath(eventId, id));
-  if (quote.rfpId) revalidatePath(rfpPath(eventId, quote.rfpId));
-  return lineIds;
+  return withUserErrors(async () => {
+    const { lineIds } = await updateVendorQuoteCore(id, eventId, readQuote(formData), session.user.id);
+    revalidatePath(quotePath(eventId, id));
+    if (quote.rfpId) revalidatePath(rfpPath(eventId, quote.rfpId));
+    return lineIds;
+  });
 }
 
 export async function deleteVendorQuote(id: string, eventId: string) {

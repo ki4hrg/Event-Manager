@@ -24,7 +24,7 @@ export default async function NewVendorRfpPage({ params, searchParams }: { param
 
   const createAction = async (formData: FormData) => {
     "use server";
-    await createRfp(eventId, kind, formData);
+    return createRfp(eventId, kind, formData);
   };
   const title = kind === "OTHER" ? "New RFP" : `New ${RFP_KIND_LABELS[kind]} RFP`;
 

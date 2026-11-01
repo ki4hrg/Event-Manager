@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import type { UserError } from "@/lib/userErrors";
@@ -120,11 +121,11 @@ export function ReviewSignOff({
   reviewedBy: string | null;
   notes: string | null;
   today: string;
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
 }) {
   const canWrite = useCanWrite("HOTELS");
   return (
-    <form action={action} className={cardClass}>
+    <ActionForm action={action} className={cardClass}>
       <h2 className="text-lg font-medium text-gray-900 dark:text-white">Sign-off</h2>
       <fieldset disabled={!canWrite} className="space-y-3">
         <div>
@@ -142,11 +143,12 @@ export function ReviewSignOff({
         </div>
         {canWrite && (
           <div className="flex flex-wrap gap-3">
+            <ActionFormError className="basis-full" />
             <SubmitButton label={reviewedOn ? "Save" : "Mark reviewed"} />
             {reviewedOn && <SubmitButton label="Reopen" name="reopen" value="true" secondary />}
           </div>
         )}
       </fieldset>
-    </form>
+    </ActionForm>
   );
 }

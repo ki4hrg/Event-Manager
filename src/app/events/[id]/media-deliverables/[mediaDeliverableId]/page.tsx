@@ -102,7 +102,7 @@ export default async function MediaDeliverablePage({
 
   const updateAction = async (formData: FormData) => {
     "use server";
-    await updateMediaDeliverable(mediaDeliverableId, eventId, formData);
+    return updateMediaDeliverable(mediaDeliverableId, eventId, formData);
   };
 
   const deleteAction = async () => {

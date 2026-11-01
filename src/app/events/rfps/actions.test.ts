@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PermissionLevel, PermissionResource, PermissionScope } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { UserFacingError } from "@/lib/userErrors";
 import { makeMember, makeTenant } from "../../../../test/fixtures";
 import { getRfpHistory, saveRfpConcessions, saveRfpLineItems, updateRfpRecipient } from "./actions";
 
@@ -56,7 +55,7 @@ describe("RFP actions: structured arguments from the page", () => {
     ["a row without a description", [{ ...line, description: undefined }]],
   ])("refuses line items given %s", async (_label, rows) => {
     const { eventId, rfpId } = await setup();
-    await expect(saveRfpLineItems(rfpId, eventId, rows as never)).rejects.toBeInstanceOf(UserFacingError);
+    await expect(saveRfpLineItems(rfpId, eventId, rows as never)).resolves.toHaveProperty("error");
     expect(await prisma.rfpLineItem.count({ where: { rfpId } })).toBe(0);
   });
 
@@ -64,14 +63,14 @@ describe("RFP actions: structured arguments from the page", () => {
     const { eventId, rfpId } = await setup();
     await expect(
       saveRfpConcessions(rfpId, eventId, [{ label: "Wi-Fi", value: null, required: "yes" }] as never),
-    ).rejects.toBeInstanceOf(UserFacingError);
+    ).resolves.toHaveProperty("error");
   });
 
   it("refuses a recipient update with a filter object for its id", async () => {
     const { eventId, rfpId } = await setup();
     await expect(
       updateRfpRecipient({ not: "" } as never, rfpId, eventId, { sentOn: null, declinedToBid: false, notes: null }),
-    ).rejects.toBeInstanceOf(UserFacingError);
+    ).resolves.toHaveProperty("error");
   });
 
   it("treats an RFP history query that isn't exactly one vendor or venue id as not found", async () => {

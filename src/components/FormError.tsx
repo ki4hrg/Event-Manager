@@ -5,6 +5,7 @@ import {
   type FormEvent,
   type FormEventHandler,
   type ReactNode,
+  type Ref,
   useCallback,
   useContext,
   useRef,
@@ -81,8 +82,10 @@ export function ActionForm<T = void>({
   onChange,
   className,
   children,
+  ref,
 }: {
-  action: (formData: FormData) => Promise<T | UserError>;
+  // Optional for a form that autosaves in one mode and submits in another.
+  action?: (formData: FormData) => Promise<T | UserError>;
   // Gets what the action returned (e.g. room conflicts to confirm), undefined after a navigation.
   onDone?: (result: T | undefined) => void;
   keepValues?: "always" | "onRefusal";
@@ -91,11 +94,13 @@ export function ActionForm<T = void>({
   onChange?: FormEventHandler<HTMLFormElement>;
   className?: string;
   children: ReactNode;
+  ref?: Ref<HTMLFormElement>;
 }) {
   const { error, run, keepOnRefusal } = useActionError(fallback);
   return (
     <form
-      action={async (formData) => {
+      ref={ref}
+      action={action && (async (formData) => {
         let saved: boolean;
         let result: T | undefined;
         try {
@@ -112,7 +117,7 @@ export function ActionForm<T = void>({
           throw navigation;
         }
         if (saved) onDone?.(result);
-      }}
+      })}
       onReset={keepValues === "always" ? keepFormValues : keepOnRefusal}
       onSubmit={onSubmit}
       onChange={onChange}

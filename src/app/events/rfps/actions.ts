@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { idList, idSchema, looseNumber, looseText, parseArgs, readJsonList } from "@/lib/validation";
-import { UserFacingError } from "@/lib/userErrors";
+import { UserFacingError, withUserErrors } from "@/lib/userErrors";
 
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
@@ -482,18 +482,22 @@ function readRfp(formData: FormData): RfpWriteArgs {
 
 export async function createRfp(eventId: string, kind: RfpKind, formData: FormData) {
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const blocks = readJsonList(formData, "blocks", RfpBlockSchema, 50);
-  const rfp = await createRfpCore(eventId, kind, readRfp(formData), blocks, session.user.id);
-  revalidateLists(eventId, kind);
-  redirect(`${rfpPath(eventId, kind, rfp.id)}?success=RFP created`);
+  return withUserErrors(async () => {
+    const blocks = readJsonList(formData, "blocks", RfpBlockSchema, 50);
+    const rfp = await createRfpCore(eventId, kind, readRfp(formData), blocks, session.user.id);
+    revalidateLists(eventId, kind);
+    redirect(`${rfpPath(eventId, kind, rfp.id)}?success=RFP created`);
+  });
 }
 
 export async function updateRfp(id: string, eventId: string, formData: FormData) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await updateRfpCore(id, eventId, readRfp(formData), session.user.id);
-  revalidateLists(eventId, kind);
-  revalidatePath(rfpPath(eventId, kind, id));
+  return withUserErrors(async () => {
+    await updateRfpCore(id, eventId, readRfp(formData), session.user.id);
+    revalidateLists(eventId, kind);
+    revalidatePath(rfpPath(eventId, kind, id));
+  });
 }
 
 export async function deleteRfp(id: string, eventId: string) {
@@ -510,83 +514,103 @@ export async function deleteRfp(id: string, eventId: string) {
 export async function saveRfpBlocks(id: string, eventId: string, blocks: RfpBlockArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const parsed = z.array(RfpBlockSchema).max(50).safeParse(blocks);
-  if (!parsed.success) throw new UserFacingError("The blocks sent data this page can't read. Reload the page and try again.");
-  const ids = await saveRfpBlocksCore(id, eventId, parsed.data, session.user.id);
-  revalidatePath(rfpPath(eventId, kind, id));
-  return ids;
+  return withUserErrors(async () => {
+    const parsed = z.array(RfpBlockSchema).max(50).safeParse(blocks);
+    if (!parsed.success) throw new UserFacingError("The blocks sent data this page can't read. Reload the page and try again.");
+    const ids = await saveRfpBlocksCore(id, eventId, parsed.data, session.user.id);
+    revalidatePath(rfpPath(eventId, kind, id));
+    return ids;
+  });
 }
 
 export async function saveRfpLineItems(id: string, eventId: string, rows: RfpLineItemArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const ids = await saveRfpLineItemsCore(id, eventId, parseArgs(z.array(LineItemSchema).max(2_000), rows), session.user.id);
-  revalidatePath(rfpPath(eventId, kind, id));
-  return ids;
+  return withUserErrors(async () => {
+    const ids = await saveRfpLineItemsCore(id, eventId, parseArgs(z.array(LineItemSchema).max(2_000), rows), session.user.id);
+    revalidatePath(rfpPath(eventId, kind, id));
+    return ids;
+  });
 }
 
 export async function saveRfpConcessions(id: string, eventId: string, concessions: RfpConcessionArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const ids = await saveRfpConcessionsCore(id, eventId, parseArgs(z.array(ConcessionSchema).max(500), concessions), session.user.id);
-  revalidatePath(rfpPath(eventId, kind, id));
-  return ids;
+  return withUserErrors(async () => {
+    const ids = await saveRfpConcessionsCore(id, eventId, parseArgs(z.array(ConcessionSchema).max(500), concessions), session.user.id);
+    revalidatePath(rfpPath(eventId, kind, id));
+    return ids;
+  });
 }
 
 export async function saveRfpSpace(id: string, eventId: string, spaceKind: RfpSpaceKind, rows: RfpSpaceArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const ids = await saveRfpSpaceCore(id, eventId, parseArgs(z.array(SpaceSchema).max(2_000), rows), session.user.id, spaceKind === "FB" ? "FB" : "MEETING");
-  revalidatePath(rfpPath(eventId, kind, id));
-  return ids;
+  return withUserErrors(async () => {
+    const ids = await saveRfpSpaceCore(id, eventId, parseArgs(z.array(SpaceSchema).max(2_000), rows), session.user.id, spaceKind === "FB" ? "FB" : "MEETING");
+    revalidatePath(rfpPath(eventId, kind, id));
+    return ids;
+  });
 }
 
 export async function issueRfp(id: string, eventId: string) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  const doc = await getRfpDocument(id, eventId);
-  if (!doc) notFound();
-  const { renderRfpDocx, rfpFileName } = await import("@/lib/rfp/renderDocx");
-  await issueRfpCore(id, eventId, { fileName: rfpFileName(doc.meta.eventName, doc.meta.title), buffer: await renderRfpDocx(doc) }, session.user.id);
-  revalidateLists(eventId, kind);
-  revalidatePath(rfpPath(eventId, kind, id));
-  redirect(`${rfpPath(eventId, kind, id)}?success=RFP issued`);
+  return withUserErrors(async () => {
+    const doc = await getRfpDocument(id, eventId);
+    if (!doc) notFound();
+    const { renderRfpDocx, rfpFileName } = await import("@/lib/rfp/renderDocx");
+    await issueRfpCore(id, eventId, { fileName: rfpFileName(doc.meta.eventName, doc.meta.title), buffer: await renderRfpDocx(doc) }, session.user.id);
+    revalidateLists(eventId, kind);
+    revalidatePath(rfpPath(eventId, kind, id));
+    redirect(`${rfpPath(eventId, kind, id)}?success=RFP issued`);
+  });
 }
 
 // Recipients are edited in place from the RFP page; the client refreshes.
 export async function addRfpRecipients(id: string, eventId: string, venueIds: string[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await addRfpRecipientsCore(id, eventId, parseArgs(idList(), venueIds), session.user.id);
-  revalidateLists(eventId, kind);
+  return withUserErrors(async () => {
+    await addRfpRecipientsCore(id, eventId, parseArgs(idList(), venueIds), session.user.id);
+    revalidateLists(eventId, kind);
+  });
 }
 
 export async function addNewRfpRecipient(id: string, eventId: string, hotel: OfferHotel) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await addNewRfpRecipientCore(id, eventId, parseArgs(NewHotelSchema, hotel), session.user.id);
-  revalidateLists(eventId, kind);
-  revalidatePath("/venues");
+  return withUserErrors(async () => {
+    await addNewRfpRecipientCore(id, eventId, parseArgs(NewHotelSchema, hotel), session.user.id);
+    revalidateLists(eventId, kind);
+    revalidatePath("/venues");
+  });
 }
 
 export async function addRfpVendorRecipients(id: string, eventId: string, vendorIds: string[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await addRfpVendorRecipientsCore(id, eventId, parseArgs(idList(), vendorIds), session.user.id);
-  revalidateLists(eventId, kind);
-  revalidatePath(rfpPath(eventId, kind, id));
+  return withUserErrors(async () => {
+    await addRfpVendorRecipientsCore(id, eventId, parseArgs(idList(), vendorIds), session.user.id);
+    revalidateLists(eventId, kind);
+    revalidatePath(rfpPath(eventId, kind, id));
+  });
 }
 
 export async function updateRfpRecipient(recipientId: string, id: string, eventId: string, args: RfpRecipientArgs) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await updateRfpRecipientCore(parseArgs(idSchema, recipientId), id, eventId, parseArgs(RecipientSchema, args), session.user.id);
-  revalidateLists(eventId, kind);
+  return withUserErrors(async () => {
+    await updateRfpRecipientCore(parseArgs(idSchema, recipientId), id, eventId, parseArgs(RecipientSchema, args), session.user.id);
+    revalidateLists(eventId, kind);
+  });
 }
 
 export async function removeRfpRecipient(recipientId: string, id: string, eventId: string) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await removeRfpRecipientCore(recipientId, id, eventId, session.user.id);
-  revalidateLists(eventId, kind);
+  return withUserErrors(async () => {
+    await removeRfpRecipientCore(recipientId, id, eventId, session.user.id);
+    revalidateLists(eventId, kind);
+  });
 }

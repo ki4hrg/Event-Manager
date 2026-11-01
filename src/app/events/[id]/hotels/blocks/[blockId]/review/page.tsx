@@ -74,7 +74,7 @@ export default async function BlockReviewPage({
   };
   const signOffAction = async (formData: FormData) => {
     "use server";
-    await saveBlockReview(blockId, eventId, formData);
+    return saveBlockReview(blockId, eventId, formData);
   };
 
   const venue = review.proposal.venue;

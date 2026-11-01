@@ -1,5 +1,6 @@
 "use server";
 
+import { withUserErrors } from "@/lib/userErrors";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
@@ -45,11 +46,13 @@ export async function getEventSpecification(eventId: string) {
 // cards autosave through these, so they don't redirect.
 export async function updateSpecificationSection(eventId: string, letter: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  const fields = letter === "header" ? ESG_HEADER_FIELDS : getEsgSection(letter)?.fields;
-  if (!fields) throw new Error(`Unknown ESG section: ${letter}`);
-  const values = parseEsgForm(fields, formData, await eventTimezone(eventId));
-  await upsertEventSpecificationCore(eventId, values, session.user.id);
-  revalidateSpec(eventId);
+  return withUserErrors(async () => {
+    const fields = letter === "header" ? ESG_HEADER_FIELDS : getEsgSection(letter)?.fields;
+    if (!fields) throw new Error(`Unknown ESG section: ${letter}`);
+    const values = parseEsgForm(fields, formData, await eventTimezone(eventId));
+    await upsertEventSpecificationCore(eventId, values, session.user.id);
+    revalidateSpec(eventId);
+  });
 }
 
 export async function setSpecificationSectionNa(eventId: string, letter: string, na: boolean) {
@@ -60,18 +63,22 @@ export async function setSpecificationSectionNa(eventId: string, letter: string,
 
 export async function createSpecificationRow(eventId: string, grid: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  assertGrid(grid);
-  const values = parseEsgForm(SPEC_GRID_COLUMNS[grid], formData, await eventTimezone(eventId));
-  await createSpecRowCore(eventId, grid, values, session.user.id);
-  revalidateSpec(eventId);
+  return withUserErrors(async () => {
+    assertGrid(grid);
+    const values = parseEsgForm(SPEC_GRID_COLUMNS[grid], formData, await eventTimezone(eventId));
+    await createSpecRowCore(eventId, grid, values, session.user.id);
+    revalidateSpec(eventId);
+  });
 }
 
 export async function updateSpecificationRow(eventId: string, grid: string, rowId: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  assertGrid(grid);
-  const values = parseEsgForm(SPEC_GRID_COLUMNS[grid], formData, await eventTimezone(eventId));
-  await updateSpecRowCore(eventId, grid, rowId, values, session.user.id);
-  revalidateSpec(eventId);
+  return withUserErrors(async () => {
+    assertGrid(grid);
+    const values = parseEsgForm(SPEC_GRID_COLUMNS[grid], formData, await eventTimezone(eventId));
+    await updateSpecRowCore(eventId, grid, rowId, values, session.user.id);
+    revalidateSpec(eventId);
+  });
 }
 
 export async function deleteSpecificationRow(eventId: string, grid: string, rowId: string) {
@@ -105,11 +112,13 @@ export async function getPostEventData(eventId: string) {
 
 export async function updatePostEventSection(eventId: string, letter: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  const fields = getPerSection(letter)?.fields;
-  if (!fields) throw new Error(`Unknown PER section: ${letter}`);
-  const values = parseEsgForm(fields, formData, await eventTimezone(eventId));
-  await upsertPostEventCore(eventId, values, session.user.id);
-  revalidateSpec(eventId);
+  return withUserErrors(async () => {
+    const fields = getPerSection(letter)?.fields;
+    if (!fields) throw new Error(`Unknown PER section: ${letter}`);
+    const values = parseEsgForm(fields, formData, await eventTimezone(eventId));
+    await upsertPostEventCore(eventId, values, session.user.id);
+    revalidateSpec(eventId);
+  });
 }
 
 export async function setPostEventSectionNa(eventId: string, letter: string, na: boolean) {

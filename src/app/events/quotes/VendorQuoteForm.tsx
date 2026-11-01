@@ -10,6 +10,8 @@ import { formatMoney } from "@/lib/hotels";
 import { rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
 import { lineAmount, quoteTotals } from "@/lib/rfp/quotes";
 import { useAutosave } from "@/lib/useAutosave";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import { isUserError, type UserError } from "@/lib/userErrors";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { QuoteLineArgs } from "./core";
 
@@ -132,8 +134,8 @@ export function VendorQuoteForm({
   defaultVendorId?: string; // a new quote recorded from a recipient
   // A new quote submits through action; an existing one autosaves through
   // save (no redirect), which returns each posted line's saved id.
-  action?: (formData: FormData) => Promise<void>;
-  save?: (formData: FormData) => Promise<(string | null)[]>;
+  action?: (formData: FormData) => Promise<void | UserError>;
+  save?: (formData: FormData) => Promise<(string | null)[] | UserError>;
   cancelHref?: string;
 }) {
   const isEdit = values != null;
@@ -170,6 +172,7 @@ export function VendorQuoteForm({
     form.forEach((v, k) => data.append(k, v));
     data.set("lines", JSON.stringify(sent.map((l) => toArgs(l, ids.current.get(l.key) ?? null))));
     const saved = await save(data);
+    if (isUserError(saved)) return saved;
     sent.forEach((l, i) => {
       if (saved[i]) ids.current.set(l.key, saved[i]);
     });
@@ -182,7 +185,7 @@ export function VendorQuoteForm({
   };
 
   return (
-    <form ref={formRef} action={isEdit ? undefined : action} onChange={isEdit ? bump : undefined} className={`${cardClass} space-y-6`}>
+    <ActionForm ref={formRef} action={isEdit ? undefined : action} onChange={isEdit ? bump : undefined} className={`${cardClass} space-y-6`}>
       {isEdit && (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Quote</h2>
@@ -332,13 +335,14 @@ export function VendorQuoteForm({
       </p>
 
       {!isEdit && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <ActionFormError className="basis-full" />
           <SaveButton label={submitLabel ?? "Record quote"} />
           <Link href={cancelHref!} className={btnSecondary}>
             Cancel
           </Link>
         </div>
       )}
-    </form>
+    </ActionForm>
   );
 }

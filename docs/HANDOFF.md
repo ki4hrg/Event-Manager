@@ -11,7 +11,7 @@ advisory forces)
 | — Advisory | done | #248, #254 | Next 16 + React 19 for GHSA-2464-fhr4-w9xw; #254 put the proxy body limit back to 10MB and moved large-body routes out of the proxy (#253) |
 | 1 Pipeline | done | #247 | `ci.yml` on PRs, merge-on-green, audit, Dependabot, deploy `success: true` check; audit fix, mailparser 3.14, tiptap 3.32, overrides for `deepmerge-ts` / `brace-expansion` |
 | 2 Runtime | done | #268 | deployed and verified live; Dockhand Force redeploy and Re-pull images on (#273) |
-| 3 Boundaries | in progress | #269, #270, #272, #276–#305, this PR | Vitest + Testcontainers, OAuth registration, password reset, share links, MCP envelope and tool-argument gate, workflow status and form types, JSON lists in forms and structured action arguments, ids that are filter objects (#283), admin and account, order forms, bulk function mass assignment (#287), event core, presentations and exhibits, hotels, directory, inbound mail model output, role ceiling (#293), phase-wide security review (#295 its one finding), env cleanup (#296), refusals reach the person (#252: shared fallback #294, admin #297, catering #298, orders #299 and #300, `ActionForm` #301, contacts #302, booths #303, program #304, directory #305, inline deletes this PR); order in docs/plans/phase3-boundaries.md |
+| 3 Boundaries | in progress | #269, #270, #272, #276–#306, this PR | Vitest + Testcontainers, OAuth registration, password reset, share links, MCP envelope and tool-argument gate, workflow status and form types, JSON lists in forms and structured action arguments, ids that are filter objects (#283), admin and account, order forms, bulk function mass assignment (#287), event core, presentations and exhibits, hotels, directory, inbound mail model output, role ceiling (#293), phase-wide security review (#295 its one finding), env cleanup (#296), refusals reach the person (#252: shared fallback #294, admin #297, catering #298, orders #299 and #300, `ActionForm` #301, contacts #302, booths #303, program #304, directory #305, inline deletes #306, RFPs and the rest this PR); order in docs/plans/phase3-boundaries.md |
 | 4 Agent docs | done | #261 | CLAUDE.md 404 → ~120 lines; docs/ARCHITECTURE.md with the route-guard table (#251) |
 | 5 Design/copy | later | | |
 | 6 Stack | out | | |
@@ -42,6 +42,7 @@ and the shared `EquipmentTable` (#299; `actionErrorMessage` rethrows Next's redi
 navigates isn't shown as a failure), order sub-panels (#300, on the new `ActionForm`), and the #298/#299
 forms moved onto `ActionForm` (#301), the contact lists (#302: catering, functions, media
 deliverables, venues, vendors; duplicate links and blank names refused), booths (#303), functions, schedules, presentations, tracks and speakers (#304), the directory (events, key and event staff, venues and rooms, vendors,
-contacts, equipment, storage locations, #305), the inline delete buttons (this PR). Next: RFPs, specifications, hotels, quotes, admin
-settings and workflows. A new form uses `ActionForm` +
+contacts, equipment, storage locations, #305), the inline delete buttons (#306), RFPs (form, issue, recipients, card editors), quotes,
+specifications, hotel sign-off and blocks, media deliverables and form review (this PR). Next: admin
+settings and workflows, the account page, then a check of the public flows. A new form uses `ActionForm` +
 `<ActionFormError />` (`src/components/FormError.tsx`) and its action returns through `withUserErrors`.

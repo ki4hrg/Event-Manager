@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, ActionFormError } from "@/components/FormError";
+import type { UserError } from "@/lib/userErrors";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { PartyField } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
@@ -26,7 +28,7 @@ type OptionEntry = { id: string; label: string };
 type MediaDeliverableFormProps = {
   mediaDeliverable?: MediaDeliverableData | null;
   eventId: string;
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   pool: ResponsiblePartyPool;
   mediaTypeOptions: OptionEntry[];
   deliveryOptions: OptionEntry[];
@@ -172,11 +174,9 @@ export function MediaDeliverableForm({
   }
 
   return (
-    <form
-      action={async (formData) => {
-        await action(formData);
-        if (isEdit) setEditing(false);
-      }}
+    <ActionForm
+      action={action}
+      onDone={() => isEdit && setEditing(false)}
     >
       <div className={cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Media Deliverable Details</h2>
@@ -314,6 +314,7 @@ export function MediaDeliverableForm({
         </div>
       </div>
 
+      <ActionFormError className="mt-6" />
       <div className="flex gap-4 mt-6">
         <SubmitButton isEdit={isEdit} />
         {isEdit ? (
@@ -333,6 +334,6 @@ export function MediaDeliverableForm({
           </a>
         )}
       </div>
-    </form>
+    </ActionForm>
   );
 }

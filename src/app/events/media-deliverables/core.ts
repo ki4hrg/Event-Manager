@@ -2,6 +2,7 @@
 // src/app/contacts/core.ts for the security rationale.
 
 import { prisma } from "@/lib/prisma";
+import { UserFacingError } from "@/lib/userErrors";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
@@ -23,7 +24,7 @@ export type CreateMediaDeliverableArgs = {
 export async function createMediaDeliverableCore(eventId: string, args: CreateMediaDeliverableArgs, userId: string) {
   await requirePermissionForUser(userId, "MEDIA_DELIVERABLES", "WRITE", eventId);
   await assertEventRefs(eventId, { vendorIds: [args.providerVendorId], contactIds: [args.providerContactId] });
-  if (!args.name.trim()) throw new Error("Name is required");
+  if (!args.name.trim()) throw new UserFacingError("Name is required");
 
   // Links must stay inside the event; contacts inside its tenant.
   const [functions, presentations] = await Promise.all([

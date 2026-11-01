@@ -12,6 +12,7 @@ import type { Prisma, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { z } from "zod";
 import { dateKeySchema, idSchema, nullableNumber, text } from "@/lib/validation";
 import { prisma } from "@/lib/prisma";
+import { UserFacingError } from "@/lib/userErrors";
 import { hasPermissionForUser, PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
 import { addDays, blockTypeLabel, contractKindOf, dateFromKey, dateKey, stageOf, toContractTypeOption } from "@/lib/hotels";
 import { buildRfpDocument } from "@/lib/rfp/document";
@@ -131,7 +132,7 @@ const FB_INCLUDE_KEYS = new Set<string>(FB_INCLUDES.map((f) => f.value));
 const MAX_ALTERNATE_DATES = 3;
 
 function money(v: number | null, label: string) {
-  if (v != null && (!Number.isFinite(v) || v < 0)) throw new Error(`${label} cannot be negative`);
+  if (v != null && (!Number.isFinite(v) || v < 0)) throw new UserFacingError(`${label} cannot be negative`);
   return v;
 }
 
@@ -143,27 +144,27 @@ async function validService(eventId: string, kind: RfpKind, service: string | nu
     where: { tenantId, category: "rfp_service", label: { equals: service.trim(), mode: "insensitive" } },
     select: { label: true },
   });
-  if (!option) throw new Error(`"${service}" isn't in the RFP services list (${LIST_HOMES.rfp_service})`);
+  if (!option) throw new UserFacingError(`"${service}" isn't in the RFP services list (${LIST_HOMES.rfp_service})`);
   return option.label;
 }
 
 async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs, keepAmenities: string[] = []) {
-  if (!args.title.trim()) throw new Error("Title is required");
+  if (!args.title.trim()) throw new UserFacingError("Title is required");
   const alternates = args.alternateDates.filter((a) => a.startDate || a.endDate);
   const dates = [args.responseDue, args.decisionBy, args.arrivalDate, args.departureDate, args.siteVisitBy, ...alternates.flatMap((a) => [a.startDate, a.endDate])];
-  for (const d of dates) if (d && !DATE_RE.test(d)) throw new Error(`Invalid date: ${d}`);
+  for (const d of dates) if (d && !DATE_RE.test(d)) throw new UserFacingError(`Invalid date: ${d}`);
   // A hotel stay needs a night; any other RFP may start and end on one day.
   const tooEarly = (start: string, end: string) => (kind === "HOTEL" ? end <= start : end < start);
   if (args.arrivalDate && args.departureDate && tooEarly(args.arrivalDate, args.departureDate)) {
-    throw new Error(kind === "HOTEL" ? "Departure must be after arrival" : "End can't be before the start");
+    throw new UserFacingError(kind === "HOTEL" ? "Departure must be after arrival" : "End can't be before the start");
   }
-  if (alternates.length > MAX_ALTERNATE_DATES) throw new Error(`At most ${MAX_ALTERNATE_DATES} alternate dates`);
+  if (alternates.length > MAX_ALTERNATE_DATES) throw new UserFacingError(`At most ${MAX_ALTERNATE_DATES} alternate dates`);
   for (const a of alternates) {
     if (!a.startDate || !a.endDate || tooEarly(a.startDate, a.endDate)) {
-      throw new Error(kind === "HOTEL" ? "Each alternate needs an arrival before its departure" : "Each alternate needs a start and an end on or after it");
+      throw new UserFacingError(kind === "HOTEL" ? "Each alternate needs an arrival before its departure" : "Each alternate needs a start and an end on or after it");
     }
   }
-  if (args.peakRooms != null && (!Number.isInteger(args.peakRooms) || args.peakRooms < 0)) throw new Error("Peak rooms must be a whole number");
+  if (args.peakRooms != null && (!Number.isInteger(args.peakRooms) || args.peakRooms < 0)) throw new UserFacingError("Peak rooms must be a whole number");
   const contactIds = [args.contactId, args.decisionMakerId].filter((c): c is string => !!c);
   if (contactIds.length) {
     const tenantId = await requireEventTenantId(eventId);
@@ -269,21 +270,21 @@ async function validBlocks(eventId: string, blocks: RfpBlockArgs[], held: string
   const first = shift(event.startDate, -NIGHT_WINDOW_DAYS);
   const last = shift(event.endDate, NIGHT_WINDOW_DAYS);
   return blocks.map((b) => {
-    if (b.targetRate != null && (!Number.isFinite(b.targetRate) || b.targetRate < 0)) throw new Error("Target rate cannot be negative");
+    if (b.targetRate != null && (!Number.isFinite(b.targetRate) || b.targetRate < 0)) throw new UserFacingError("Target rate cannot be negative");
     const seen = new Set<string>();
     const nights = b.nights
       .filter((n) => n.rooms >= 0)
       .map((n) => {
-        if (!DATE_RE.test(n.night) || n.night < first || n.night > last) throw new Error(`Night ${n.night} is too far from the event`);
-        if (!Number.isInteger(n.rooms)) throw new Error("Rooms must be whole numbers");
+        if (!DATE_RE.test(n.night) || n.night < first || n.night > last) throw new UserFacingError(`Night ${n.night} is too far from the event`);
+        if (!Number.isInteger(n.rooms)) throw new UserFacingError("Rooms must be whole numbers");
         const roomType = n.roomType || null; // null = Run of House
         const key = `${roomType ?? ""}|${n.night}`;
-        if (seen.has(key)) throw new Error(`Night ${n.night} is listed twice`);
+        if (seen.has(key)) throw new UserFacingError(`Night ${n.night} is listed twice`);
         seen.add(key);
         return { roomType, night: dateFromKey(n.night), rooms: n.rooms };
       });
-    if (!b.contractType) throw new Error("Contract type is required");
-    if (!contractTypes.has(b.contractType)) throw new Error(`Unknown contract type: ${b.contractType}`);
+    if (!b.contractType) throw new UserFacingError("Contract type is required");
+    if (!contractTypes.has(b.contractType)) throw new UserFacingError(`Unknown contract type: ${b.contractType}`);
     return { id: b.id ?? null, contractType: b.contractType, guestType: b.guestType || null, targetRate: b.targetRate, targetRateRequired: b.targetRateRequired === true, notes: b.notes?.trim() || null, nights };
   });
 }
@@ -335,7 +336,7 @@ export async function saveRfpConcessionsCore(id: string, eventId: string, conces
     current.map((c) => c.label),
   );
   const dupe = labels.find((l, i) => labels.indexOf(l) !== i);
-  if (dupe) throw new Error(`${dupe} is listed twice`);
+  if (dupe) throw new UserFacingError(`${dupe} is listed twice`);
   const rows = given.map((c, i) => ({ id: c.id ?? null, label: labels[i], value: c.value?.trim() || null, required: c.required, sortOrder: i }));
   const existing = new Set(current.map((c) => c.id));
   const kept = rows.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
@@ -376,12 +377,12 @@ export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpa
   const data = rows
     .filter((r) => r.name.trim())
     .map((r, i) => {
-      if (r.kind !== "MEETING" && r.kind !== "FB") throw new Error(`Unknown space kind: ${r.kind}`);
-      if (kind && r.kind !== kind) throw new Error(`${r.name}: expected a ${kind} row`);
-      for (const d of [r.day, r.endDay]) if (d && (!DATE_RE.test(d) || d < first || d > last)) throw new Error(`${r.name}: day ${d} is too far from the event`);
-      if (r.endDay && (!r.day || r.endDay < r.day)) throw new Error(`${r.name}: "through" must be on or after the day`);
-      for (const t of [r.startTime, r.endTime]) if (t && !TIME_RE.test(t)) throw new Error(`${r.name}: time must be HH:MM`);
-      for (const n of [r.attendance, r.areaSqFt]) if (n != null && (!Number.isInteger(n) || n < 0)) throw new Error(`${r.name}: numbers must be whole and not negative`);
+      if (r.kind !== "MEETING" && r.kind !== "FB") throw new UserFacingError(`Unknown space kind: ${r.kind}`);
+      if (kind && r.kind !== kind) throw new UserFacingError(`${r.name}: expected a ${kind} row`);
+      for (const d of [r.day, r.endDay]) if (d && (!DATE_RE.test(d) || d < first || d > last)) throw new UserFacingError(`${r.name}: day ${d} is too far from the event`);
+      if (r.endDay && (!r.day || r.endDay < r.day)) throw new UserFacingError(`${r.name}: "through" must be on or after the day`);
+      for (const t of [r.startTime, r.endTime]) if (t && !TIME_RE.test(t)) throw new UserFacingError(`${r.name}: time must be HH:MM`);
+      for (const n of [r.attendance, r.areaSqFt]) if (n != null && (!Number.isInteger(n) || n < 0)) throw new UserFacingError(`${r.name}: numbers must be whole and not negative`);
       if (r.functionId && !ownFunctions.has(r.functionId)) throw new PermissionError("NOT_FOUND", "Function not found");
       if (r.cateringOrderId && !ownOrders.has(r.cateringOrderId)) throw new PermissionError("NOT_FOUND", "Catering order not found");
       return {
@@ -454,10 +455,10 @@ export async function saveRfpLineItemsCore(id: string, eventId: string, rows: Rf
     .filter((r) => r.description.trim())
     .map((r, i) => {
       const label = r.description.trim();
-      for (const d of [r.day, r.endDay]) if (d && (!DATE_RE.test(d) || d < first || d > last)) throw new Error(`${label}: day ${d} is too far from the event`);
-      if (r.endDay && (!r.day || r.endDay < r.day)) throw new Error(`${label}: "through" must be on or after the day`);
-      for (const t of [r.startTime, r.endTime]) if (t && !TIME_RE.test(t)) throw new Error(`${label}: time must be HH:MM`);
-      if (r.quantity != null && (!Number.isInteger(r.quantity) || r.quantity < 0)) throw new Error(`${label}: quantity must be a whole number`);
+      for (const d of [r.day, r.endDay]) if (d && (!DATE_RE.test(d) || d < first || d > last)) throw new UserFacingError(`${label}: day ${d} is too far from the event`);
+      if (r.endDay && (!r.day || r.endDay < r.day)) throw new UserFacingError(`${label}: "through" must be on or after the day`);
+      for (const t of [r.startTime, r.endTime]) if (t && !TIME_RE.test(t)) throw new UserFacingError(`${label}: time must be HH:MM`);
+      if (r.quantity != null && (!Number.isInteger(r.quantity) || r.quantity < 0)) throw new UserFacingError(`${label}: quantity must be a whole number`);
       if (r.avOrderId && !ownAv.has(r.avOrderId)) throw notFound("AV order");
       if (r.cateringOrderId && !ownCatering.has(r.cateringOrderId)) throw notFound("Catering order");
       if (r.printOrderId && !ownPrint.has(r.printOrderId)) throw notFound("Print order");
@@ -785,7 +786,7 @@ export async function addNewRfpRecipientCore(id: string, eventId: string, hotel:
 
 export async function updateRfpRecipientCore(recipientId: string, id: string, eventId: string, args: RfpRecipientArgs, userId: string) {
   await authorizeRfp(id, eventId, "WRITE", userId);
-  if (args.sentOn && !DATE_RE.test(args.sentOn)) throw new Error(`Invalid date: ${args.sentOn}`);
+  if (args.sentOn && !DATE_RE.test(args.sentOn)) throw new UserFacingError(`Invalid date: ${args.sentOn}`);
   await prisma.rfpRecipient.update({
     where: { id: recipientId, rfpId: id, rfp: { eventId } },
     data: { sentOn: args.sentOn ? dateFromKey(args.sentOn) : null, declinedToBid: args.declinedToBid, notes: args.notes?.trim() || null },
