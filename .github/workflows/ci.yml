@@ -60,6 +60,7 @@ jobs:
       contents: write
       pull-requests: write
       actions: write   # dispatches this workflow on main after merging
+      checks: read     # waits for app checks (GitGuardian); private repos need it
     uses: ki4hrg/standards/.github/workflows/merge-on-green.yml@v1
 
   # GitHub doesn't close "Closes #n" issues when GITHUB_TOKEN merges, so this does
